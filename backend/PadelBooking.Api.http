@@ -1,0 +1,78 @@
+POST http://localhost:5238/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Marko",
+  "lastName": "Markovic",
+  "email": "marko@test.com",
+  "password": "Test123!"
+}
+
+###
+
+# @name login
+POST http://localhost:5238/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "marko@test.com",
+  "password": "Test123!"
+}
+
+###
+
+GET http://localhost:5238/api/auth/me
+Authorization: Bearer {{login.response.body.$.token}}
+
+###
+
+GET http://localhost:5238/api/courts
+
+###
+
+GET http://localhost:5238/api/courts/4
+
+###
+
+POST http://localhost:5238/api/courts
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "name": "Padel Premium Court",
+  "location": "Nis",
+  "description": "Premium indoor teren sa panoramskim staklom.",
+  "pricePerHour": 2500
+}
+
+###
+
+PUT http://localhost:5238/api/courts/4
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "name": "Padel Premium Court Updated",
+  "location": "Nis",
+  "description": "Premium indoor teren - renoviran.",
+  "pricePerHour": 2800
+}
+
+###
+
+DELETE http://localhost:5238/api/courts/4
+Authorization: Bearer {{login.response.body.$.token}}
+
+###
+
+POST http://localhost:5238/api/reservations
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "courtId": 1,
+  "startTime": "2026-09-10T18:00:00",
+  "endTime": "2026-09-10T19:00:00"
+}
+
+

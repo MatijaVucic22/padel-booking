@@ -1,0 +1,18 @@
+# React
+node_modules/
+dist/
+
+# .NET
+bin/
+obj/
+.vs/
+
+# Environment variables
+.env
+.env.local
+
+# VS Code
+.vscode/
+
+# Windows
+Thumbs.db
