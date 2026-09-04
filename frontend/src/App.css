@@ -1,184 +1,1284 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
+#root {
+  width: 100%;
+  min-width: 0;
+}
 
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
+.navbar {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 20px 60px;
+
+  background-color: #111;
+}
+
+.logo {
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.menu-toggle {
+  display: none;
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  border: 1px solid #555;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.menu-toggle span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  margin: 4px 0;
+  background-color: white;
+}
+
+.nav-links a {
+  color: white;
+  text-decoration: none;
+}
+
+.nav-links a:hover {
+  opacity: 0.7;
+}
+
+main {
+  padding: 40px 60px;
 }
 
 .hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
+  max-width: 700px;
+  margin: 100px auto;
+  text-align: center;
 }
 
-#center {
+.hero h1 {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.hero p {
+  font-size: 20px;
+  margin-bottom: 35px;
+}
+
+.primary-button {
+  display: inline-block;
+
+  padding: 14px 28px;
+
+  background-color: #111;
+  color: white;
+
+  text-decoration: none;
+
+  border-radius: 8px;
+}
+
+.page {
+  width: 100%;
+  min-width: 0;
+  max-width: 1200px;
+  margin: auto;
+}
+
+.courts-grid {
+  display: grid;
+
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(280px, 1fr)
+  );
+
+  gap: 25px;
+
+  margin-top: 30px;
+}
+
+.courts-page {
+  padding-block: 20px;
+}
+
+.courts-header h1,
+.courts-header p {
+  margin: 0;
+}
+
+.courts-header p {
+  margin-top: 8px;
+  color: #666;
+}
+
+.courts-feedback {
+  margin-top: 28px;
+  padding: 36px 24px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background-color: white;
+  text-align: center;
+}
+
+.courts-feedback button {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 6px;
+  background-color: #111;
+  color: white;
+  cursor: pointer;
+}
+
+.court-card {
+  min-width: 0;
+  padding: 25px;
+
+  border: 1px solid #ddd;
+  border-radius: 12px;
+
+  background-color: white;
+}
+
+.court-card h2 {
+  margin-top: 0;
+}
+
+.price {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.court-card button,
+.court-booking-link {
+  display: inline-block;
+  padding: 10px 18px;
+
+  border: none;
+  border-radius: 6px;
+
+  background-color: #111;
+  color: white;
+
+  text-decoration: none;
+
+  cursor: pointer;
+}
+
+.court-card button:hover,
+.court-booking-link:hover {
+  opacity: 0.8;
+}
+
+.court-details-page {
+  padding-block: 20px;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 24px;
+  color: #333;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.court-details-card,
+.booking-panel {
+  padding: 32px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background-color: white;
+}
+
+.court-details-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+.court-details-card > * {
+  min-width: 0;
+}
+
+.court-details-copy {
+  max-width: 720px;
+}
+
+.court-details-copy h1 {
+  margin: 6px 0 10px;
+  font-size: 40px;
+}
+
+.court-eyebrow {
+  color: #666;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.court-location {
+  margin-top: 0;
+  color: #555;
+  font-weight: bold;
+}
+
+.court-price {
   display: flex;
   flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
+  flex-shrink: 0;
+  align-items: flex-end;
 }
 
-#next-steps {
+.court-price strong {
+  font-size: 24px;
+}
+
+.court-price span {
+  color: #666;
+  font-size: 14px;
+}
+
+.booking-panel {
+  margin-top: 24px;
+}
+
+.booking-panel-heading {
   display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 32px;
+}
 
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
+.booking-panel-heading h2,
+.booking-panel-heading p {
+  margin: 0;
+}
+
+.booking-panel-heading p {
+  margin-top: 8px;
+  color: #666;
+}
+
+.date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 210px;
+  font-weight: bold;
+}
+
+.date-field input {
+  padding: 11px 12px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  background-color: white;
+}
+
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.slot-button {
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 1px solid #111;
+  border-radius: 8px;
+  background-color: white;
+  color: #111;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.slot-button:hover:not(:disabled) {
+  background-color: #111;
+  color: white;
+}
+
+.slot-button.selected {
+  background-color: #111;
+  color: white;
+  box-shadow: 0 0 0 3px #d1d5db;
+}
+
+.slot-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.slots-message {
+  margin: 28px 0 0;
+  padding: 24px;
+  border-radius: 8px;
+  background-color: #f5f5f5;
+  color: #555;
+  text-align: center;
+}
+
+.selected-date-label {
+  margin: 24px 0 0;
+  color: #555;
+}
+
+.booking-error {
+  margin: 24px 0 0;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.booking-field-errors {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background-color: #fee2e2;
+}
+
+.booking-field-errors .field-error {
+  margin: 4px 0;
+}
+
+.booking-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: center;
+  gap: 24px;
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #bbb;
+  border-radius: 10px;
+  background-color: #fafafa;
+}
+
+.booking-summary div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.booking-summary span {
+  color: #666;
+  font-size: 13px;
+}
+
+.booking-summary button {
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 7px;
+  background-color: #111;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.booking-summary button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .booking-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
+  .booking-summary button {
+    grid-column: 1 / -1;
   }
 }
 
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
+.booking-success {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background-color: #dcfce7;
+  color: #166534;
 }
 
-#next-steps ul {
-  list-style: none;
-  padding: 0;
+.booking-success a {
+  color: inherit;
+  font-weight: bold;
+}
+
+.court-feedback {
+  padding-block: 60px;
+  text-align: center;
+}
+.auth-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 75vh;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 450px;
+  padding: 35px;
+  background-color: white;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+}
+
+.auth-card h1 {
+  margin-top: 0;
+  text-align: center;
+}
+
+.auth-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-card label {
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+.auth-card input {
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.auth-card button {
+  margin-top: 15px;
+  padding: 12px;
+
+  background-color: #111;
+  color: white;
+
+  border: none;
+  border-radius: 6px;
+
+  cursor: pointer;
+}
+
+.auth-card button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  color: #b00020;
+}
+
+.field-error {
+  display: block;
+  margin-top: -4px;
+  color: #b00020;
+  font-size: 13px;
+  font-weight: normal;
+}
+
+input[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: #b00020;
+  outline-color: #b00020;
+}
+
+.success-message {
+  color: #15803d;
+}
+
+.user-name {
+  color: white;
+  font-weight: bold;
+}
+
+.logout-button {
+  background: transparent;
+  color: white;
+
+  border: 1px solid #666;
+  border-radius: 6px;
+
+  padding: 6px 12px;
+
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background-color: #333;
+}
+.reservations-list {
+  display: grid;
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.reservations-page {
+  padding-block: 20px;
+}
+
+.reservations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.reservations-header h1,
+.reservations-header p {
+  margin: 0;
+}
+
+.reservations-header p {
+  margin-top: 8px;
+  color: #666;
+}
+
+.reservation-card {
+  padding: 25px;
+
+  background-color: white;
+
+  border: 1px solid #ddd;
+  border-radius: 12px;
+}
+
+.reservation-card h2 {
+  margin-top: 0;
+}
+
+.reservation-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.reservation-card-heading h2 {
+  margin-bottom: 0;
+}
+
+.reservation-label,
+.reservation-details dt {
+  color: #666;
+  font-size: 14px;
+}
+
+.reservation-status {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.reservation-status-active {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.reservation-status-cancelled {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.reservation-status-completed {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.reservation-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin: 24px 0 0;
+}
+
+.reservation-details div {
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.reservation-details dd {
+  margin: 6px 0 0;
+  font-weight: bold;
+}
+
+.reservation-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.cancel-reservation-button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #b00020;
+  border-radius: 6px;
+  background-color: white;
+  color: #b00020;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.cancel-reservation-button:hover:not(:disabled) {
+  background-color: #b00020;
+  color: white;
+}
+
+.cancel-reservation-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.reservation-action-message {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border-radius: 8px;
+}
+
+.reservation-action-message.success-message {
+  background-color: #dcfce7;
+}
+
+.reservation-action-message.error-message {
+  background-color: #fee2e2;
+}
+
+.admin-page {
+  padding-block: 20px 50px;
+}
+
+.admin-header h1,
+.admin-header p {
+  margin: 0;
+}
+
+.admin-header h1 {
+  margin-top: 6px;
+  font-size: 40px;
+}
+
+.admin-header p {
+  margin-top: 8px;
+  color: #666;
+}
+
+.admin-tabs {
   display: flex;
   gap: 8px;
-  margin: 32px 0 0;
+  margin-top: 30px;
+  padding: 6px;
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background-color: white;
+}
+
+.admin-tabs button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 7px;
+  background-color: transparent;
+  color: #555;
+  font-weight: bold;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.admin-tabs button.active {
+  background-color: #111;
+  color: white;
+}
+
+.admin-eyebrow {
+  color: #666;
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 30px;
+}
+
+.admin-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background-color: white;
+}
+
+.admin-stat-card span {
+  color: #666;
+  font-size: 14px;
+}
+
+.admin-stat-card strong {
+  font-size: 28px;
+}
+
+.admin-section {
+  margin-top: 28px;
+  padding: 26px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background-color: white;
+}
+
+.admin-courts-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.7fr) minmax(420px, 1.3fr);
+  gap: 24px;
+  align-items: start;
+  margin-top: 28px;
+}
+
+.admin-courts-layout > * {
+  min-width: 0;
+}
+
+.admin-court-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 26px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background-color: white;
+}
+
+.admin-court-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-weight: bold;
+}
+
+.admin-court-form input,
+.admin-court-form textarea {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background-color: white;
+  font: inherit;
+}
+
+.admin-court-form textarea {
+  resize: vertical;
+}
+
+.admin-form-actions,
+.admin-court-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-form-actions button,
+.admin-court-actions button {
+  padding: 9px 14px;
+  border: 1px solid #111;
+  border-radius: 6px;
+  background-color: #111;
+  color: white;
+  cursor: pointer;
+}
+
+.admin-form-actions button:disabled,
+.admin-court-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-form-actions .secondary-button {
+  background-color: white;
+  color: #111;
+}
+
+.admin-court-actions .danger-button {
+  border-color: #b00020;
+  background-color: white;
+  color: #b00020;
+}
+
+.admin-court-actions .danger-button:hover:not(:disabled) {
+  background-color: #b00020;
+  color: white;
+}
+
+.admin-action-message {
+  margin: 2px 0 0;
+  padding: 12px 14px;
+  border-radius: 7px;
+}
+
+.admin-action-message.success-message {
+  background-color: #dcfce7;
+}
+
+.admin-action-message.error-message {
+  background-color: #fee2e2;
+}
+
+.admin-courts-section {
+  margin-top: 0;
+}
+
+.admin-courts-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-court-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px;
+  border: 1px solid #eee;
+  border-radius: 9px;
+}
+
+.admin-court-item h3,
+.admin-court-item p {
+  margin: 0;
+}
+
+.admin-court-item p {
+  margin: 5px 0 9px;
+  color: #666;
+}
+
+.admin-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.admin-section-heading h2 {
+  margin: 0;
+}
+
+.admin-section-heading span {
+  color: #666;
+  font-size: 14px;
+}
+
+.admin-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+
+.admin-table th {
+  color: #666;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-table td small {
+  display: block;
+  margin-top: 4px;
+  color: #666;
+}
+
+.admin-role {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background-color: #e5e7eb;
+  color: #374151;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.admin-role-admin {
+  background-color: #ede9fe;
+  color: #5b21b6;
+}
+
+.admin-empty {
+  margin: 0;
+  padding: 24px;
+  color: #666;
+  text-align: center;
+}
+
+.admin-feedback {
+  margin-top: 24px;
+  padding: 40px 24px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background-color: white;
+  text-align: center;
+}
+
+.admin-feedback button {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 6px;
+  background-color: #111;
+  color: white;
+  cursor: pointer;
+}
+
+.reservations-empty,
+.reservations-feedback {
+  padding: 48px 24px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background-color: white;
+  text-align: center;
+}
+
+.reservations-empty h2,
+.reservations-empty p,
+.reservations-error p {
+  margin-top: 0;
+}
+
+.reservations-empty .primary-button {
+  margin-top: 12px;
+}
+
+.reservations-error button {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 6px;
+  background-color: #111;
+  color: white;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  main {
+    padding: 30px 20px;
+  }
+
+  .reservations-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .court-details-card,
+  .booking-panel-heading,
+  .booking-success {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .booking-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .court-price {
+    align-items: flex-start;
+  }
+
+  .court-details-copy h1 {
+    font-size: 32px;
+  }
+
+  .admin-courts-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-court-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-header h1 {
+    font-size: 32px;
+  }
+
+  .admin-section {
+    padding: 20px 0;
+  }
+
+  .admin-section-heading {
+    padding-inline: 20px;
+  }
+
+  .reservation-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .navbar {
+    padding-inline: 32px;
+  }
+
+  main {
+    padding-inline: 32px;
+  }
+
+  .hero {
+    margin-block: 72px;
+  }
+
+  .courts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .admin-courts-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .navbar {
+    min-height: 72px;
+    padding-block: 14px;
+  }
+
+  .menu-toggle {
+    display: block;
+  }
+
+  .nav-links {
+    position: absolute;
+    z-index: 20;
+    top: 100%;
+    right: 0;
+    left: 0;
+    display: none;
+    align-items: stretch;
+    gap: 4px;
+    padding: 12px 32px 20px;
+    border-top: 1px solid #333;
+    background-color: #111;
+    box-shadow: 0 10px 18px rgb(0 0 0 / 18%);
+  }
+
+  .nav-links.open {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .nav-links a,
+  .nav-links .user-name,
+  .nav-links .logout-button {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .nav-links .user-name {
+    border-top: 1px solid #333;
+  }
+
+  .nav-links .logout-button {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .hero h1 {
+    font-size: 40px;
+  }
+
+  .court-details-card,
+  .booking-panel-heading,
+  .booking-success {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .court-price {
+    align-items: flex-start;
+  }
+
+  .date-field {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .date-field input {
+    min-height: 46px;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    padding-inline: 18px;
+  }
 
   .logo {
-    height: 18px;
+    font-size: 21px;
   }
 
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
+  .nav-links {
+    padding-inline: 18px;
   }
 
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
-}
-
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
-}
-
-.ticks {
-  position: relative;
-  width: 100%;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
+  main {
+    padding: 24px 16px;
   }
 
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
+  .hero {
+    margin-block: 48px;
   }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
+
+  .hero h1 {
+    font-size: 34px;
+    line-height: 1.15;
+  }
+
+  .hero p {
+    font-size: 17px;
+  }
+
+  .courts-grid,
+  .admin-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .court-card,
+  .court-details-card,
+  .booking-panel,
+  .reservation-card,
+  .auth-card,
+  .admin-court-form {
+    padding: 20px;
+  }
+
+  .court-booking-link,
+  .primary-button {
+    width: 100%;
+    min-height: 46px;
+    text-align: center;
+  }
+
+  .court-details-copy h1,
+  .admin-header h1 {
+    font-size: 30px;
+  }
+
+  .slots-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .booking-summary {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .booking-summary button {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .auth-page {
+    align-items: flex-start;
+    min-height: auto;
+  }
+
+  .auth-card input,
+  .auth-card button,
+  .admin-court-form input,
+  .admin-court-form textarea,
+  .admin-form-actions button,
+  .admin-court-actions button {
+    min-height: 46px;
+  }
+
+  .reservations-header,
+  .reservation-card-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .reservation-actions,
+  .cancel-reservation-button {
+    width: 100%;
+  }
+
+  .admin-section {
+    padding: 18px 0;
+  }
+
+  .admin-section-heading {
+    padding-inline: 18px;
+  }
+
+  .admin-tabs {
+    margin-inline: -2px;
+  }
+
+  .admin-court-actions,
+  .admin-court-actions button,
+  .admin-form-actions,
+  .admin-form-actions button {
+    width: 100%;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 12px 14px;
+  }
+
+  .reservations-empty,
+  .reservations-feedback,
+  .courts-feedback,
+  .admin-feedback {
+    padding: 30px 18px;
   }
 }

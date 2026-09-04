@@ -30,14 +30,6 @@ namespace PadelBooking.Api.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.FirstName) ||
-                string.IsNullOrWhiteSpace(request.LastName) ||
-                string.IsNullOrWhiteSpace(request.Email) ||
-                string.IsNullOrWhiteSpace(request.Password))
-            {
-                return BadRequest("Sva polja su obavezna.");
-            }
-
             var email = request.Email.Trim().ToLower();
 
             var userExists = await _context.Users
@@ -82,53 +74,56 @@ namespace PadelBooking.Api.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login(LoginRequest request)
+public async Task<IActionResult> Login(LoginRequest request)
+{
+    var email = request.Email.Trim().ToLower();
+
+    Console.WriteLine($"LOGIN EMAIL: [{email}]");
+    Console.WriteLine($"PASSWORD LENGTH: {request.Password.Length}");
+
+    var user = await _context.Users
+        .FirstOrDefaultAsync(u => u.Email == email);
+
+    if (user == null)
+    {
+        Console.WriteLine("LOGIN FAIL: korisnik nije pronađen.");
+        return Unauthorized("Korisnik nije pronađen.");
+    }
+
+    Console.WriteLine($"USER FOUND: {user.Email}");
+    Console.WriteLine($"HASH LENGTH: {user.PasswordHash?.Length}");
+
+    var passwordHasher = new PasswordHasher<User>();
+
+    var result = passwordHasher.VerifyHashedPassword(
+        user,
+        user.PasswordHash,
+        request.Password
+    );
+
+    Console.WriteLine($"PASSWORD RESULT: {result}");
+
+    if (result == PasswordVerificationResult.Failed)
+    {
+        return Unauthorized("Lozinka nije prošla hash proveru.");
+    }
+
+    var token = GenerateJwtToken(user);
+
+    return Ok(new
+    {
+        message = "Prijava uspešna.",
+        token,
+        user = new
         {
-            if (string.IsNullOrWhiteSpace(request.Email) ||
-                string.IsNullOrWhiteSpace(request.Password))
-            {
-                return BadRequest("Email i lozinka su obavezni.");
-            }
-
-            var email = request.Email.Trim().ToLower();
-
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == email);
-
-            if (user == null)
-            {
-                return Unauthorized("Pogrešan email ili lozinka.");
-            }
-
-            var passwordHasher = new PasswordHasher<User>();
-
-            var result = passwordHasher.VerifyHashedPassword(
-                user,
-                user.PasswordHash,
-                request.Password
-            );
-
-            if (result == PasswordVerificationResult.Failed)
-            {
-                return Unauthorized("Pogrešan email ili lozinka.");
-            }
-
-            var token = GenerateJwtToken(user);
-
-            return Ok(new
-            {
-                message = "Prijava uspešna.",
-                token,
-                user = new
-                {
-                    user.Id,
-                    user.FirstName,
-                    user.LastName,
-                    user.Email,
-                    user.Role
-                }
-            });
+            user.Id,
+            user.FirstName,
+            user.LastName,
+            user.Email,
+            user.Role
         }
+    });
+}
 
         [Authorize]
         [HttpGet("me")]

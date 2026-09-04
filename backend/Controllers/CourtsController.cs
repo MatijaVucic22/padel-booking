@@ -49,17 +49,6 @@ namespace PadelBooking.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateCourt(CreateCourtRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Name) ||
-                string.IsNullOrWhiteSpace(request.Location))
-            {
-                return BadRequest("Naziv i lokacija su obavezni.");
-            }
-
-            if (request.PricePerHour <= 0)
-            {
-                return BadRequest("Cena mora biti veća od 0.");
-            }
-
             var court = new Court
             {
                 Name = request.Name.Trim(),
@@ -91,17 +80,6 @@ namespace PadelBooking.Api.Controllers
             if (court == null)
             {
                 return NotFound("Teren nije pronađen.");
-            }
-
-            if (string.IsNullOrWhiteSpace(request.Name) ||
-                string.IsNullOrWhiteSpace(request.Location))
-            {
-                return BadRequest("Naziv i lokacija su obavezni.");
-            }
-
-            if (request.PricePerHour <= 0)
-            {
-                return BadRequest("Cena mora biti veća od 0.");
             }
 
             court.Name = request.Name.Trim();

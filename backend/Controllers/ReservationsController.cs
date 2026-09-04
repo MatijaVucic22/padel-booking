@@ -32,20 +32,6 @@ namespace PadelBooking.Api.Controllers
                 return Unauthorized();
             }
 
-            if (request.EndTime <= request.StartTime)
-            {
-                return BadRequest(
-                    "Vreme završetka mora biti posle vremena početka."
-                );
-            }
-
-            if (request.StartTime <= DateTime.Now)
-            {
-                return BadRequest(
-                    "Nije moguće rezervisati termin u prošlosti."
-                );
-            }
-
             var court = await _context.Courts
                 .FirstOrDefaultAsync(c =>
                     c.Id == request.CourtId &&
@@ -136,6 +122,97 @@ namespace PadelBooking.Api.Controllers
                 .ToListAsync();
 
             return Ok(reservations);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> CancelReservation(int id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!int.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized();
+            }
+
+            var reservation = await _context.Reservations
+                .FirstOrDefaultAsync(r =>
+                    r.Id == id &&
+                    r.UserId == userId
+                );
+
+            if (reservation == null)
+            {
+                return NotFound("Rezervacija nije pronađena.");
+            }
+
+            if (reservation.Status == "Cancelled")
+            {
+                return BadRequest("Rezervacija je već otkazana.");
+            }
+
+            reservation.Status = "Cancelled";
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Rezervacija uspešno otkazana."
+            });
+        }
+        [AllowAnonymous]
+        [HttpGet("available")]
+        public async Task<IActionResult> GetAvailableSlots(
+            int courtId,
+            DateTime date)
+        {
+            var court = await _context.Courts
+                .FirstOrDefaultAsync(c => c.Id == courtId && c.IsActive);
+
+            if (court == null)
+            {
+                return NotFound("Teren nije pronađen.");
+            }
+
+            var dayStart = date.Date;
+            var dayEnd = dayStart.AddDays(1);
+
+            var reservations = await _context.Reservations
+                .Where(r =>
+                    r.CourtId == courtId &&
+                    r.Status == "Active" &&
+                    r.StartTime >= dayStart &&
+                    r.StartTime < dayEnd)
+                .ToListAsync();
+
+            var availableSlots = new List<object>();
+
+            for (int hour = 8; hour < 22; hour++)
+            {
+                var startTime = dayStart.AddHours(hour);
+                var endTime = startTime.AddHours(1);
+
+                var isOccupied = reservations.Any(r =>
+                    startTime < r.EndTime &&
+                    endTime > r.StartTime
+                );
+
+                if (!isOccupied)
+                {
+                    availableSlots.Add(new
+                    {
+                        startTime,
+                        endTime
+                    });
+                }
+            }
+
+            return Ok(new
+            {
+                courtId,
+                courtName = court.Name,
+                date = date.Date,
+                slots = availableSlots
+            });
         }
     }
 }

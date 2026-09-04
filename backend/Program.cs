@@ -3,6 +3,10 @@ using PadelBooking.Api.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
+using PadelBooking.Api.Validation;
+using PadelBooking.Api.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +16,49 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     )
 );
 
-builder.Services.AddControllers();
+builder.Services.AddScoped<FluentValidationFilter>();
+builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
+
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<FluentValidationFilter>();
+});
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(entry => entry.Value?.Errors.Count > 0)
+            .ToDictionary(
+                entry => string.IsNullOrEmpty(entry.Key)
+                    ? "request"
+                    : char.ToLowerInvariant(entry.Key[0]) + entry.Key[1..],
+                entry => entry.Value!.Errors
+                    .Select(error => string.IsNullOrEmpty(error.ErrorMessage)
+                        ? "Vrednost nije ispravna."
+                        : error.ErrorMessage)
+                    .ToArray()
+            );
+
+        return new BadRequestObjectResult(new
+        {
+            message = "Podaci nisu ispravni.",
+            errors
+        });
+    };
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReactApp", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -47,6 +93,8 @@ builder.Services
         };
     });
 
+
+
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
@@ -58,6 +106,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
 app.UseAuthorization();

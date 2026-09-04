@@ -75,4 +75,16 @@ Content-Type: application/json
   "endTime": "2026-09-10T19:00:00"
 }
 
+###
 
+GET http://localhost:5238/api/reservations/my
+Authorization: Bearer {{login.response.body.$.token}}
+
+###
+
+DELETE http://localhost:5238/api/reservations/1
+Authorization: Bearer {{login.response.body.$.token}}
+
+###
+
+GET http://localhost:5238/api/reservations/available?courtId=1&date=2026-09-10
