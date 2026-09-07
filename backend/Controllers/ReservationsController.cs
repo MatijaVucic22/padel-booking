@@ -208,6 +208,8 @@ namespace PadelBooking.Api.Controllers
             }
 
             var reservation = await _context.Reservations
+                .Include(r => r.Court)
+                .Include(r => r.User)
                 .FirstOrDefaultAsync(r =>
                     r.Id == id &&
                     r.UserId == userId
@@ -240,6 +242,28 @@ namespace PadelBooking.Api.Controllers
             reservation.Status = "Cancelled";
 
             await _context.SaveChangesAsync();
+
+            try
+            {
+                await _emailService.SendReservationCancellationAsync(
+                    new ReservationCancellationEmail(
+                        reservation.User.Email,
+                        reservation.User.FirstName,
+                        reservation.Court.Name,
+                        reservation.Court.Location,
+                        reservation.StartTime,
+                        reservation.EndTime,
+                        reservation.TotalPrice,
+                        reservation.Id),
+                    CancellationToken.None);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(
+                    exception,
+                    "Slanje cancellation emaila za rezervaciju {ReservationId} nije uspelo.",
+                    reservation.Id);
+            }
 
             return Ok(new
             {
