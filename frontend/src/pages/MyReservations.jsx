@@ -2,20 +2,20 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
 
-const dateFormatter = new Intl.DateTimeFormat("sr-RS", {
+const dateFormatter = new Intl.DateTimeFormat("sr-Latn-RS", {
   day: "2-digit",
   month: "long",
   year: "numeric",
 });
 
-const timeFormatter = new Intl.DateTimeFormat("sr-RS", {
+const timeFormatter = new Intl.DateTimeFormat("sr-Latn-RS", {
   hour: "2-digit",
   minute: "2-digit",
 });
 
-const monthFormatter = new Intl.DateTimeFormat("sr-RS", { month: "short" });
+const monthFormatter = new Intl.DateTimeFormat("sr-Latn-RS", { month: "short" });
 
-const priceFormatter = new Intl.NumberFormat("sr-RS", {
+const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
   currency: "RSD",
   maximumFractionDigits: 2,
