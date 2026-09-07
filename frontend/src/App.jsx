@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Routes, Route, useNavigate } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import api from "./api/api";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
@@ -13,11 +14,11 @@ import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem("user");
-
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+  const location = useLocation();
+  const [user, setUser] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(() =>
+    Boolean(localStorage.getItem("token")),
+  );
 
   const handleLogin = (loggedInUser) => {
     setUser(loggedInUser);
@@ -33,7 +34,11 @@ function App() {
   useEffect(() => {
     const handleUnauthorized = () => {
       setUser(null);
-      navigate("/login", { replace: true });
+      setSessionLoading(false);
+      navigate("/login", {
+        replace: true,
+        state: { from: `${location.pathname}${location.search}${location.hash}` },
+      });
     };
 
     window.addEventListener("auth:unauthorized", handleUnauthorized);
@@ -41,13 +46,42 @@ function App() {
     return () => {
       window.removeEventListener("auth:unauthorized", handleUnauthorized);
     };
-  }, [navigate]);
+  }, [location.hash, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    localStorage.removeItem("user");
+
+    if (!token) return undefined;
+
+    let cancelled = false;
+
+    api.get("/auth/me")
+      .then((response) => {
+        if (!cancelled) setUser(response.data);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSessionLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <>
       <Navbar user={user} onLogout={handleLogout} />
 
       <main>
+        {sessionLoading ? (
+          <div className="session-loading" role="status">
+            Provera sesije...
+          </div>
+        ) : (
         <Routes>
           <Route path="/" element={<Home />} />
 
@@ -77,6 +111,7 @@ function App() {
             }
           />
         </Routes>
+        )}
       </main>
     </>
   );

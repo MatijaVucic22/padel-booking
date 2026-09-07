@@ -1282,3 +1282,8 @@ textarea[aria-invalid="true"] {
     padding: 30px 18px;
   }
 }
+.session-loading {
+  padding: 4rem 1.5rem;
+  text-align: center;
+  color: #555;
+}

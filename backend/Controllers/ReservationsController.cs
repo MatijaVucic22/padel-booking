@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PadelBooking.Api.Data;
 using PadelBooking.Api.DTOs;
 using PadelBooking.Api.Models;
+using PadelBooking.Api.Services;
 using System.Security.Claims;
 
 namespace PadelBooking.Api.Controllers
@@ -14,10 +15,17 @@ namespace PadelBooking.Api.Controllers
     public class ReservationsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IBookingTimeService _bookingTime;
+        private readonly ICourtAdvisoryLockService _courtLock;
 
-        public ReservationsController(ApplicationDbContext context)
+        public ReservationsController(
+            ApplicationDbContext context,
+            IBookingTimeService bookingTime,
+            ICourtAdvisoryLockService courtLock)
         {
             _context = context;
+            _bookingTime = bookingTime;
+            _courtLock = courtLock;
         }
 
         // POST api/reservations
@@ -32,6 +40,24 @@ namespace PadelBooking.Api.Controllers
                 return Unauthorized();
             }
 
+            await using var courtLock = await _courtLock.TryAcquireAsync(
+                request.CourtId,
+                HttpContext.RequestAborted
+            );
+
+            if (courtLock == null)
+            {
+                Response.Headers.RetryAfter = "1";
+                return StatusCode(
+                    StatusCodes.Status503ServiceUnavailable,
+                    new
+                    {
+                        code = "COURT_LOCK_TIMEOUT",
+                        message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
+                    }
+                );
+            }
+
             var court = await _context.Courts
                 .FirstOrDefaultAsync(c =>
                     c.Id == request.CourtId &&
@@ -40,7 +66,7 @@ namespace PadelBooking.Api.Controllers
 
             if (court == null)
             {
-                return NotFound("Teren nije pronađen.");
+                return NotFound("Teren nije pronađen ili više nije aktivan.");
             }
 
             var isOccupied = await _context.Reservations
@@ -72,7 +98,7 @@ namespace PadelBooking.Api.Controllers
                 EndTime = request.EndTime,
                 TotalPrice = totalPrice,
                 Status = "Active",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = _bookingTime.UtcNow
             };
 
             _context.Reservations.Add(reservation);
@@ -147,7 +173,21 @@ namespace PadelBooking.Api.Controllers
 
             if (reservation.Status == "Cancelled")
             {
-                return BadRequest("Rezervacija je već otkazana.");
+                return Conflict("Rezervacija je već otkazana.");
+            }
+
+            var now = _bookingTime.Now;
+
+            if (reservation.EndTime <= now)
+            {
+                return Conflict("Završenu rezervaciju nije moguće otkazati.");
+            }
+
+            if (reservation.StartTime <= now)
+            {
+                return Conflict(
+                    "Rezervaciju koja je već počela nije moguće otkazati."
+                );
             }
 
             reservation.Status = "Cancelled";
@@ -180,11 +220,12 @@ namespace PadelBooking.Api.Controllers
                 .Where(r =>
                     r.CourtId == courtId &&
                     r.Status == "Active" &&
-                    r.StartTime >= dayStart &&
-                    r.StartTime < dayEnd)
+                    r.StartTime < dayEnd &&
+                    r.EndTime > dayStart)
                 .ToListAsync();
 
             var availableSlots = new List<object>();
+            var now = _bookingTime.Now;
 
             for (int hour = 8; hour < 22; hour++)
             {
@@ -196,7 +237,7 @@ namespace PadelBooking.Api.Controllers
                     endTime > r.StartTime
                 );
 
-                if (!isOccupied)
+                if (!isOccupied && startTime > now)
                 {
                     availableSlots.Add(new
                     {
@@ -214,5 +255,6 @@ namespace PadelBooking.Api.Controllers
                 slots = availableSlots
             });
         }
+
     }
 }

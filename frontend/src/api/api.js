@@ -18,8 +18,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const hadToken = Boolean(localStorage.getItem("token"));
+    const requestUrl = error.config?.url?.split("?")[0].replace(/\/+$/, "") ?? "";
+    const isLoginRequest = requestUrl.endsWith("/auth/login");
 
-    if (error.response?.status === 401 && hadToken) {
+    if (error.response?.status === 401 && hadToken && !isLoginRequest) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.dispatchEvent(new Event("auth:unauthorized"));

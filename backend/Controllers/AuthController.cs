@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MySql.Data.MySqlClient;
 using PadelBooking.Api.Data;
 using PadelBooking.Api.DTOs;
 using PadelBooking.Api.Models;
@@ -16,6 +18,10 @@ namespace PadelBooking.Api.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
+        private static readonly User DummyUser = new();
+        private static readonly string DummyPasswordHash =
+            new PasswordHasher<User>().HashPassword(DummyUser, "DummyPassword1");
+
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
 
@@ -57,7 +63,16 @@ namespace PadelBooking.Api.Controllers
             );
 
             _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException exception)
+                when (exception.InnerException is MySqlException { Number: 1062 })
+            {
+                return BadRequest("Korisnik sa ovim email-om već postoji.");
+            }
 
             return Ok(new
             {
@@ -74,56 +89,54 @@ namespace PadelBooking.Api.Controllers
         }
 
         [HttpPost("login")]
-public async Task<IActionResult> Login(LoginRequest request)
-{
-    var email = request.Email.Trim().ToLower();
-
-    Console.WriteLine($"LOGIN EMAIL: [{email}]");
-    Console.WriteLine($"PASSWORD LENGTH: {request.Password.Length}");
-
-    var user = await _context.Users
-        .FirstOrDefaultAsync(u => u.Email == email);
-
-    if (user == null)
-    {
-        Console.WriteLine("LOGIN FAIL: korisnik nije pronađen.");
-        return Unauthorized("Korisnik nije pronađen.");
-    }
-
-    Console.WriteLine($"USER FOUND: {user.Email}");
-    Console.WriteLine($"HASH LENGTH: {user.PasswordHash?.Length}");
-
-    var passwordHasher = new PasswordHasher<User>();
-
-    var result = passwordHasher.VerifyHashedPassword(
-        user,
-        user.PasswordHash,
-        request.Password
-    );
-
-    Console.WriteLine($"PASSWORD RESULT: {result}");
-
-    if (result == PasswordVerificationResult.Failed)
-    {
-        return Unauthorized("Lozinka nije prošla hash proveru.");
-    }
-
-    var token = GenerateJwtToken(user);
-
-    return Ok(new
-    {
-        message = "Prijava uspešna.",
-        token,
-        user = new
+        [EnableRateLimiting("login")]
+        public async Task<IActionResult> Login(LoginRequest request)
         {
-            user.Id,
-            user.FirstName,
-            user.LastName,
-            user.Email,
-            user.Role
+            var email = request.Email.Trim().ToLower();
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == email);
+
+            var passwordHasher = new PasswordHasher<User>();
+
+            if (user == null)
+            {
+                passwordHasher.VerifyHashedPassword(
+                    DummyUser,
+                    DummyPasswordHash,
+                    request.Password
+                );
+
+                return Unauthorized("Pogrešan email ili lozinka.");
+            }
+
+            var result = passwordHasher.VerifyHashedPassword(
+                user,
+                user.PasswordHash,
+                request.Password
+            );
+
+            if (result == PasswordVerificationResult.Failed)
+            {
+                return Unauthorized("Pogrešan email ili lozinka.");
+            }
+
+            var token = GenerateJwtToken(user);
+
+            return Ok(new
+            {
+                message = "Prijava uspešna.",
+                token,
+                user = new
+                {
+                    user.Id,
+                    user.FirstName,
+                    user.LastName,
+                    user.Email,
+                    user.Role
+                }
+            });
         }
-    });
-}
 
         [Authorize]
         [HttpGet("me")]

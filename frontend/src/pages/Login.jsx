@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/api";
 import {
   hasValidationErrors,
@@ -8,6 +8,7 @@ import {
 
 function Login({ onLogin }) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -42,24 +43,24 @@ function Login({ onLogin }) {
     setLoading(true);
 
     try {
-
-      console.log("LOGIN PODACI:", formData);
-      
       const response = await api.post("/auth/login", formData);
 
       localStorage.setItem("token", response.data.token);
-      localStorage.setItem(
-        "user",
-        JSON.stringify(response.data.user)
-      );
+      localStorage.removeItem("user");
 
       onLogin(response.data.user);
-      
-      navigate("/");
-      
-    } catch (error) {
-      console.error(error);
 
+      const requestedPath = location.state?.from;
+      const destination =
+        typeof requestedPath === "string" &&
+        requestedPath.startsWith("/") &&
+        !requestedPath.startsWith("//") &&
+        requestedPath !== "/login"
+          ? requestedPath
+          : "/";
+
+      navigate(destination, { replace: true });
+    } catch (error) {
       const validationErrors = parseValidationErrors(error);
 
       if (hasValidationErrors(validationErrors)) {
@@ -70,6 +71,11 @@ function Login({ onLogin }) {
 
       if (error.response?.status === 401) {
         setError("Pogrešan email ili lozinka.");
+      } else if (error.response?.status === 429) {
+        setError(
+          error.response.data?.message ??
+            "Previše pokušaja prijave. Pokušajte ponovo za minut.",
+        );
       } else {
         setError("Prijava nije uspela.");
       }

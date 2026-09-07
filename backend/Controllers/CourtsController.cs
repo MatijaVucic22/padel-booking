@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PadelBooking.Api.Data;
 using PadelBooking.Api.DTOs;
 using PadelBooking.Api.Models;
+using PadelBooking.Api.Services;
 
 namespace PadelBooking.Api.Controllers
 {
@@ -12,10 +13,17 @@ namespace PadelBooking.Api.Controllers
     public class CourtsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IBookingTimeService _bookingTime;
+        private readonly ICourtAdvisoryLockService _courtLock;
 
-        public CourtsController(ApplicationDbContext context)
+        public CourtsController(
+            ApplicationDbContext context,
+            IBookingTimeService bookingTime,
+            ICourtAdvisoryLockService courtLock)
         {
             _context = context;
+            _bookingTime = bookingTime;
+            _courtLock = courtLock;
         }
 
         // GET api/courts
@@ -97,11 +105,43 @@ namespace PadelBooking.Api.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCourt(int id)
         {
+            await using var courtLock = await _courtLock.TryAcquireAsync(
+                id,
+                HttpContext.RequestAborted
+            );
+
+            if (courtLock == null)
+            {
+                Response.Headers.RetryAfter = "1";
+                return StatusCode(
+                    StatusCodes.Status503ServiceUnavailable,
+                    new
+                    {
+                        code = "COURT_LOCK_TIMEOUT",
+                        message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
+                    }
+                );
+            }
+
             var court = await _context.Courts.FindAsync(id);
 
             if (court == null)
             {
                 return NotFound("Teren nije pronađen.");
+            }
+
+            var hasFutureReservations = await _context.Reservations
+                .AnyAsync(reservation =>
+                    reservation.CourtId == id &&
+                    reservation.Status == "Active" &&
+                    reservation.StartTime > _bookingTime.Now
+                );
+
+            if (hasFutureReservations)
+            {
+                return Conflict(
+                    "Teren nije moguće deaktivirati dok postoje aktivne buduće rezervacije."
+                );
             }
 
             court.IsActive = false;
