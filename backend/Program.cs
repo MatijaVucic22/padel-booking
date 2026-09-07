@@ -27,6 +27,7 @@ builder.Services.AddScoped<ICourtAdvisoryLockService, CourtAdvisoryLockService>(
 builder.Services.Configure<EmailOptions>(
     builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddHostedService<ReservationReminderBackgroundService>();
 
 builder.Services.AddControllers(options =>
 {

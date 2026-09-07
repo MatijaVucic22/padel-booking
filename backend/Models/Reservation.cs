@@ -18,6 +18,8 @@ namespace PadelBooking.Api.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        public DateTime? ReminderSentAtUtc { get; set; }
+
         public User User { get; set; } = null!;
 
         public Court Court { get; set; } = null!;

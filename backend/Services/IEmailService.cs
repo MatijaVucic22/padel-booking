@@ -11,4 +11,9 @@ public interface IEmailService
         ReservationCancellationEmail cancellation,
         CancellationToken cancellationToken = default
     );
+
+    Task SendReservationReminderAsync(
+        ReservationReminderEmail reminder,
+        CancellationToken cancellationToken = default
+    );
 }
