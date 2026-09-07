@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PadelBooking.Api.Data;
+using PadelBooking.Api.Services;
 
 namespace PadelBooking.Api.Controllers
 {
@@ -11,10 +12,14 @@ namespace PadelBooking.Api.Controllers
     public class AdminController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IBookingTimeService _bookingTime;
 
-        public AdminController(ApplicationDbContext context)
+        public AdminController(
+            ApplicationDbContext context,
+            IBookingTimeService bookingTime)
         {
             _context = context;
+            _bookingTime = bookingTime;
         }
 
         // GET api/admin/users
@@ -69,14 +74,35 @@ namespace PadelBooking.Api.Controllers
         [HttpGet("stats")]
         public async Task<IActionResult> GetStats()
         {
+            var now = _bookingTime.Now;
             var totalUsers = await _context.Users.CountAsync();
             var activeCourts = await _context.Courts
                 .CountAsync(court => court.IsActive);
             var totalReservations = await _context.Reservations.CountAsync();
-            var activeReservations = await _context.Reservations
-                .CountAsync(reservation => reservation.Status == "Active");
-            var totalRevenue = await _context.Reservations
-                .Where(reservation => reservation.Status == "Active")
+            var upcomingReservations = await _context.Reservations
+                .CountAsync(reservation =>
+                    reservation.Status != "Cancelled" &&
+                    reservation.StartTime > now);
+            var ongoingReservations = await _context.Reservations
+                .CountAsync(reservation =>
+                    reservation.Status != "Cancelled" &&
+                    reservation.StartTime <= now &&
+                    reservation.EndTime > now);
+            var completedReservations = await _context.Reservations
+                .CountAsync(reservation =>
+                    reservation.Status != "Cancelled" &&
+                    reservation.EndTime <= now);
+            var cancelledReservations = await _context.Reservations
+                .CountAsync(reservation => reservation.Status == "Cancelled");
+            var realizedRevenue = await _context.Reservations
+                .Where(reservation =>
+                    reservation.Status != "Cancelled" &&
+                    reservation.EndTime <= now)
+                .SumAsync(reservation => (decimal?)reservation.TotalPrice) ?? 0;
+            var upcomingRevenue = await _context.Reservations
+                .Where(reservation =>
+                    reservation.Status != "Cancelled" &&
+                    reservation.StartTime > now)
                 .SumAsync(reservation => (decimal?)reservation.TotalPrice) ?? 0;
 
             return Ok(new
@@ -84,8 +110,12 @@ namespace PadelBooking.Api.Controllers
                 totalUsers,
                 activeCourts,
                 totalReservations,
-                activeReservations,
-                totalRevenue
+                upcomingReservations,
+                ongoingReservations,
+                completedReservations,
+                cancelledReservations,
+                realizedRevenue,
+                upcomingRevenue
             });
         }
     }

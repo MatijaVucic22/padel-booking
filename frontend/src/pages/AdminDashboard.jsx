@@ -4,6 +4,10 @@ import {
   hasValidationErrors,
   parseValidationErrors,
 } from "../utils/validationErrors";
+import {
+  runAdminMutation,
+  settleAdminRequests,
+} from "../utils/adminAsync";
 
 const dateFormatter = new Intl.DateTimeFormat("sr-RS", {
   day: "2-digit",
@@ -42,74 +46,158 @@ const tabs = [
   { id: "users", label: "Korisnici" },
 ];
 
+const initialSectionState = {
+  stats: { loading: true, error: "" },
+  courts: { loading: true, error: "" },
+  users: { loading: true, error: "" },
+  reservations: { loading: true, error: "" },
+};
+
+const sectionErrorMessages = {
+  stats: "Statistiku trenutno nije moguće učitati.",
+  courts: "Terene trenutno nije moguće učitati.",
+  users: "Korisnike trenutno nije moguće učitati.",
+  reservations: "Rezervacije trenutno nije moguće učitati.",
+};
+
+function SectionFeedback({ state, onRetry }) {
+  if (state.loading) {
+    return <p className="admin-feedback" aria-live="polite">Učitavanje podataka...</p>;
+  }
+
+  if (!state.error) return null;
+
+  return (
+    <div className="admin-feedback" role="alert">
+      <p>{state.error}</p>
+      <button type="button" onClick={onRetry}>Pokušaj ponovo</button>
+    </div>
+  );
+}
+
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [stats, setStats] = useState(null);
   const [courts, setCourts] = useState([]);
   const [users, setUsers] = useState([]);
   const [reservations, setReservations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
+  const [sectionState, setSectionState] = useState(initialSectionState);
   const [courtForm, setCourtForm] = useState(emptyCourtForm);
   const [editingCourtId, setEditingCourtId] = useState(null);
   const [savingCourt, setSavingCourt] = useState(false);
   const [deactivatingCourtId, setDeactivatingCourtId] = useState(null);
   const [courtMessage, setCourtMessage] = useState("");
   const [courtError, setCourtError] = useState("");
+  const [courtWarning, setCourtWarning] = useState("");
   const [courtFieldErrors, setCourtFieldErrors] = useState({});
 
   useEffect(() => {
     let ignoreResponse = false;
 
-    Promise.all([
+    const requests = [
       api.get("/admin/stats"),
       api.get("/courts"),
       api.get("/admin/users"),
       api.get("/admin/reservations"),
-    ])
-      .then(([statsResponse, courtsResponse, usersResponse, reservationsResponse]) => {
+    ];
+    const sections = ["stats", "courts", "users", "reservations"];
+    const setters = [setStats, setCourts, setUsers, setReservations];
+
+    settleAdminRequests(requests)
+      .then((results) => {
         if (ignoreResponse) return;
 
-        setStats(statsResponse.data);
-        setCourts(courtsResponse.data);
-        setUsers(usersResponse.data);
-        setReservations(reservationsResponse.data);
-        setError("");
-      })
-      .catch((requestError) => {
-        if (ignoreResponse) return;
+        results.forEach((result, index) => {
+          const section = sections[index];
 
-        console.error(requestError);
-        setError(
-          requestError.response?.status === 403
-            ? "Nemaš dozvolu za pristup admin panelu."
-            : "Podatke admin panela trenutno nije moguće učitati.",
-        );
-      })
-      .finally(() => {
-        if (!ignoreResponse) setLoading(false);
+          if (result.status === "fulfilled") {
+            setters[index](result.value.data);
+            setSectionState((current) => ({
+              ...current,
+              [section]: { loading: false, error: "" },
+            }));
+          } else {
+            setSectionState((current) => ({
+              ...current,
+              [section]: {
+                loading: false,
+                error:
+                  result.reason.response?.status === 403
+                    ? "Nemaš dozvolu za ovu admin sekciju."
+                    : sectionErrorMessages[section],
+              },
+            }));
+          }
+        });
       });
 
     return () => {
       ignoreResponse = true;
     };
-  }, [reloadKey]);
+  }, []);
 
-  const retryLoading = () => {
-    setLoading(true);
-    setError("");
-    setReloadKey((currentKey) => currentKey + 1);
+  const retrySection = async (section) => {
+    const requests = {
+      stats: () => api.get("/admin/stats"),
+      courts: () => api.get("/courts"),
+      users: () => api.get("/admin/users"),
+      reservations: () => api.get("/admin/reservations"),
+    };
+    const setters = {
+      stats: setStats,
+      courts: setCourts,
+      users: setUsers,
+      reservations: setReservations,
+    };
+
+    setSectionState((current) => ({
+      ...current,
+      [section]: { loading: true, error: "" },
+    }));
+
+    try {
+      const response = await requests[section]();
+      setters[section](response.data);
+      setSectionState((current) => ({
+        ...current,
+        [section]: { loading: false, error: "" },
+      }));
+    } catch (requestError) {
+      setSectionState((current) => ({
+        ...current,
+        [section]: {
+          loading: false,
+          error:
+            requestError.response?.status === 403
+              ? "Nemaš dozvolu za ovu admin sekciju."
+              : sectionErrorMessages[section],
+        },
+      }));
+    }
   };
 
   const refreshCourtsAndStats = async () => {
-    const [courtsResponse, statsResponse] = await Promise.all([
+    const results = await Promise.allSettled([
       api.get("/courts"),
       api.get("/admin/stats"),
     ]);
 
-    setCourts(courtsResponse.data);
-    setStats(statsResponse.data);
+    const sections = ["courts", "stats"];
+    const setters = [setCourts, setStats];
+
+    results.forEach((result, index) => {
+      const section = sections[index];
+
+      if (result.status === "fulfilled") {
+        setters[index](result.value.data);
+        setSectionState((current) => ({
+          ...current,
+          [section]: { loading: false, error: "" },
+        }));
+      }
+    });
+
+    return results.every((result) => result.status === "fulfilled");
   };
 
   const handleCourtInput = (event) => {
@@ -134,6 +222,7 @@ function AdminDashboard() {
     });
     setCourtMessage("");
     setCourtError("");
+    setCourtWarning("");
     setCourtFieldErrors({});
   };
 
@@ -148,6 +237,7 @@ function AdminDashboard() {
     setSavingCourt(true);
     setCourtMessage("");
     setCourtError("");
+    setCourtWarning("");
     setCourtFieldErrors({});
 
     const payload = {
@@ -156,19 +246,45 @@ function AdminDashboard() {
     };
 
     try {
-      if (editingCourtId) {
-        await api.put(`/courts/${editingCourtId}`, payload);
-      } else {
-        await api.post("/courts", payload);
-      }
+      const { refreshSucceeded } = await runAdminMutation({
+        mutate: async () => {
+          const response = editingCourtId
+            ? await api.put(`/courts/${editingCourtId}`, payload)
+            : await api.post("/courts", payload);
 
-      await refreshCourtsAndStats();
-      setCourtMessage(
-        editingCourtId
-          ? "Teren je uspešno izmenjen."
-          : "Teren je uspešno dodat.",
-      );
-      resetCourtForm();
+          return response.data;
+        },
+        onSaved: (savedCourt) => {
+          if (editingCourtId) {
+            setCourts((currentCourts) =>
+              currentCourts.map((court) =>
+                court.id === editingCourtId ? savedCourt : court,
+              ),
+            );
+          } else {
+            setCourts((currentCourts) => [...currentCourts, savedCourt]);
+            setStats((currentStats) =>
+              currentStats
+                ? { ...currentStats, activeCourts: currentStats.activeCourts + 1 }
+                : currentStats,
+            );
+          }
+
+          setCourtMessage(
+            editingCourtId
+              ? "Teren je uspešno izmenjen."
+              : "Teren je uspešno dodat.",
+          );
+          resetCourtForm();
+        },
+        refresh: refreshCourtsAndStats,
+      });
+
+      if (!refreshSucceeded) {
+        setCourtWarning(
+          "Izmena je sačuvana, ali osvežavanje podataka nije uspelo.",
+        );
+      }
     } catch (requestError) {
       console.error(requestError);
       const validationErrors = parseValidationErrors(requestError);
@@ -199,13 +315,35 @@ function AdminDashboard() {
     setDeactivatingCourtId(court.id);
     setCourtMessage("");
     setCourtError("");
+    setCourtWarning("");
 
     try {
-      await api.delete(`/courts/${court.id}`);
-      await refreshCourtsAndStats();
-      setCourtMessage("Teren je uspešno deaktiviran.");
+      const { refreshSucceeded } = await runAdminMutation({
+        mutate: () => api.delete(`/courts/${court.id}`),
+        onSaved: () => {
+          setCourts((currentCourts) =>
+            currentCourts.filter((currentCourt) => currentCourt.id !== court.id),
+          );
+          setStats((currentStats) =>
+            currentStats
+              ? {
+                  ...currentStats,
+                  activeCourts: Math.max(0, currentStats.activeCourts - 1),
+                }
+              : currentStats,
+          );
+          setCourtMessage("Teren je uspešno deaktiviran.");
 
-      if (editingCourtId === court.id) resetCourtForm();
+          if (editingCourtId === court.id) resetCourtForm();
+        },
+        refresh: refreshCourtsAndStats,
+      });
+
+      if (!refreshSucceeded) {
+        setCourtWarning(
+          "Izmena je sačuvana, ali osvežavanje podataka nije uspelo.",
+        );
+      }
     } catch (requestError) {
       console.error(requestError);
       setCourtError(
@@ -218,34 +356,19 @@ function AdminDashboard() {
     }
   };
 
-  if (loading) {
-    return (
-      <section className="page admin-page" aria-live="polite">
-        <h1>Admin panel</h1>
-        <p className="admin-feedback">Učitavanje podataka...</p>
-      </section>
-    );
-  }
-
-  if (error) {
-    return (
-      <section className="page admin-page">
-        <h1>Admin panel</h1>
-        <div className="admin-feedback" role="alert">
-          <p>{error}</p>
-          <button type="button" onClick={retryLoading}>Pokušaj ponovo</button>
-        </div>
-      </section>
-    );
-  }
-
-  const statCards = [
-    { label: "Korisnici", value: stats.totalUsers },
-    { label: "Aktivni tereni", value: stats.activeCourts },
-    { label: "Sve rezervacije", value: stats.totalReservations },
-    { label: "Aktivne rezervacije", value: stats.activeReservations },
-    { label: "Prihod", value: priceFormatter.format(stats.totalRevenue) },
-  ];
+  const statCards = stats
+    ? [
+        { label: "Korisnici", value: stats.totalUsers },
+        { label: "Aktivni tereni", value: stats.activeCourts },
+        { label: "Sve rezervacije", value: stats.totalReservations },
+        { label: "Predstojeće", value: stats.upcomingReservations },
+        { label: "U toku", value: stats.ongoingReservations },
+        { label: "Završene", value: stats.completedReservations },
+        { label: "Otkazane", value: stats.cancelledReservations },
+        { label: "Realizovan prihod", value: priceFormatter.format(stats.realizedRevenue) },
+        { label: "Budući prihod", value: priceFormatter.format(stats.upcomingRevenue) },
+      ]
+    : [];
 
   return (
     <section className="page admin-page">
@@ -270,14 +393,22 @@ function AdminDashboard() {
       </nav>
 
       {activeTab === "dashboard" && (
-        <div className="admin-stats-grid">
-          {statCards.map((stat) => (
-            <article className="admin-stat-card" key={stat.label}>
-              <span>{stat.label}</span>
-              <strong>{stat.value}</strong>
-            </article>
-          ))}
-        </div>
+        <>
+          <SectionFeedback
+            state={sectionState.stats}
+            onRetry={() => retrySection("stats")}
+          />
+          {!sectionState.stats.loading && !sectionState.stats.error && (
+            <div className="admin-stats-grid">
+              {statCards.map((stat) => (
+                <article className="admin-stat-card" key={stat.label}>
+                  <span>{stat.label}</span>
+                  <strong>{stat.value}</strong>
+                </article>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {activeTab === "courts" && (
@@ -355,6 +486,7 @@ function AdminDashboard() {
             </div>
 
             {courtMessage && <p className="admin-action-message success-message" role="status">{courtMessage}</p>}
+            {courtWarning && <p className="admin-action-message admin-warning" role="alert">{courtWarning}</p>}
             {courtError && <p className="admin-action-message error-message" role="alert">{courtError}</p>}
           </form>
 
@@ -364,8 +496,13 @@ function AdminDashboard() {
               <span>{courts.length} ukupno</span>
             </div>
 
-            <div className="admin-courts-list">
-              {courts.map((court) => (
+            <SectionFeedback
+              state={sectionState.courts}
+              onRetry={() => retrySection("courts")}
+            />
+            {!sectionState.courts.loading && !sectionState.courts.error && (
+              <div className="admin-courts-list">
+                {courts.map((court) => (
                 <article className="admin-court-item" key={court.id}>
                   <div>
                     <h3>{court.name}</h3>
@@ -384,9 +521,12 @@ function AdminDashboard() {
                     </button>
                   </div>
                 </article>
-              ))}
-            </div>
-            {courts.length === 0 && <p className="admin-empty">Nema aktivnih terena.</p>}
+                ))}
+              </div>
+            )}
+            {!sectionState.courts.loading && !sectionState.courts.error && courts.length === 0 && (
+              <p className="admin-empty">Nema aktivnih terena.</p>
+            )}
           </div>
         </section>
       )}
@@ -394,7 +534,11 @@ function AdminDashboard() {
       {activeTab === "users" && (
         <section className="admin-section">
           <div className="admin-section-heading"><h2>Korisnici</h2><span>{users.length} ukupno</span></div>
-          <div className="admin-table-wrapper">
+          <SectionFeedback
+            state={sectionState.users}
+            onRetry={() => retrySection("users")}
+          />
+          {!sectionState.users.loading && !sectionState.users.error && <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead><tr><th>Ime i prezime</th><th>Email</th><th>Uloga</th><th>Datum registracije</th></tr></thead>
               <tbody>
@@ -407,15 +551,19 @@ function AdminDashboard() {
                 ))}
               </tbody>
             </table>
-          </div>
-          {users.length === 0 && <p className="admin-empty">Nema korisnika.</p>}
+          </div>}
+          {!sectionState.users.loading && !sectionState.users.error && users.length === 0 && <p className="admin-empty">Nema korisnika.</p>}
         </section>
       )}
 
       {activeTab === "reservations" && (
         <section className="admin-section">
           <div className="admin-section-heading"><h2>Rezervacije</h2><span>{reservations.length} ukupno</span></div>
-          <div className="admin-table-wrapper">
+          <SectionFeedback
+            state={sectionState.reservations}
+            onRetry={() => retrySection("reservations")}
+          />
+          {!sectionState.reservations.loading && !sectionState.reservations.error && <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead><tr><th>Korisnik</th><th>Teren</th><th>Datum</th><th>Termin</th><th>Cena</th><th>Status</th></tr></thead>
               <tbody>
@@ -434,8 +582,8 @@ function AdminDashboard() {
                 })}
               </tbody>
             </table>
-          </div>
-          {reservations.length === 0 && <p className="admin-empty">Nema rezervacija.</p>}
+          </div>}
+          {!sectionState.reservations.loading && !sectionState.reservations.error && reservations.length === 0 && <p className="admin-empty">Nema rezervacija.</p>}
         </section>
       )}
     </section>

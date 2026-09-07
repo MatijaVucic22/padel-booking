@@ -36,9 +36,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         var errors = context.ModelState
             .Where(entry => entry.Value?.Errors.Count > 0)
             .ToDictionary(
-                entry => string.IsNullOrEmpty(entry.Key)
-                    ? "request"
-                    : char.ToLowerInvariant(entry.Key[0]) + entry.Key[1..],
+                entry => NormalizeValidationField(entry.Key),
                 entry => entry.Value!.Errors
                     .Select(error => string.IsNullOrEmpty(error.ErrorMessage)
                         ? "Vrednost nije ispravna."
@@ -53,6 +51,22 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         });
     };
 });
+
+static string NormalizeValidationField(string key)
+{
+    if (string.IsNullOrWhiteSpace(key)) return "request";
+
+    var field = key.StartsWith("$.", StringComparison.Ordinal)
+        ? key[2..]
+        : key.Split('.').Last();
+
+    var bracketIndex = field.IndexOf('[');
+    if (bracketIndex >= 0) field = field[..bracketIndex];
+
+    return string.IsNullOrEmpty(field)
+        ? "request"
+        : char.ToLowerInvariant(field[0]) + field[1..];
+}
 
 builder.Services.AddCors(options =>
 {

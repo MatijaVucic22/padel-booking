@@ -131,6 +131,7 @@ namespace PadelBooking.Api.Controllers
                 return Unauthorized();
             }
 
+            var now = _bookingTime.Now;
             var reservations = await _context.Reservations
                 .Where(r => r.UserId == userId)
                 .Include(r => r.Court)
@@ -143,6 +144,7 @@ namespace PadelBooking.Api.Controllers
                     r.StartTime,
                     r.EndTime,
                     r.TotalPrice,
+                    CanCancel = r.Status != "Cancelled" && r.StartTime > now,
                     r.Status
                 })
                 .ToListAsync();

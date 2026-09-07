@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../api/api";
+import { getCourtImage } from "../utils/courtImages";
 import {
   hasValidationErrors,
   parseValidationErrors,
@@ -216,7 +217,12 @@ function CourtDetails() {
     <section className="page court-details-page">
       <Link to="/courts" className="back-link">← Svi tereni</Link>
 
-      <div className="court-details-card">
+      <div className="court-details-layout">
+        <div className="court-details-main">
+          <div className="court-details-image">
+            <img src={getCourtImage(id)} alt={`${court.name}, padel teren`} />
+          </div>
+          <div className="court-details-card">
         <div className="court-details-copy">
           <span className="court-eyebrow">Padel teren</span>
           <h1>{court.name}</h1>
@@ -228,8 +234,10 @@ function CourtDetails() {
           <span>po satu</span>
         </div>
       </div>
+        </div>
 
       <div className="booking-panel">
+        <span className="section-kicker">Rezervacija</span>
         <div className="booking-panel-heading">
           <div>
             <h2>Izaberi termin</h2>
@@ -329,6 +337,7 @@ function CourtDetails() {
             </button>
           </div>
         )}
+      </div>
       </div>
     </section>
   );

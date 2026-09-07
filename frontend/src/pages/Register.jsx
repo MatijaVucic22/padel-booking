@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/api";
+import courtIndoor from "../assets/images/court-indoor.jpg";
 import {
   hasValidationErrors,
   parseValidationErrors,
@@ -79,14 +80,19 @@ function Register() {
   };
 
   return (
-    <div className="auth-page">
+    <div className="auth-page auth-split">
+      <aside className="auth-visual">
+        <img src={courtIndoor} alt="Premium zatvoreni padel teren" />
+        <div className="auth-visual-copy"><span>PADELBOOKING</span><h2>Tvoj teren.<br />Tvoj termin.<br />Tvoja igra.</h2></div>
+      </aside>
       <div className="auth-card">
-        <h1>Registracija</h1>
+        <div className="auth-heading"><span className="section-kicker">Novi igrač</span><h1>Napravi nalog.</h1><p>Do sledećeg termina deli te manje od minut.</p></div>
 
         <form onSubmit={handleSubmit}>
-          <label>Ime</label>
+          <label htmlFor="register-first-name">Ime</label>
 
           <input
+            id="register-first-name"
             type="text"
             name="firstName"
             value={formData.firstName}
@@ -98,9 +104,10 @@ function Register() {
             <span className="field-error" key={message}>{message}</span>
           ))}
 
-          <label>Prezime</label>
+          <label htmlFor="register-last-name">Prezime</label>
 
           <input
+            id="register-last-name"
             type="text"
             name="lastName"
             value={formData.lastName}
@@ -112,9 +119,10 @@ function Register() {
             <span className="field-error" key={message}>{message}</span>
           ))}
 
-          <label>Email</label>
+          <label htmlFor="register-email">Email</label>
 
           <input
+            id="register-email"
             type="email"
             name="email"
             value={formData.email}
@@ -126,9 +134,10 @@ function Register() {
             <span className="field-error" key={message}>{message}</span>
           ))}
 
-          <label>Lozinka</label>
+          <label htmlFor="register-password">Lozinka</label>
 
           <input
+            id="register-password"
             type="password"
             name="password"
             value={formData.password}

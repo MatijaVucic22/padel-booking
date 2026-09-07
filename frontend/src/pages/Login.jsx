@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/api";
+import courtNight from "../assets/images/court-night.jpg";
 import {
   hasValidationErrors,
   parseValidationErrors,
@@ -85,14 +86,19 @@ function Login({ onLogin }) {
   };
 
   return (
-    <div className="auth-page">
+    <div className="auth-page auth-split">
+      <aside className="auth-visual">
+        <img src={courtNight} alt="Osvetljen padel teren tokom večernjeg meča" />
+        <div className="auth-visual-copy"><span>PADELBOOKING</span><h2>Rezerviši.<br />Igraj.<br />Ponovi.</h2></div>
+      </aside>
       <div className="auth-card">
-        <h1>Prijava</h1>
+        <div className="auth-heading"><span className="section-kicker">Dobrodošao nazad</span><h1>Prijavi se za sledeći meč.</h1><p>Tvoji tereni i rezervacije čekaju te na jednom mestu.</p></div>
 
         <form onSubmit={handleSubmit}>
-          <label>Email</label>
+          <label htmlFor="login-email">Email</label>
 
           <input
+            id="login-email"
             type="email"
             name="email"
             value={formData.email}
@@ -104,9 +110,10 @@ function Login({ onLogin }) {
             <span className="field-error" key={message}>{message}</span>
           ))}
 
-          <label>Lozinka</label>
+          <label htmlFor="login-password">Lozinka</label>
 
           <input
+            id="login-password"
             type="password"
             name="password"
             value={formData.password}

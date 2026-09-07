@@ -845,6 +845,11 @@ textarea[aria-invalid="true"] {
   background-color: #fee2e2;
 }
 
+.admin-action-message.admin-warning {
+  background-color: #fef3c7;
+  color: #854d0e;
+}
+
 .admin-courts-section {
   margin-top: 0;
 }
@@ -1286,4 +1291,278 @@ textarea[aria-invalid="true"] {
   padding: 4rem 1.5rem;
   text-align: center;
   color: #555;
+}
+
+/* Premium urban padel visual system */
+html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
+body { background: var(--color-cream); color: var(--color-text); }
+#root { min-height: 100vh; }
+main { min-height: calc(100vh - 76px); padding: 0; }
+.page { width: min(1240px, calc(100% - 64px)); margin: 0 auto; padding: 64px 0 96px; }
+.section-kicker { display: block; margin-bottom: 16px; color: var(--color-green); font-size: .73rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.primary-button, button[type="submit"] { min-height: 48px; border: 1px solid var(--color-orange); border-radius: 11px; background: var(--color-orange); color: var(--color-text); font-weight: 700; box-shadow: none; transition: background-color .2s ease, transform .2s ease; }
+.primary-button:hover, button[type="submit"]:hover:not(:disabled) { background: #ff8964; transform: translateY(-1px); }
+.text-link { display: inline-flex; align-items: center; gap: 10px; color: var(--color-text); font-weight: 700; text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: 4px; }
+
+/* Navigation */
+.navbar { position: relative; z-index: 30; display: flex; align-items: center; width: 100%; max-width: 100vw; min-height: 76px; padding: 0 max(32px, calc((100vw - 1240px) / 2)); background: rgba(246, 244, 238, .96); border-bottom: 1px solid rgba(24, 57, 43, .11); box-shadow: none; }
+.logo { flex: 0 0 auto; color: var(--color-forest); font-family: "Sora", sans-serif; font-size: 1rem; font-weight: 700; letter-spacing: .07em; text-decoration: none; }
+.logo span { color: var(--color-green); }
+.nav-links { display: flex; align-items: center; justify-content: space-between; flex: 1; margin-left: clamp(40px, 7vw, 110px); gap: 24px; }
+.nav-primary, .nav-account { display: flex; align-items: center; gap: 28px; }
+.nav-links a { color: #344139; font-size: .9rem; font-weight: 600; text-decoration: none; }
+.nav-links a:hover { color: var(--color-green); }
+.user-name { padding-left: 20px; border-left: 1px solid var(--color-border); color: var(--color-muted); font-size: .88rem; }
+.logout-button { min-height: 42px; padding: 0 18px; border: 1px solid var(--color-forest); border-radius: 10px; background: transparent; color: var(--color-forest); font-weight: 700; }
+.logout-button:hover { background: var(--color-forest); color: white; }
+.menu-toggle { display: none; }
+
+/* Home */
+.home-page { padding-bottom: 96px; }
+.home-hero { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: clamp(36px, 5vw, 82px); align-items: center; min-height: calc(82vh - 76px); width: min(1360px, calc(100% - 64px)); margin: 0 auto; padding: 48px 0 64px; }
+.home-hero > * { min-width: 0; }
+.home-hero-copy { padding-left: max(0px, calc((100vw - 1240px) / 2 - (100vw - 1360px) / 2)); }
+.home-hero h1 { max-width: 650px; margin: 0; color: var(--color-forest); font-size: clamp(3.2rem, 5.7vw, 6.8rem); line-height: .98; }
+.home-hero-copy > p { max-width: 540px; margin: 30px 0 34px; color: var(--color-muted); font-size: clamp(1rem, 1.3vw, 1.18rem); line-height: 1.75; }
+.hero-actions { display: flex; align-items: center; gap: 26px; }
+.hero-actions .primary-button { display: inline-flex; align-items: center; gap: 18px; padding: 0 24px; text-decoration: none; }
+.home-hero-media { position: relative; width: 100%; min-width: 0; height: min(68vh, 720px); min-height: 500px; overflow: hidden; border-radius: 14px; background: var(--color-forest); }
+.home-hero-media > img { width: 100%; height: 100%; object-fit: cover; object-position: 56% center; }
+.hero-note { position: absolute; right: 24px; bottom: 24px; display: grid; gap: 6px; min-width: 240px; padding: 18px 20px; border-radius: 10px; background: var(--color-cream); }
+.hero-note span { color: var(--color-muted); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.hero-note strong { color: var(--color-forest); font-family: "Sora", sans-serif; }
+.home-section { width: min(1240px, calc(100% - 64px)); margin: 0 auto; padding: 90px 0; }
+.editorial-heading { display: flex; align-items: end; justify-content: space-between; gap: 32px; margin-bottom: 42px; }
+.editorial-heading h2, .process-section h2 { max-width: 760px; margin: 0; color: var(--color-forest); font-size: clamp(2rem, 4vw, 4.15rem); line-height: 1.08; }
+.featured-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.featured-court { position: relative; color: inherit; text-decoration: none; }
+.featured-image { aspect-ratio: 4 / 5; margin-bottom: 20px; overflow: hidden; border-radius: 12px; background: #d9ded9; }
+.featured-image img { width: 100%; height: 100%; object-fit: cover; transition: transform .45s ease; }
+.featured-court:hover .featured-image img { transform: scale(1.025); }
+.featured-court > div:nth-child(2) span { color: var(--color-muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
+.featured-court h3 { margin: 7px 0 0; color: var(--color-forest); font-size: 1.35rem; }
+.featured-arrow { position: absolute; right: 0; bottom: 2px; color: var(--color-orange); font-size: 1.5rem; }
+.process-section { display: grid; grid-template-columns: .85fr 1.15fr; gap: 8vw; align-items: start; border-top: 1px solid var(--color-border); }
+.process-list { margin: 0; padding: 0; list-style: none; }
+.process-list li { display: grid; grid-template-columns: 72px 1fr; gap: 20px; padding: 26px 0; border-bottom: 1px solid var(--color-border); }
+.process-list li > strong { color: var(--color-orange); font-family: "Sora", sans-serif; font-size: 1.5rem; }
+.process-list h3 { margin: 0 0 8px; color: var(--color-forest); font-size: 1.3rem; }
+.process-list p { margin: 0; color: var(--color-muted); line-height: 1.65; }
+.home-cta { position: relative; min-height: 520px; padding: 0; overflow: hidden; border-radius: 14px; }
+.home-cta::after { content: ""; position: absolute; inset: 0; background: rgba(12, 30, 22, .52); }
+.home-cta > img { width: 100%; height: 100%; position: absolute; object-fit: cover; object-position: center 55%; }
+.home-cta-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-height: 520px; max-width: 680px; padding: clamp(36px, 7vw, 90px); color: white; }
+.home-cta-content .section-kicker { color: #ffd1c1; }
+.home-cta h2 { margin: 0 0 32px; color: white; font-size: clamp(2.5rem, 5vw, 5rem); line-height: 1.05; }
+.home-cta .primary-button { display: inline-flex; align-items: center; gap: 18px; padding: 0 24px; color: var(--color-text); text-decoration: none; }
+
+/* Courts */
+.courts-page { padding-top: 74px; }
+.courts-header { display: flex; justify-content: space-between; align-items: end; margin-bottom: 50px; padding-bottom: 28px; border-bottom: 1px solid var(--color-border); }
+.courts-header h1 { margin: 0; color: var(--color-forest); font-size: clamp(3rem, 6vw, 6rem); line-height: 1; }
+.courts-header p { max-width: 390px; margin: 0 0 8px; color: var(--color-muted); font-size: 1.05rem; }
+.courts-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px 22px; }
+.court-card { overflow: hidden; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-white); box-shadow: none; transition: transform .25s ease, border-color .25s ease; }
+.court-card:hover { transform: translateY(-3px); border-color: #b6c2ba; }
+.court-card-image { display: block; aspect-ratio: 4 / 3; overflow: hidden; background: #d9ded9; }
+.court-card-image img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
+.court-card:hover .court-card-image img { transform: scale(1.025); }
+.court-card-content { padding: 22px; }
+.court-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.court-card-heading span { color: var(--color-green); font-size: .74rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.court-card h2 { margin: 7px 0 0; color: var(--color-forest); font-size: 1.3rem; }
+.court-card-arrow { color: var(--color-orange) !important; font-size: 1.35rem !important; }
+.court-description { display: -webkit-box; min-height: 48px; margin: 16px 0 22px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--color-muted); font-size: .9rem; line-height: 1.65; }
+.court-card-footer { display: flex; justify-content: space-between; align-items: end; gap: 16px; padding-top: 18px; border-top: 1px solid var(--color-border); }
+.court-card .price { display: grid; gap: 1px; margin: 0; color: var(--color-forest); }
+.court-card .price strong { font-family: "Sora", sans-serif; font-size: 1rem; }
+.court-card .price span { color: var(--color-muted); font-size: .72rem; }
+.court-booking-link { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px; border-radius: 8px; background: var(--color-forest); color: white; font-size: .82rem; font-weight: 700; text-decoration: none; }
+.court-booking-link:hover { background: var(--color-green); color: white; }
+.courts-feedback, .court-feedback { padding: 56px; border: 1px solid var(--color-border); border-radius: 12px; background: white; color: var(--color-muted); text-align: center; }
+
+/* Court details and booking */
+.court-details-page { width: min(1320px, calc(100% - 64px)); }
+.back-link { display: inline-flex; margin-bottom: 28px; color: var(--color-muted); font-weight: 700; text-decoration: none; }
+.court-details-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(340px, .85fr); gap: 34px; align-items: start; }
+.court-details-main { min-width: 0; }
+.court-details-image { height: clamp(440px, 57vw, 680px); overflow: hidden; border-radius: 14px; background: var(--color-forest); }
+.court-details-image img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.court-details-card { display: flex; justify-content: space-between; align-items: start; gap: 32px; margin: 0; padding: 34px 4px; border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0; background: transparent; box-shadow: none; }
+.court-details-copy h1 { margin: 4px 0 10px; color: var(--color-forest); font-size: clamp(2.2rem, 4vw, 4.2rem); line-height: 1.06; }
+.court-eyebrow { color: var(--color-green); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.court-location { color: var(--color-green) !important; font-weight: 700; }
+.court-details-copy p { max-width: 700px; color: var(--color-muted); line-height: 1.7; }
+.court-price { flex: 0 0 auto; display: grid; gap: 4px; padding-top: 24px; text-align: right; }
+.court-price strong { color: var(--color-forest); font-family: "Sora", sans-serif; font-size: 1.25rem; }
+.court-price span { color: var(--color-muted); font-size: .8rem; }
+.booking-panel { position: sticky; top: 100px; margin: 0; padding: 28px; border: 1px solid #ced6d0; border-radius: 12px; background: var(--color-white); box-shadow: 0 10px 30px rgba(23, 32, 27, .06); }
+.booking-panel-heading { display: block; margin-bottom: 22px; }
+.booking-panel-heading h2 { margin: 0 0 8px; color: var(--color-forest); font-size: 1.65rem; }
+.booking-panel-heading p { margin: 0 0 24px; color: var(--color-muted); font-size: .88rem; }
+.date-field { display: grid; gap: 8px; color: var(--color-text); font-size: .82rem; font-weight: 700; }
+.date-field input, .auth-card input, .admin-court-form input, .admin-court-form textarea { width: 100%; min-height: 48px; border: 1px solid #cbd3cd; border-radius: 9px; background: white; color: var(--color-text); box-shadow: none; }
+.date-field input:focus, .auth-card input:focus, .admin-court-form input:focus, .admin-court-form textarea:focus { border-color: var(--color-green); outline: 3px solid rgba(47, 118, 87, .14); }
+.selected-date-label { margin: 0 0 16px; color: var(--color-muted); font-size: .84rem; }
+.slots-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+.slot-button { min-height: 46px; padding: 8px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-cream); color: var(--color-forest); font-size: .8rem; font-weight: 700; }
+.slot-button:hover:not(:disabled) { border-color: var(--color-green); background: #edf3ef; }
+.slot-button.selected { border-color: var(--color-orange); background: var(--color-orange); color: var(--color-text); }
+.slots-message, .booking-error, .booking-success, .booking-field-errors { border-radius: 9px; font-size: .86rem; }
+.booking-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--color-border); background: transparent; }
+.booking-summary > div { display: grid; gap: 4px; }
+.booking-summary span { color: var(--color-muted); font-size: .72rem; }
+.booking-summary strong { color: var(--color-forest); font-size: .9rem; }
+.booking-summary button { grid-column: 1 / -1; min-height: 50px; margin-top: 4px; border: 1px solid var(--color-orange); border-radius: 10px; background: var(--color-orange); color: var(--color-text); font-weight: 800; }
+
+/* Reservations */
+.reservations-page { max-width: 1080px; }
+.reservations-header { align-items: end; margin-bottom: 40px; padding-bottom: 28px; border-bottom: 1px solid var(--color-border); }
+.reservations-header h1 { margin: 0 0 8px; color: var(--color-forest); font-size: clamp(2.8rem, 5vw, 5rem); }
+.reservations-header p { color: var(--color-muted); }
+.reservations-list { display: grid; gap: 16px; }
+.reservation-card { display: grid; grid-template-columns: 124px minmax(0, 1fr); min-height: 190px; overflow: hidden; padding: 0; border: 1px solid var(--color-border); border-radius: 12px; background: white; box-shadow: none; }
+.reservation-ticket-date { display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--color-forest); color: white; text-align: center; }
+.reservation-ticket-date strong { font-family: "Sora", sans-serif; font-size: 2.8rem; line-height: 1; }
+.reservation-ticket-date span { margin-top: 8px; color: #cddbd3; font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.reservation-ticket-body { display: grid; grid-template-columns: 1fr auto; gap: 18px 30px; padding: 26px 30px; }
+.reservation-card-heading { grid-column: 1 / -1; }
+.reservation-card-heading h2 { color: var(--color-forest); font-size: 1.35rem; }
+.reservation-label { color: var(--color-green); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; }
+.reservation-details { display: flex; align-items: end; gap: clamp(24px, 5vw, 64px); margin: 0; }
+.reservation-details div { gap: 5px; }
+.reservation-details dt { color: var(--color-muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; }
+.reservation-details dd { color: var(--color-text); font-weight: 700; }
+.reservation-actions { display: flex; align-items: end; }
+.cancel-reservation-button { min-height: 44px; border-radius: 9px; background: transparent; }
+.reservation-status { border-radius: 6px; font-size: .7rem; letter-spacing: .05em; text-transform: uppercase; }
+.reservation-card:has(.reservation-status-cancelled) { opacity: .66; }
+.reservations-empty { padding: 80px 24px; border: 1px solid var(--color-border); border-radius: 12px; background: white; }
+
+/* Authentication */
+.auth-page.auth-split { display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; width: 100%; min-height: calc(100vh - 76px); padding: 0; background: white; }
+.auth-visual { position: relative; min-height: 720px; overflow: hidden; background: var(--color-forest); }
+.auth-visual::after { content: ""; position: absolute; inset: 0; background: rgba(9, 28, 19, .44); }
+.auth-visual > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.auth-visual-copy { position: absolute; z-index: 1; left: clamp(32px, 6vw, 90px); bottom: clamp(42px, 8vw, 100px); color: white; }
+.auth-visual-copy span { font-size: .75rem; font-weight: 700; letter-spacing: .16em; }
+.auth-visual-copy h2 { margin: 20px 0 0; color: white; font-size: clamp(2.8rem, 5vw, 5.5rem); line-height: 1.02; }
+.auth-card { align-self: center; width: min(500px, calc(100% - 64px)); max-width: 500px; margin: 0 auto; padding: 60px 28px; border: 0; border-radius: 0; background: white; box-shadow: none; }
+.auth-heading { margin-bottom: 36px; }
+.auth-heading h1 { margin: 0 0 14px; color: var(--color-forest); font-size: clamp(2rem, 3vw, 3.25rem); line-height: 1.12; }
+.auth-heading p { margin: 0; color: var(--color-muted); line-height: 1.65; }
+.auth-card form { display: grid; gap: 9px; }
+.auth-card label { margin-top: 10px; color: var(--color-text); font-size: .82rem; font-weight: 700; }
+.auth-card input { height: 50px; padding: 0 14px; }
+.auth-card button[type="submit"] { margin-top: 16px; }
+.field-error { color: #a33b31; }
+
+/* Admin */
+.admin-page { width: min(1320px, calc(100% - 64px)); }
+.admin-header { padding-bottom: 30px; border-bottom: 1px solid var(--color-border); }
+.admin-header h1 { color: var(--color-forest); font-size: clamp(2.6rem, 5vw, 4.8rem); }
+.admin-eyebrow { color: var(--color-green); }
+.admin-tabs { position: sticky; top: 0; z-index: 10; display: flex; gap: 6px; margin: 26px 0 34px; padding: 6px; border: 1px solid var(--color-border); border-radius: 11px; background: var(--color-cream); }
+.admin-tabs button { min-height: 44px; border-radius: 8px; color: var(--color-muted); }
+.admin-tabs button.active { background: var(--color-forest); color: white; }
+.admin-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.admin-stat-card { min-height: 150px; padding: 24px; border: 1px solid var(--color-border); border-radius: 11px; background: white; box-shadow: none; }
+.admin-stat-card span { color: var(--color-muted); font-size: .78rem; }
+.admin-stat-card strong { color: var(--color-forest); font-family: "Sora", sans-serif; font-size: clamp(1.65rem, 3vw, 2.6rem); }
+.admin-courts-layout { gap: 24px; }
+.admin-court-form, .admin-section { border: 1px solid var(--color-border); border-radius: 11px; background: white; box-shadow: none; }
+.admin-section-heading h2 { color: var(--color-forest); }
+.admin-court-item { border-radius: 9px; background: var(--color-cream); }
+.admin-table-wrapper { border: 1px solid var(--color-border); border-radius: 9px; }
+.admin-table th { background: #edf0ec; color: var(--color-forest); }
+.admin-table td { border-color: var(--color-border); }
+.admin-action-message.admin-warning { border: 1px solid #efd27a; }
+
+@media (max-width: 1100px) {
+  .home-hero { grid-template-columns: .9fr 1.1fr; min-height: auto; }
+  .home-hero h1 { font-size: clamp(3.2rem, 6vw, 5rem); }
+  .home-hero-media { height: 600px; }
+  .courts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .court-details-layout { grid-template-columns: minmax(0, 1.4fr) minmax(330px, .8fr); gap: 24px; }
+  .admin-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .page, .home-section, .home-hero, .court-details-page, .admin-page { width: min(100% - 40px, 760px); }
+  .navbar { min-height: 70px; padding: 0 20px; }
+  .menu-toggle { display: grid; flex: 0 0 46px; place-content: center; gap: 5px; width: 46px; height: 46px; margin-left: auto; border: 1px solid var(--color-border); border-radius: 9px; background: transparent; }
+  .menu-toggle span { width: 20px; height: 2px; background: var(--color-forest); }
+  .nav-links { position: absolute; top: 69px; right: 0; left: 0; display: none; margin: 0; padding: 24px 20px 30px; border-bottom: 1px solid var(--color-border); background: var(--color-cream); }
+  .nav-links.open { display: grid; gap: 24px; }
+  .nav-primary, .nav-account { display: grid; gap: 18px; }
+  .nav-account { padding-top: 20px; border-top: 1px solid var(--color-border); }
+  .user-name { padding-left: 0; border: 0; }
+  .home-hero { grid-template-columns: minmax(0, 1fr); padding-top: 62px; }
+  .home-hero-copy { padding: 0; }
+  .home-hero-media { height: 58vw; min-height: 430px; }
+  .process-section { grid-template-columns: 1fr; gap: 42px; }
+  .court-details-layout { grid-template-columns: 1fr; }
+  .court-details-image { height: min(70vw, 560px); }
+  .booking-panel { position: static; }
+  .auth-page.auth-split { grid-template-columns: .9fr 1.1fr; }
+  .auth-visual-copy h2 { font-size: 2.8rem; }
+  .reservation-ticket-body { grid-template-columns: 1fr; }
+  .reservation-actions { justify-content: flex-start; }
+}
+
+@media (max-width: 700px) {
+  .page, .home-section, .home-hero, .court-details-page, .admin-page { width: calc(100vw - 32px); max-width: calc(100vw - 32px); }
+  .page { padding: 44px 0 70px; }
+  .home-page { padding-bottom: 54px; }
+  .home-hero { padding: 46px 0 24px; gap: 38px; }
+  .home-hero h1 { font-size: clamp(2.75rem, 13vw, 4.2rem); }
+  .home-hero-copy > p { margin: 22px 0 28px; }
+  .hero-actions { align-items: flex-start; flex-direction: column; gap: 20px; }
+  .home-hero-media { height: 72vw; min-height: 360px; }
+  .hero-note { right: 14px; bottom: 14px; left: 14px; min-width: 0; }
+  .home-section { padding: 64px 0; }
+  .editorial-heading { align-items: flex-start; flex-direction: column; margin-bottom: 30px; }
+  .featured-grid, .courts-grid { grid-template-columns: 1fr; }
+  .featured-image { aspect-ratio: 5 / 4; }
+  .process-list li { grid-template-columns: 54px 1fr; }
+  .home-cta, .home-cta-content { min-height: 430px; }
+  .home-cta-content { padding: 30px; }
+  .courts-header { align-items: flex-start; flex-direction: column; gap: 18px; }
+  .courts-header h1 { font-size: 3.4rem; }
+  .court-details-image { height: 72vw; min-height: 290px; }
+  .court-details-card { flex-direction: column; padding: 26px 0; }
+  .court-price { padding-top: 0; text-align: left; }
+  .booking-panel { padding: 22px 18px; }
+  .slots-grid { grid-template-columns: repeat(2, 1fr); }
+  .reservation-card { grid-template-columns: 82px minmax(0, 1fr); min-height: 220px; }
+  .reservation-ticket-date strong { font-size: 2rem; }
+  .reservation-ticket-body { padding: 22px 18px; }
+  .reservation-card-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .reservation-details { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .reservations-header { align-items: flex-start; flex-direction: column; gap: 20px; }
+  .auth-page.auth-split { display: block; min-height: calc(100vh - 70px); }
+  .auth-visual { min-height: 220px; height: 27vh; }
+  .auth-visual-copy { left: 24px; bottom: 24px; }
+  .auth-visual-copy h2 { margin-top: 10px; font-size: 2rem; }
+  .auth-card { width: 100vw; max-width: 100vw; margin: 0; padding: 42px 24px 60px; }
+  .menu-toggle { position: absolute; right: 16px; display: grid !important; }
+  .admin-tabs { overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
+  .admin-tabs button { flex: 0 0 auto; }
+  .admin-stats-grid { grid-template-columns: 1fr; }
+  .admin-courts-layout { grid-template-columns: 1fr; }
+  .admin-court-item { align-items: flex-start; flex-direction: column; }
+  .admin-table-wrapper { max-width: 100%; overflow-x: auto; }
+  .admin-table { min-width: 720px; }
+}
+
+@media (max-width: 420px) {
+  .home-hero h1 { font-size: 2.7rem; }
+  .home-hero-media { min-height: 320px; }
+  .court-card-content { padding: 18px; }
+  .court-card-footer { align-items: flex-start; flex-direction: column; }
+  .reservation-card { grid-template-columns: 68px minmax(0, 1fr); }
+  .reservation-ticket-date strong { font-size: 1.65rem; }
+  .reservation-ticket-body { padding: 19px 14px; }
+  .booking-summary { grid-template-columns: 1fr; }
+  .booking-summary button { grid-column: 1; }
 }

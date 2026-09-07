@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
+import { getCourtImage } from "../utils/courtImages";
 
 const priceFormatter = new Intl.NumberFormat("sr-RS", {
   style: "currency",
@@ -78,15 +79,16 @@ function Courts() {
         <p className="courts-feedback">Trenutno nema dostupnih terena.</p>
       ) : (
         <div className="courts-grid">
-          {courts.map((court) => (
+          {courts.map((court, index) => (
             <article className="court-card" key={court.id}>
-              <h2>{court.name}</h2>
-              <p><strong>Lokacija:</strong> {court.location}</p>
-              {court.description && <p>{court.description}</p>}
-              <p className="price">{priceFormatter.format(court.pricePerHour)} / sat</p>
-              <Link to={`/courts/${court.id}`} className="court-booking-link">
-                Izaberi termin
+              <Link to={`/courts/${court.id}`} className="court-card-image" aria-label={`Otvori teren ${court.name}`}>
+                <img src={getCourtImage(court.id, index)} alt={`${court.name}, padel teren`} loading="lazy" />
               </Link>
+              <div className="court-card-content">
+                <div className="court-card-heading"><div><span>{court.location}</span><h2>{court.name}</h2></div><span className="court-card-arrow" aria-hidden="true">↗</span></div>
+                {court.description && <p className="court-description">{court.description}</p>}
+                <div className="court-card-footer"><p className="price"><strong>{priceFormatter.format(court.pricePerHour)}</strong><span>/ sat</span></p><Link to={`/courts/${court.id}`} className="court-booking-link">Izaberi termin</Link></div>
+              </div>
             </article>
           ))}
         </div>

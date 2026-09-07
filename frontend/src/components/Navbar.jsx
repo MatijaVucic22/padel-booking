@@ -16,7 +16,7 @@ function Navbar({ user, onLogout }) {
   return (
     <nav className="navbar">
       <Link to="/" className="logo" onClick={closeMenu}>
-        Padel Booking
+        PADEL<span>BOOKING</span>
       </Link>
 
       <button
@@ -36,15 +36,16 @@ function Navbar({ user, onLogout }) {
         id="main-navigation"
         className={`nav-links${menuOpen ? " open" : ""}`}
       >
-        <Link to="/" onClick={closeMenu}>Početna</Link>
-        <Link to="/courts" onClick={closeMenu}>Tereni</Link>
+        <div className="nav-primary">
+          <Link to="/" onClick={closeMenu}>Početna</Link>
+          <Link to="/courts" onClick={closeMenu}>Tereni</Link>
 
-        {user ? (
+          {user && <Link to="/my-reservations" onClick={closeMenu}>Moje rezervacije</Link>}
+          {user?.role === "Admin" && <Link to="/admin" onClick={closeMenu}>Admin</Link>}
+        </div>
+
+        <div className="nav-account">{user ? (
           <>
-            <Link to="/my-reservations" onClick={closeMenu}>Moje rezervacije</Link>
-
-            {user.role === "Admin" && <Link to="/admin" onClick={closeMenu}>Admin panel</Link>}
-
             <span className="user-name">{user.firstName}</span>
 
             <button className="logout-button" onClick={handleLogout}>
@@ -56,7 +57,7 @@ function Navbar({ user, onLogout }) {
             <Link to="/login" onClick={closeMenu}>Prijava</Link>
             <Link to="/register" onClick={closeMenu}>Registracija</Link>
           </>
-        )}
+        )}</div>
       </div>
     </nav>
   );

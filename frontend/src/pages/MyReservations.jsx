@@ -13,6 +13,8 @@ const timeFormatter = new Intl.DateTimeFormat("sr-RS", {
   minute: "2-digit",
 });
 
+const monthFormatter = new Intl.DateTimeFormat("sr-RS", { month: "short" });
+
 const priceFormatter = new Intl.NumberFormat("sr-RS", {
   style: "currency",
   currency: "RSD",
@@ -89,7 +91,11 @@ function MyReservations() {
       setReservations((currentReservations) =>
         currentReservations.map((currentReservation) =>
           currentReservation.id === reservation.id
-            ? { ...currentReservation, status: "Cancelled" }
+            ? {
+                ...currentReservation,
+                status: "Cancelled",
+                canCancel: false,
+              }
             : currentReservation,
         ),
       );
@@ -173,6 +179,11 @@ function MyReservations() {
 
             return (
               <article className="reservation-card" key={reservation.id}>
+                <div className="reservation-ticket-date" aria-label={dateFormatter.format(startTime)}>
+                  <strong>{String(startTime.getDate()).padStart(2, "0")}</strong>
+                  <span>{monthFormatter.format(startTime).replace(".", "")}</span>
+                </div>
+                <div className="reservation-ticket-body">
                 <div className="reservation-card-heading">
                   <div>
                     <span className="reservation-label">Teren</span>
@@ -203,7 +214,7 @@ function MyReservations() {
                   </div>
                 </dl>
 
-                {reservation.status === "Active" && (
+                {reservation.canCancel && (
                   <div className="reservation-actions">
                     <button
                       type="button"
@@ -217,6 +228,7 @@ function MyReservations() {
                     </button>
                   </div>
                 )}
+                </div>
               </article>
             );
           })}
