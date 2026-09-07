@@ -17,15 +17,21 @@ namespace PadelBooking.Api.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IBookingTimeService _bookingTime;
         private readonly ICourtAdvisoryLockService _courtLock;
+        private readonly IEmailService _emailService;
+        private readonly ILogger<ReservationsController> _logger;
 
         public ReservationsController(
             ApplicationDbContext context,
             IBookingTimeService bookingTime,
-            ICourtAdvisoryLockService courtLock)
+            ICourtAdvisoryLockService courtLock,
+            IEmailService emailService,
+            ILogger<ReservationsController> logger)
         {
             _context = context;
             _bookingTime = bookingTime;
             _courtLock = courtLock;
+            _emailService = emailService;
+            _logger = logger;
         }
 
         // POST api/reservations
@@ -40,12 +46,21 @@ namespace PadelBooking.Api.Controllers
                 return Unauthorized();
             }
 
-            await using var courtLock = await _courtLock.TryAcquireAsync(
+            var user = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            var acquiredCourtLock = await _courtLock.TryAcquireAsync(
                 request.CourtId,
                 HttpContext.RequestAborted
             );
 
-            if (courtLock == null)
+            if (acquiredCourtLock == null)
             {
                 Response.Headers.RetryAfter = "1";
                 return StatusCode(
@@ -58,51 +73,81 @@ namespace PadelBooking.Api.Controllers
                 );
             }
 
-            var court = await _context.Courts
-                .FirstOrDefaultAsync(c =>
-                    c.Id == request.CourtId &&
-                    c.IsActive
+            Reservation reservation;
+            Court court;
+
+            await using (acquiredCourtLock)
+            {
+                var lockedCourt = await _context.Courts
+                    .FirstOrDefaultAsync(c =>
+                        c.Id == request.CourtId &&
+                        c.IsActive
+                    );
+
+                if (lockedCourt == null)
+                {
+                    return NotFound("Teren nije pronađen ili više nije aktivan.");
+                }
+
+                court = lockedCourt;
+
+                var isOccupied = await _context.Reservations
+                    .AnyAsync(r =>
+                        r.CourtId == request.CourtId &&
+                        r.Status == "Active" &&
+                        request.StartTime < r.EndTime &&
+                        request.EndTime > r.StartTime
+                    );
+
+                if (isOccupied)
+                {
+                    return Conflict("Izabrani termin je već zauzet.");
+                }
+
+                var durationHours =
+                    (decimal)(request.EndTime - request.StartTime).TotalHours;
+
+                var totalPrice = Math.Round(
+                    court.PricePerHour * durationHours,
+                    2
                 );
 
-            if (court == null)
-            {
-                return NotFound("Teren nije pronađen ili više nije aktivan.");
+                reservation = new Reservation
+                {
+                    UserId = userId,
+                    CourtId = court.Id,
+                    StartTime = request.StartTime,
+                    EndTime = request.EndTime,
+                    TotalPrice = totalPrice,
+                    Status = "Active",
+                    CreatedAt = _bookingTime.UtcNow
+                };
+
+                _context.Reservations.Add(reservation);
+                await _context.SaveChangesAsync();
             }
 
-            var isOccupied = await _context.Reservations
-                .AnyAsync(r =>
-                    r.CourtId == request.CourtId &&
-                    r.Status == "Active" &&
-                    request.StartTime < r.EndTime &&
-                    request.EndTime > r.StartTime
-                );
-
-            if (isOccupied)
+            try
             {
-                return Conflict("Izabrani termin je već zauzet.");
+                await _emailService.SendReservationConfirmationAsync(
+                    new ReservationConfirmationEmail(
+                        user.Email,
+                        user.FirstName,
+                        court.Name,
+                        court.Location,
+                        reservation.StartTime,
+                        reservation.EndTime,
+                        reservation.TotalPrice,
+                        reservation.Id),
+                    CancellationToken.None);
             }
-
-            var durationHours =
-                (decimal)(request.EndTime - request.StartTime).TotalHours;
-
-            var totalPrice = Math.Round(
-                court.PricePerHour * durationHours,
-                2
-            );
-
-            var reservation = new Reservation
+            catch (Exception exception)
             {
-                UserId = userId,
-                CourtId = court.Id,
-                StartTime = request.StartTime,
-                EndTime = request.EndTime,
-                TotalPrice = totalPrice,
-                Status = "Active",
-                CreatedAt = _bookingTime.UtcNow
-            };
-
-            _context.Reservations.Add(reservation);
-            await _context.SaveChangesAsync();
+                _logger.LogError(
+                    exception,
+                    "Slanje confirmation emaila za rezervaciju {ReservationId} nije uspelo.",
+                    reservation.Id);
+            }
 
             return Ok(new
             {
