@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using PadelBooking.Api.Validation;
 using PadelBooking.Api.Validators;
 using PadelBooking.Api.Services;
+using PadelBooking.Api.Options;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,6 +24,9 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>()
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IBookingTimeService, BookingTimeService>();
 builder.Services.AddScoped<ICourtAdvisoryLockService, CourtAdvisoryLockService>();
+builder.Services.Configure<EmailOptions>(
+    builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddControllers(options =>
 {
