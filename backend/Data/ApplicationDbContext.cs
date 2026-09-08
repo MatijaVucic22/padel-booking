@@ -42,6 +42,12 @@ namespace PadelBooking.Api.Data
                     reservation.EndTime
                 });
             });
+
+            modelBuilder.Entity<Court>(entity =>
+            {
+                entity.Property(court => court.ImageUrl)
+                    .HasMaxLength(500);
+            });
         }
     }
 }

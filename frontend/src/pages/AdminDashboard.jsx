@@ -83,6 +83,12 @@ function AdminDashboard() {
   const [courtError, setCourtError] = useState("");
   const [courtWarning, setCourtWarning] = useState("");
   const [courtFieldErrors, setCourtFieldErrors] = useState({});
+  const [courtImage, setCourtImage] = useState(null);
+  const [courtImagePreview, setCourtImagePreview] = useState("");
+
+  useEffect(() => () => {
+    if (courtImagePreview) URL.revokeObjectURL(courtImagePreview);
+  }, [courtImagePreview]);
 
   useEffect(() => {
     let ignoreResponse = false;
@@ -205,6 +211,20 @@ function AdminDashboard() {
     });
   };
 
+  const handleCourtImage = (event) => {
+    const image = event.target.files?.[0] ?? null;
+
+    setCourtImage(image);
+    setCourtImagePreview(image ? URL.createObjectURL(image) : "");
+    setCourtFieldErrors((currentErrors) => {
+      if (!currentErrors.image) return currentErrors;
+
+      const nextErrors = { ...currentErrors };
+      delete nextErrors.image;
+      return nextErrors;
+    });
+  };
+
   const startEditingCourt = (court) => {
     setEditingCourtId(court.id);
     setCourtForm({
@@ -217,12 +237,16 @@ function AdminDashboard() {
     setCourtError("");
     setCourtWarning("");
     setCourtFieldErrors({});
+    setCourtImage(null);
+    setCourtImagePreview("");
   };
 
   const resetCourtForm = () => {
     setEditingCourtId(null);
     setCourtForm(emptyCourtForm);
     setCourtFieldErrors({});
+    setCourtImage(null);
+    setCourtImagePreview("");
   };
 
   const saveCourt = async (event) => {
@@ -233,7 +257,7 @@ function AdminDashboard() {
     setCourtWarning("");
     setCourtFieldErrors({});
 
-    const payload = {
+    const courtPayload = {
       ...courtForm,
       pricePerHour: Number(courtForm.pricePerHour),
     };
@@ -241,9 +265,24 @@ function AdminDashboard() {
     try {
       const { refreshSucceeded } = await runAdminMutation({
         mutate: async () => {
-          const response = editingCourtId
-            ? await api.put(`/courts/${editingCourtId}`, payload)
-            : await api.post("/courts", payload);
+          let response;
+
+          if (editingCourtId) {
+            response = await api.put(
+              `/courts/${editingCourtId}`,
+              courtPayload,
+            );
+          } else {
+            const formData = new FormData();
+            formData.append("name", courtForm.name);
+            formData.append("location", courtForm.location);
+            formData.append("description", courtForm.description);
+            formData.append("pricePerHour", courtForm.pricePerHour);
+
+            if (courtImage) formData.append("image", courtImage);
+
+            response = await api.post("/courts", formData);
+          }
 
           return response.data;
         },
@@ -466,6 +505,29 @@ function AdminDashboard() {
                 <span className="field-error" key={message}>{message}</span>
               ))}
             </label>
+
+            {!editingCourtId && (
+              <label>
+                Slika terena
+                <input
+                  type="file"
+                  name="image"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  onChange={handleCourtImage}
+                  aria-invalid={Boolean(courtFieldErrors.image)}
+                />
+                <small>JPG, PNG ili WebP, maksimalno 5 MB.</small>
+                {courtFieldErrors.image?.map((message) => (
+                  <span className="field-error" key={message}>{message}</span>
+                ))}
+              </label>
+            )}
+
+            {courtImagePreview && (
+              <div className="court-image-preview">
+                <img src={courtImagePreview} alt="Pregled izabrane slike terena" />
+              </div>
+            )}
 
             <div className="admin-form-actions">
               <button type="submit" disabled={savingCourt}>

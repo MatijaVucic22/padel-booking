@@ -12,6 +12,8 @@ namespace PadelBooking.Api.Models
 
         public decimal PricePerHour { get; set; }
 
+        public string? ImageUrl { get; set; }
+
         public bool IsActive { get; set; } = true;
     }
 }
