@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
+import {
+  hasValidationErrors,
+  parseValidationErrors,
+} from "../utils/validationErrors";
 
 const dateFormatter = new Intl.DateTimeFormat("sr-Latn-RS", {
   day: "2-digit",
@@ -27,6 +31,13 @@ const statusLabels = {
   Completed: "Završena",
 };
 
+function getLocalDate() {
+  const today = new Date();
+  const offset = today.getTimezoneOffset() * 60_000;
+
+  return new Date(today.getTime() - offset).toISOString().split("T")[0];
+}
+
 function MyReservations() {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +46,47 @@ function MyReservations() {
   const [cancellingId, setCancellingId] = useState(null);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
+  const [rescheduling, setRescheduling] = useState(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleSlots, setRescheduleSlots] = useState([]);
+  const [selectedRescheduleSlot, setSelectedRescheduleSlot] = useState(null);
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
+  const [rescheduleSaving, setRescheduleSaving] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState("");
+  const [rescheduleFieldErrors, setRescheduleFieldErrors] = useState({});
+
+  useEffect(() => {
+    if (!rescheduling || !rescheduleDate) return undefined;
+
+    let ignoreResponse = false;
+    setRescheduleLoading(true);
+    setRescheduleError("");
+
+    api
+      .get("/reservations/available", {
+        params: {
+          courtId: rescheduling.courtId,
+          date: rescheduleDate,
+        },
+      })
+      .then((response) => {
+        if (!ignoreResponse) setRescheduleSlots(response.data.slots);
+      })
+      .catch((requestError) => {
+        if (ignoreResponse) return;
+
+        console.error(requestError);
+        setRescheduleSlots([]);
+        setRescheduleError("Slobodne termine trenutno nije moguće učitati.");
+      })
+      .finally(() => {
+        if (!ignoreResponse) setRescheduleLoading(false);
+      });
+
+    return () => {
+      ignoreResponse = true;
+    };
+  }, [rescheduling, rescheduleDate]);
 
   useEffect(() => {
     let ignoreResponse = false;
@@ -111,6 +163,84 @@ function MyReservations() {
       );
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const openReschedule = (reservation) => {
+    setRescheduling(reservation);
+    setRescheduleDate(reservation.startTime.split("T")[0]);
+    setRescheduleSlots([]);
+    setSelectedRescheduleSlot(null);
+    setRescheduleError("");
+    setRescheduleFieldErrors({});
+    setActionMessage("");
+    setActionError("");
+  };
+
+  const closeReschedule = () => {
+    if (rescheduleSaving) return;
+
+    setRescheduling(null);
+    setRescheduleDate("");
+    setRescheduleSlots([]);
+    setSelectedRescheduleSlot(null);
+    setRescheduleError("");
+    setRescheduleFieldErrors({});
+  };
+
+  const changeRescheduleDate = (event) => {
+    setRescheduleDate(event.target.value);
+    setRescheduleSlots([]);
+    setSelectedRescheduleSlot(null);
+    setRescheduleError("");
+    setRescheduleFieldErrors({});
+  };
+
+  const submitReschedule = async () => {
+    if (!rescheduling || !selectedRescheduleSlot || rescheduleSaving) return;
+
+    setRescheduleSaving(true);
+    setRescheduleError("");
+    setRescheduleFieldErrors({});
+
+    try {
+      const response = await api.put(
+        `/reservations/${rescheduling.id}/reschedule`,
+        {
+          startTime: selectedRescheduleSlot.startTime,
+          endTime: selectedRescheduleSlot.endTime,
+        },
+      );
+
+      setActionMessage(
+        response.data?.message ?? "Termin rezervacije je uspešno promenjen.",
+      );
+      setRescheduling(null);
+      setRescheduleDate("");
+      setRescheduleSlots([]);
+      setSelectedRescheduleSlot(null);
+      setReloadKey((currentKey) => currentKey + 1);
+    } catch (requestError) {
+      console.error(requestError);
+      const validationErrors = parseValidationErrors(requestError);
+
+      if (hasValidationErrors(validationErrors)) {
+        setRescheduleFieldErrors(validationErrors);
+        return;
+      }
+
+      if (requestError.response?.status === 409) {
+        setSelectedRescheduleSlot(null);
+      }
+
+      setRescheduleError(
+        typeof requestError.response?.data === "string"
+          ? requestError.response.data
+          : requestError.response?.data?.message ??
+            "Termin rezervacije trenutno nije moguće promeniti.",
+      );
+    } finally {
+      setRescheduleSaving(false);
     }
   };
 
@@ -218,6 +348,14 @@ function MyReservations() {
                   <div className="reservation-actions">
                     <button
                       type="button"
+                      className="reschedule-reservation-button"
+                      disabled={cancellingId !== null}
+                      onClick={() => openReschedule(reservation)}
+                    >
+                      Promeni termin
+                    </button>
+                    <button
+                      type="button"
                       className="cancel-reservation-button"
                       disabled={cancellingId !== null}
                       onClick={() => cancelReservation(reservation)}
@@ -232,6 +370,109 @@ function MyReservations() {
               </article>
             );
           })}
+        </div>
+      )}
+
+      {rescheduling && (
+        <div className="reschedule-modal-backdrop" role="presentation">
+          <section
+            className="reschedule-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reschedule-title"
+          >
+            <div className="reschedule-modal-heading">
+              <div>
+                <span className="reservation-label">{rescheduling.courtName}</span>
+                <h2 id="reschedule-title">Promeni termin</h2>
+              </div>
+              <button
+                type="button"
+                className="reschedule-close-button"
+                aria-label="Zatvori"
+                disabled={rescheduleSaving}
+                onClick={closeReschedule}
+              >
+                ×
+              </button>
+            </div>
+
+            <p className="reschedule-current-slot">
+              Trenutni termin: <strong>
+                {dateFormatter.format(new Date(rescheduling.startTime))}, {" "}
+                {timeFormatter.format(new Date(rescheduling.startTime))}–
+                {timeFormatter.format(new Date(rescheduling.endTime))}
+              </strong>
+            </p>
+
+            <label className="date-field">
+              Novi datum
+              <input
+                type="date"
+                min={getLocalDate()}
+                value={rescheduleDate}
+                disabled={rescheduleSaving}
+                onChange={changeRescheduleDate}
+              />
+            </label>
+
+            {rescheduleLoading && <p className="slots-message">Učitavanje termina...</p>}
+            {rescheduleError && <p className="booking-error" role="alert">{rescheduleError}</p>}
+            {hasValidationErrors(rescheduleFieldErrors) && (
+              <div className="booking-field-errors" role="alert">
+                {rescheduleFieldErrors.startTime?.map((message) => (
+                  <p className="field-error" key={message}><strong>Početak:</strong> {message}</p>
+                ))}
+                {rescheduleFieldErrors.endTime?.map((message) => (
+                  <p className="field-error" key={message}><strong>Završetak:</strong> {message}</p>
+                ))}
+              </div>
+            )}
+
+            {!rescheduleLoading && !rescheduleError && rescheduleSlots.length === 0 && (
+              <p className="slots-message">Nema slobodnih termina za izabrani datum.</p>
+            )}
+
+            {!rescheduleLoading && rescheduleSlots.length > 0 && (
+              <div className="slots-grid" aria-label="Novi slobodni termini">
+                {rescheduleSlots.map((slot) => {
+                  const selected = selectedRescheduleSlot?.startTime === slot.startTime;
+
+                  return (
+                    <button
+                      type="button"
+                      className={`slot-button${selected ? " selected" : ""}`}
+                      key={slot.startTime}
+                      aria-pressed={selected}
+                      disabled={rescheduleSaving}
+                      onClick={() => {
+                        setSelectedRescheduleSlot(slot);
+                        setRescheduleError("");
+                        setRescheduleFieldErrors({});
+                      }}
+                    >
+                      {timeFormatter.format(new Date(slot.startTime))}–
+                      {timeFormatter.format(new Date(slot.endTime))}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="reschedule-modal-actions">
+              <button type="button" disabled={rescheduleSaving} onClick={closeReschedule}>
+                Odustani
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!selectedRescheduleSlot || rescheduleSaving}
+                onClick={submitReschedule}
+              >
+                {rescheduleSaving ? "Čuvanje..." : "Potvrdi novi termin"}
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </section>

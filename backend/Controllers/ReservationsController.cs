@@ -206,6 +206,136 @@ namespace PadelBooking.Api.Controllers
             return Ok(reservations);
         }
 
+        [HttpPut("{id}/reschedule")]
+        public async Task<IActionResult> RescheduleReservation(
+            int id,
+            RescheduleReservationRequest request)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!int.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized();
+            }
+
+            var courtId = await _context.Reservations
+                .AsNoTracking()
+                .Where(reservation =>
+                    reservation.Id == id &&
+                    reservation.UserId == userId)
+                .Select(reservation => (int?)reservation.CourtId)
+                .FirstOrDefaultAsync();
+
+            if (courtId == null)
+            {
+                return NotFound("Rezervacija nije pronađena.");
+            }
+
+            var acquiredCourtLock = await _courtLock.TryAcquireAsync(
+                courtId.Value,
+                HttpContext.RequestAborted);
+
+            if (acquiredCourtLock == null)
+            {
+                Response.Headers.RetryAfter = "1";
+                return StatusCode(
+                    StatusCodes.Status503ServiceUnavailable,
+                    new
+                    {
+                        code = "COURT_LOCK_TIMEOUT",
+                        message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
+                    });
+            }
+
+            DateTime oldStartTime;
+            Reservation reservation;
+
+            await using (acquiredCourtLock)
+            {
+                var lockedReservation = await _context.Reservations
+                    .FirstOrDefaultAsync(item =>
+                        item.Id == id &&
+                        item.UserId == userId);
+
+                if (lockedReservation == null)
+                {
+                    return NotFound("Rezervacija nije pronađena.");
+                }
+
+                reservation = lockedReservation;
+
+                var now = _bookingTime.Now;
+
+                if (reservation.Status != "Active" ||
+                    reservation.StartTime <= now)
+                {
+                    return Conflict(
+                        "Samo aktivnu buduću rezervaciju je moguće promeniti.");
+                }
+
+                var court = await _context.Courts
+                    .FirstOrDefaultAsync(item =>
+                        item.Id == reservation.CourtId &&
+                        item.IsActive);
+
+                if (court == null)
+                {
+                    return NotFound("Teren nije pronađen ili više nije aktivan.");
+                }
+
+                if (reservation.StartTime == request.StartTime &&
+                    reservation.EndTime == request.EndTime)
+                {
+                    return Conflict("Izaberi termin različit od trenutnog.");
+                }
+
+                var isOccupied = await _context.Reservations
+                    .AnyAsync(item =>
+                        item.Id != reservation.Id &&
+                        item.CourtId == reservation.CourtId &&
+                        item.Status == "Active" &&
+                        request.StartTime < item.EndTime &&
+                        request.EndTime > item.StartTime);
+
+                if (isOccupied)
+                {
+                    return Conflict("Izabrani termin je već zauzet.");
+                }
+
+                oldStartTime = reservation.StartTime;
+                reservation.StartTime = request.StartTime;
+                reservation.EndTime = request.EndTime;
+                reservation.ReminderSentAtUtc = null;
+
+                await _context.SaveChangesAsync();
+            }
+
+            await NotifyAvailabilityChangedAsync(
+                reservation.CourtId,
+                oldStartTime);
+
+            if (oldStartTime.Date != reservation.StartTime.Date)
+            {
+                await NotifyAvailabilityChangedAsync(
+                    reservation.CourtId,
+                    reservation.StartTime);
+            }
+
+            return Ok(new
+            {
+                message = "Termin rezervacije je uspešno promenjen.",
+                reservation = new
+                {
+                    reservation.Id,
+                    reservation.CourtId,
+                    reservation.StartTime,
+                    reservation.EndTime,
+                    reservation.TotalPrice,
+                    reservation.Status
+                }
+            });
+        }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> CancelReservation(int id)
         {
