@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../api/api";
+import api, { getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
@@ -82,7 +82,7 @@ function Courts() {
           {courts.map((court, index) => (
             <article className="court-card" key={court.id}>
               <Link to={`/courts/${court.id}`} className="court-card-image" aria-label={`Otvori teren ${court.name}`}>
-                <img src={getCourtImage(court.id, index)} alt={`${court.name}, padel teren`} loading="lazy" />
+                <img src={court.imageUrl ? getBackendAssetUrl(court.imageUrl) : getCourtImage(court.id, index)} alt={`${court.name}, padel teren`} loading="lazy" />
               </Link>
               <div className="court-card-content">
                 <div className="court-card-heading"><div><span>{court.location}</span><h2>{court.name}</h2></div><span className="court-card-arrow" aria-hidden="true">↗</span></div>

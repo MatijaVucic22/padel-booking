@@ -1,12 +1,20 @@
 import axios from "axios";
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:5238/api";
+const backendBaseUrl = apiBaseUrl.replace(/\/api\/?$/, "");
 
 const api = axios.create({
   baseURL: apiBaseUrl,
 });
 
-export const courtAvailabilityHubUrl = `${apiBaseUrl.replace(/\/api\/?$/, "")}/hubs/court-availability`;
+export const courtAvailabilityHubUrl = `${backendBaseUrl}/hubs/court-availability`;
+
+export function getBackendAssetUrl(relativeUrl) {
+  if (!relativeUrl) return "";
+  if (/^https?:\/\//i.test(relativeUrl)) return relativeUrl;
+
+  return `${backendBaseUrl}${relativeUrl.startsWith("/") ? "" : "/"}${relativeUrl}`;
+}
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");

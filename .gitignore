@@ -19,3 +19,6 @@ Thumbs.db
 
 #SQL
 padel_booking_old.sql
+
+# Runtime uploads
+backend/wwwroot/uploads/

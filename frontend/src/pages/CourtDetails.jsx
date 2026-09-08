@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import * as signalR from "@microsoft/signalr";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import api, { courtAvailabilityHubUrl } from "../api/api";
+import api, {
+  courtAvailabilityHubUrl,
+  getBackendAssetUrl,
+} from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 import {
   hasValidationErrors,
@@ -273,7 +276,7 @@ function CourtDetails() {
       <div className="court-details-layout">
         <div className="court-details-main">
           <div className="court-details-image">
-            <img src={getCourtImage(id)} alt={`${court.name}, padel teren`} />
+            <img src={court.imageUrl ? getBackendAssetUrl(court.imageUrl) : getCourtImage(id)} alt={`${court.name}, padel teren`} />
           </div>
           <div className="court-details-card">
         <div className="court-details-copy">

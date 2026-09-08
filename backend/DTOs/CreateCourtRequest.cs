@@ -9,5 +9,7 @@ namespace PadelBooking.Api.DTOs
         public string? Description { get; set; }
 
         public decimal PricePerHour { get; set; }
+
+        public IFormFile? Image { get; set; }
     }
 }

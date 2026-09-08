@@ -15,15 +15,18 @@ namespace PadelBooking.Api.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IBookingTimeService _bookingTime;
         private readonly ICourtAdvisoryLockService _courtLock;
+        private readonly IWebHostEnvironment _environment;
 
         public CourtsController(
             ApplicationDbContext context,
             IBookingTimeService bookingTime,
-            ICourtAdvisoryLockService courtLock)
+            ICourtAdvisoryLockService courtLock,
+            IWebHostEnvironment environment)
         {
             _context = context;
             _bookingTime = bookingTime;
             _courtLock = courtLock;
+            _environment = environment;
         }
 
         // GET api/courts
@@ -55,19 +58,80 @@ namespace PadelBooking.Api.Controllers
         // POST api/courts
         [Authorize(Roles = "Admin")]
         [HttpPost]
-        public async Task<IActionResult> CreateCourt(CreateCourtRequest request)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> CreateCourt([FromForm] CreateCourtRequest request)
         {
+            string? storedImagePath = null;
+            string? imageUrl = null;
+
+            if (request.Image != null)
+            {
+                var uploadsDirectory = Path.Combine(
+                    _environment.WebRootPath ??
+                        Path.Combine(_environment.ContentRootPath, "wwwroot"),
+                    "uploads",
+                    "courts");
+
+                Directory.CreateDirectory(uploadsDirectory);
+
+                var extension = request.Image.ContentType.ToLowerInvariant() switch
+                {
+                    "image/jpeg" => ".jpg",
+                    "image/png" => ".png",
+                    "image/webp" => ".webp",
+                    _ => throw new InvalidOperationException(
+                        "Nepodržan tip slike prošao je validaciju.")
+                };
+                var generatedFileName = $"{Guid.NewGuid():N}{extension}";
+                storedImagePath = Path.Combine(uploadsDirectory, generatedFileName);
+                imageUrl = $"/uploads/courts/{generatedFileName}";
+
+                try
+                {
+                    await using var imageStream = new FileStream(
+                        storedImagePath,
+                        FileMode.CreateNew,
+                        FileAccess.Write,
+                        FileShare.None);
+                    await request.Image.CopyToAsync(
+                        imageStream,
+                        HttpContext.RequestAborted);
+                }
+                catch
+                {
+                    if (System.IO.File.Exists(storedImagePath))
+                    {
+                        System.IO.File.Delete(storedImagePath);
+                    }
+
+                    throw;
+                }
+            }
+
             var court = new Court
             {
                 Name = request.Name.Trim(),
                 Location = request.Location.Trim(),
                 Description = request.Description?.Trim(),
                 PricePerHour = request.PricePerHour,
+                ImageUrl = imageUrl,
                 IsActive = true
             };
 
-            _context.Courts.Add(court);
-            await _context.SaveChangesAsync();
+            try
+            {
+                _context.Courts.Add(court);
+                await _context.SaveChangesAsync();
+            }
+            catch
+            {
+                if (storedImagePath != null && System.IO.File.Exists(storedImagePath))
+                {
+                    System.IO.File.Delete(storedImagePath);
+                }
+
+                throw;
+            }
 
             return CreatedAtAction(
                 nameof(GetCourt),
