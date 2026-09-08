@@ -8,19 +8,12 @@ import {
   runAdminMutation,
   settleAdminRequests,
 } from "../utils/adminAsync";
+import {
+  numericDateFormatter as dateFormatter,
+  timeFormatter,
+} from "../utils/dateFormatters";
 
-const dateFormatter = new Intl.DateTimeFormat("sr-RS", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
-
-const timeFormatter = new Intl.DateTimeFormat("sr-RS", {
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-const priceFormatter = new Intl.NumberFormat("sr-RS", {
+const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
   currency: "RSD",
   maximumFractionDigits: 2,

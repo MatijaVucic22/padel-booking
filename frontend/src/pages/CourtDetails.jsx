@@ -7,23 +7,15 @@ import {
   hasValidationErrors,
   parseValidationErrors,
 } from "../utils/validationErrors";
+import {
+  longDateWithWeekdayFormatter as dateFormatter,
+  timeFormatter,
+} from "../utils/dateFormatters";
 
-const priceFormatter = new Intl.NumberFormat("sr-RS", {
+const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
   currency: "RSD",
   maximumFractionDigits: 2,
-});
-
-const dateFormatter = new Intl.DateTimeFormat("sr-RS", {
-  weekday: "long",
-  day: "2-digit",
-  month: "long",
-  year: "numeric",
-});
-
-const timeFormatter = new Intl.DateTimeFormat("sr-RS", {
-  hour: "2-digit",
-  minute: "2-digit",
 });
 
 function getLocalDate() {

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import api from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 
-const priceFormatter = new Intl.NumberFormat("sr-RS", {
+const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
   currency: "RSD",
   maximumFractionDigits: 2,
