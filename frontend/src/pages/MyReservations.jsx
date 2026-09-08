@@ -5,19 +5,11 @@ import {
   hasValidationErrors,
   parseValidationErrors,
 } from "../utils/validationErrors";
-
-const dateFormatter = new Intl.DateTimeFormat("sr-Latn-RS", {
-  day: "2-digit",
-  month: "long",
-  year: "numeric",
-});
-
-const timeFormatter = new Intl.DateTimeFormat("sr-Latn-RS", {
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-const monthFormatter = new Intl.DateTimeFormat("sr-Latn-RS", { month: "short" });
+import {
+  longDateFormatter as dateFormatter,
+  shortMonthFormatter as monthFormatter,
+  timeFormatter,
+} from "../utils/dateFormatters";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
