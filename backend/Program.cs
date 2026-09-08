@@ -9,6 +9,7 @@ using PadelBooking.Api.Validation;
 using PadelBooking.Api.Validators;
 using PadelBooking.Api.Services;
 using PadelBooking.Api.Options;
+using PadelBooking.Api.Hubs;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +29,7 @@ builder.Services.Configure<EmailOptions>(
     builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddHostedService<ReservationReminderBackgroundService>();
+builder.Services.AddSignalR();
 
 builder.Services.AddControllers(options =>
 {
@@ -80,7 +82,8 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins("http://localhost:5173")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -165,6 +168,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<CourtAvailabilityHub>("/hubs/court-availability");
 
 
 // Configure the HTTP request pipeline.

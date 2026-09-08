@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import * as signalR from "@microsoft/signalr";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import api from "../api/api";
+import api, { courtAvailabilityHubUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 import {
   hasValidationErrors,
@@ -104,6 +105,66 @@ function CourtDetails() {
       ignoreResponse = true;
     };
   }, [id, selectedDate, slotsReloadKey]);
+
+  useEffect(() => {
+    if (!selectedDate) return undefined;
+
+    let disposed = false;
+    const courtId = Number(id);
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(courtAvailabilityHubUrl)
+      .withAutomaticReconnect()
+      .build();
+
+    const refreshAvailability = () => {
+      if (disposed) return;
+
+      setSlotsLoading(true);
+      setSlotsError("");
+      setSlotsReloadKey((currentKey) => currentKey + 1);
+    };
+
+    const joinGroup = () =>
+      connection.invoke("JoinCourtDate", courtId, selectedDate);
+
+    connection.on("AvailabilityChanged", refreshAvailability);
+    connection.onreconnected(() => {
+      joinGroup().catch((connectionError) => {
+        if (!disposed) console.error(connectionError);
+      });
+    });
+
+    const connect = async () => {
+      try {
+        await connection.start();
+
+        if (disposed) {
+          await connection.stop();
+          return;
+        }
+
+        await joinGroup();
+      } catch (connectionError) {
+        if (!disposed) console.error(connectionError);
+      }
+    };
+
+    connect();
+
+    return () => {
+      disposed = true;
+      connection.off("AvailabilityChanged", refreshAvailability);
+
+      if (connection.state === signalR.HubConnectionState.Connected) {
+        connection
+          .invoke("LeaveCourtDate", courtId, selectedDate)
+          .catch(() => undefined)
+          .finally(() => connection.stop());
+      } else if (connection.state !== signalR.HubConnectionState.Disconnected) {
+        connection.stop();
+      }
+    };
+  }, [id, selectedDate]);
 
   const selectDate = (event) => {
     const date = event.target.value;

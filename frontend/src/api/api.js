@@ -1,8 +1,12 @@
 import axios from "axios";
 
+const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:5238/api";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5238/api",
+  baseURL: apiBaseUrl,
 });
+
+export const courtAvailabilityHubUrl = `${apiBaseUrl.replace(/\/api\/?$/, "")}/hubs/court-availability`;
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");

@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using PadelBooking.Api.Data;
 using PadelBooking.Api.DTOs;
 using PadelBooking.Api.Models;
 using PadelBooking.Api.Services;
+using PadelBooking.Api.Hubs;
 using System.Security.Claims;
 
 namespace PadelBooking.Api.Controllers
@@ -19,19 +21,22 @@ namespace PadelBooking.Api.Controllers
         private readonly ICourtAdvisoryLockService _courtLock;
         private readonly IEmailService _emailService;
         private readonly ILogger<ReservationsController> _logger;
+        private readonly IHubContext<CourtAvailabilityHub> _availabilityHub;
 
         public ReservationsController(
             ApplicationDbContext context,
             IBookingTimeService bookingTime,
             ICourtAdvisoryLockService courtLock,
             IEmailService emailService,
-            ILogger<ReservationsController> logger)
+            ILogger<ReservationsController> logger,
+            IHubContext<CourtAvailabilityHub> availabilityHub)
         {
             _context = context;
             _bookingTime = bookingTime;
             _courtLock = courtLock;
             _emailService = emailService;
             _logger = logger;
+            _availabilityHub = availabilityHub;
         }
 
         // POST api/reservations
@@ -126,6 +131,10 @@ namespace PadelBooking.Api.Controllers
                 _context.Reservations.Add(reservation);
                 await _context.SaveChangesAsync();
             }
+
+            await NotifyAvailabilityChangedAsync(
+                reservation.CourtId,
+                reservation.StartTime);
 
             try
             {
@@ -243,6 +252,10 @@ namespace PadelBooking.Api.Controllers
 
             await _context.SaveChangesAsync();
 
+            await NotifyAvailabilityChangedAsync(
+                reservation.CourtId,
+                reservation.StartTime);
+
             try
             {
                 await _emailService.SendReservationCancellationAsync(
@@ -269,6 +282,30 @@ namespace PadelBooking.Api.Controllers
             {
                 message = "Rezervacija uspešno otkazana."
             });
+        }
+
+        private async Task NotifyAvailabilityChangedAsync(
+            int courtId,
+            DateTime reservationStartTime)
+        {
+            var groupName = CourtAvailabilityHub.GetGroupName(
+                courtId,
+                reservationStartTime);
+
+            try
+            {
+                await _availabilityHub.Clients
+                    .Group(groupName)
+                    .SendAsync(CourtAvailabilityHub.AvailabilityChangedEvent);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "SignalR availability obaveštenje nije poslato za teren {CourtId} i datum {Date}.",
+                    courtId,
+                    reservationStartTime.ToString("yyyy-MM-dd"));
+            }
         }
         [AllowAnonymous]
         [HttpGet("available")]
