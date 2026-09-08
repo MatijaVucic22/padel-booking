@@ -1,9 +1,27 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 function Navbar({ user, onLogout }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setTheme] = useState(
+    () => document.documentElement.dataset.theme || "light",
+  );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const handleSystemThemeChange = (event) => {
+      if (!localStorage.getItem("theme")) {
+        const systemTheme = event.matches ? "dark" : "light";
+        document.documentElement.dataset.theme = systemTheme;
+        setTheme(systemTheme);
+      }
+    };
+
+    mediaQuery.addEventListener("change", handleSystemThemeChange);
+    return () => mediaQuery.removeEventListener("change", handleSystemThemeChange);
+  }, []);
 
   const closeMenu = () => setMenuOpen(false);
 
@@ -11,6 +29,13 @@ function Navbar({ user, onLogout }) {
     setMenuOpen(false);
     onLogout();
     navigate("/");
+  };
+
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = nextTheme;
+    localStorage.setItem("theme", nextTheme);
+    setTheme(nextTheme);
   };
 
   return (
@@ -57,7 +82,18 @@ function Navbar({ user, onLogout }) {
             <Link to="/login" onClick={closeMenu}>Prijava</Link>
             <Link to="/register" onClick={closeMenu}>Registracija</Link>
           </>
-        )}</div>
+        )}
+
+          <button
+            type="button"
+            className="theme-toggle"
+            aria-label={theme === "dark" ? "Uključi svetlu temu" : "Uključi tamnu temu"}
+            title={theme === "dark" ? "Svetla tema" : "Tamna tema"}
+            onClick={toggleTheme}
+          >
+            <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
+          </button>
+        </div>
       </div>
     </nav>
   );
