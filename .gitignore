@@ -16,3 +16,6 @@ obj/
 
 # Windows
 Thumbs.db
+
+#SQL
+padel_booking_old.sql
