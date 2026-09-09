@@ -68,7 +68,11 @@ namespace PadelBooking.Api.Controllers
                         reservation.CourtId == court.Id &&
                         reservation.Status != "Cancelled" &&
                         request.StartTime < reservation.EndTime &&
-                        endTime > reservation.StartTime))
+                        endTime > reservation.StartTime) &&
+                    !_context.BlockedPeriods.Any(period =>
+                        period.CourtId == court.Id &&
+                        request.StartTime < period.EndTime &&
+                        endTime > period.StartTime))
                 .OrderBy(court => court.Name)
                 .ToListAsync();
 

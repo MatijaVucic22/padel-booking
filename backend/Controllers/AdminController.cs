@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using PadelBooking.Api.Data;
+using PadelBooking.Api.DTOs;
+using PadelBooking.Api.Hubs;
+using PadelBooking.Api.Models;
 using PadelBooking.Api.Services;
 
 namespace PadelBooking.Api.Controllers
@@ -14,13 +18,22 @@ namespace PadelBooking.Api.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IBookingTimeService _bookingTime;
+        private readonly ICourtAdvisoryLockService _courtLock;
+        private readonly IHubContext<CourtAvailabilityHub> _availabilityHub;
+        private readonly ILogger<AdminController> _logger;
 
         public AdminController(
             ApplicationDbContext context,
-            IBookingTimeService bookingTime)
+            IBookingTimeService bookingTime,
+            ICourtAdvisoryLockService courtLock,
+            IHubContext<CourtAvailabilityHub> availabilityHub,
+            ILogger<AdminController> logger)
         {
             _context = context;
             _bookingTime = bookingTime;
+            _courtLock = courtLock;
+            _availabilityHub = availabilityHub;
+            _logger = logger;
         }
 
         // GET api/admin/users
@@ -131,12 +144,185 @@ namespace PadelBooking.Api.Controllers
                 })
                 .ToListAsync();
 
+            var blockedPeriods = await _context.BlockedPeriods
+                .AsNoTracking()
+                .Where(period =>
+                    period.Court.IsActive &&
+                    period.StartTime < dayEnd &&
+                    period.EndTime > dayStart)
+                .OrderBy(period => period.StartTime)
+                .Select(period => new
+                {
+                    period.Id,
+                    period.CourtId,
+                    CourtName = period.Court.Name,
+                    period.StartTime,
+                    period.EndTime,
+                    period.Reason
+                })
+                .ToListAsync();
+
             return Ok(new
             {
                 date = calendarDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 courts,
-                reservations
+                reservations,
+                blockedPeriods
             });
+        }
+
+        // POST api/admin/blocked-periods
+        [HttpPost("blocked-periods")]
+        public async Task<IActionResult> CreateBlockedPeriod(
+            CreateBlockedPeriodRequest request)
+        {
+            await using var courtLock = await _courtLock.TryAcquireAsync(
+                request.CourtId,
+                HttpContext.RequestAborted);
+
+            if (courtLock == null)
+            {
+                Response.Headers.RetryAfter = "1";
+                return StatusCode(
+                    StatusCodes.Status503ServiceUnavailable,
+                    new
+                    {
+                        code = "COURT_LOCK_TIMEOUT",
+                        message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
+                    });
+            }
+
+            var court = await _context.Courts
+                .FirstOrDefaultAsync(item =>
+                    item.Id == request.CourtId &&
+                    item.IsActive);
+
+            if (court == null)
+            {
+                return NotFound("Teren nije pronađen ili više nije aktivan.");
+            }
+
+            var overlapsReservation = await _context.Reservations
+                .AnyAsync(reservation =>
+                    reservation.CourtId == request.CourtId &&
+                    reservation.Status != "Cancelled" &&
+                    reservation.StartTime < request.EndTime &&
+                    reservation.EndTime > request.StartTime);
+
+            if (overlapsReservation)
+            {
+                return Conflict("Blokirani period se preklapa sa postojećom rezervacijom.");
+            }
+
+            var overlapsBlockedPeriod = await _context.BlockedPeriods
+                .AnyAsync(period =>
+                    period.CourtId == request.CourtId &&
+                    period.StartTime < request.EndTime &&
+                    period.EndTime > request.StartTime);
+
+            if (overlapsBlockedPeriod)
+            {
+                return Conflict("Izabrani period je već blokiran.");
+            }
+
+            var blockedPeriod = new BlockedPeriod
+            {
+                CourtId = request.CourtId,
+                StartTime = request.StartTime,
+                EndTime = request.EndTime,
+                Reason = request.Reason.Trim(),
+                CreatedAtUtc = _bookingTime.UtcNow
+            };
+
+            _context.BlockedPeriods.Add(blockedPeriod);
+            await _context.SaveChangesAsync();
+
+            await NotifyAvailabilityChangedAsync(
+                blockedPeriod.CourtId,
+                blockedPeriod.StartTime);
+
+            return Ok(new
+            {
+                message = "Termin je uspešno blokiran.",
+                blockedPeriod = new
+                {
+                    blockedPeriod.Id,
+                    blockedPeriod.CourtId,
+                    CourtName = court.Name,
+                    blockedPeriod.StartTime,
+                    blockedPeriod.EndTime,
+                    blockedPeriod.Reason
+                }
+            });
+        }
+
+        // DELETE api/admin/blocked-periods/5
+        [HttpDelete("blocked-periods/{id:int}")]
+        public async Task<IActionResult> DeleteBlockedPeriod(int id)
+        {
+            var courtId = await _context.BlockedPeriods
+                .AsNoTracking()
+                .Where(period => period.Id == id)
+                .Select(period => (int?)period.CourtId)
+                .FirstOrDefaultAsync();
+
+            if (courtId == null)
+            {
+                return NotFound("Blokirani period nije pronađen.");
+            }
+
+            await using var courtLock = await _courtLock.TryAcquireAsync(
+                courtId.Value,
+                HttpContext.RequestAborted);
+
+            if (courtLock == null)
+            {
+                Response.Headers.RetryAfter = "1";
+                return StatusCode(
+                    StatusCodes.Status503ServiceUnavailable,
+                    new
+                    {
+                        code = "COURT_LOCK_TIMEOUT",
+                        message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
+                    });
+            }
+
+            var blockedPeriod = await _context.BlockedPeriods
+                .FirstOrDefaultAsync(period => period.Id == id);
+
+            if (blockedPeriod == null)
+            {
+                return NotFound("Blokirani period nije pronađen.");
+            }
+
+            _context.BlockedPeriods.Remove(blockedPeriod);
+            await _context.SaveChangesAsync();
+
+            await NotifyAvailabilityChangedAsync(
+                blockedPeriod.CourtId,
+                blockedPeriod.StartTime);
+
+            return Ok(new { message = "Termin je uspešno odblokiran." });
+        }
+
+        private async Task NotifyAvailabilityChangedAsync(
+            int courtId,
+            DateTime startTime)
+        {
+            try
+            {
+                await _availabilityHub.Clients
+                    .Group(CourtAvailabilityHub.GetGroupName(courtId, startTime))
+                    .SendAsync(CourtAvailabilityHub.AvailabilityChangedEvent);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "SignalR availability obaveštenje nije poslato za teren {CourtId} i datum {Date}.",
+                    courtId,
+                    startTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            }
         }
 
         // GET api/admin/stats

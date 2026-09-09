@@ -42,6 +42,7 @@ const tabs = [
 ];
 
 const calendarHours = Array.from({ length: 14 }, (_, index) => index + 8);
+const calendarBoundaryHours = Array.from({ length: 15 }, (_, index) => index + 8);
 
 function getTodayDate() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -113,15 +114,103 @@ function AdminDashboard() {
   const [courtImage, setCourtImage] = useState(null);
   const [courtImagePreview, setCourtImagePreview] = useState("");
   const [calendarDate, setCalendarDate] = useState(getTodayDate);
-  const [calendarData, setCalendarData] = useState({ courts: [], reservations: [] });
+  const [calendarData, setCalendarData] = useState({ courts: [], reservations: [], blockedPeriods: [] });
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarError, setCalendarError] = useState("");
   const [calendarReloadKey, setCalendarReloadKey] = useState(0);
   const [selectedCalendarReservation, setSelectedCalendarReservation] = useState(null);
+  const [selectedBlockedPeriod, setSelectedBlockedPeriod] = useState(null);
+  const [showBlockForm, setShowBlockForm] = useState(false);
+  const [blockForm, setBlockForm] = useState({ courtId: "", date: calendarDate, startHour: "08", endHour: "09", reason: "" });
+  const [blockFieldErrors, setBlockFieldErrors] = useState({});
+  const [blockError, setBlockError] = useState("");
+  const [savingBlock, setSavingBlock] = useState(false);
+  const [deletingBlock, setDeletingBlock] = useState(false);
 
   const calendarCourtIds = calendarData.courts
     .map((court) => court.id)
     .join(",");
+
+  const openBlockForm = () => {
+    setBlockForm({
+      courtId: String(calendarData.courts[0]?.id ?? ""),
+      date: calendarDate,
+      startHour: "08",
+      endHour: "09",
+      reason: "",
+    });
+    setBlockFieldErrors({});
+    setBlockError("");
+    setShowBlockForm(true);
+  };
+
+  const handleBlockInput = (event) => {
+    const { name, value } = event.target;
+    setBlockForm((current) => ({ ...current, [name]: value }));
+    setBlockFieldErrors((current) => {
+      const errorField = name === "startHour"
+        ? "startTime"
+        : name === "endHour"
+          ? "endTime"
+          : name;
+      if (!current[errorField]) return current;
+      const next = { ...current };
+      delete next[errorField];
+      return next;
+    });
+  };
+
+  const saveBlockedPeriod = async (event) => {
+    event.preventDefault();
+    setSavingBlock(true);
+    setBlockError("");
+    setBlockFieldErrors({});
+
+    try {
+      await api.post("/admin/blocked-periods", {
+        courtId: Number(blockForm.courtId),
+        startTime: `${blockForm.date}T${blockForm.startHour}:00:00`,
+        endTime: `${blockForm.date}T${blockForm.endHour}:00:00`,
+        reason: blockForm.reason,
+      });
+      setShowBlockForm(false);
+      setCalendarDate(blockForm.date);
+      setCalendarReloadKey((current) => current + 1);
+    } catch (requestError) {
+      const validationErrors = parseValidationErrors(requestError);
+      if (hasValidationErrors(validationErrors)) {
+        setBlockFieldErrors(validationErrors);
+      } else {
+        setBlockError(
+          requestError.response?.data?.message ??
+          requestError.response?.data ??
+          "Blokiranje termina nije uspelo.",
+        );
+      }
+    } finally {
+      setSavingBlock(false);
+    }
+  };
+
+  const deleteBlockedPeriod = async () => {
+    if (!window.confirm("Da li sigurno želiš da odblokiraš ovaj termin?")) return;
+
+    setDeletingBlock(true);
+    setBlockError("");
+    try {
+      await api.delete(`/admin/blocked-periods/${selectedBlockedPeriod.id}`);
+      setSelectedBlockedPeriod(null);
+      setCalendarReloadKey((current) => current + 1);
+    } catch (requestError) {
+      setBlockError(
+        requestError.response?.data?.message ??
+        requestError.response?.data ??
+        "Odblokiranje termina nije uspelo.",
+      );
+    } finally {
+      setDeletingBlock(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab !== "calendar") return undefined;
@@ -576,6 +665,14 @@ function AdminDashboard() {
               >
                 →
               </button>
+              <button
+                type="button"
+                className="admin-calendar-block-action"
+                disabled={calendarData.courts.length === 0}
+                onClick={openBlockForm}
+              >
+                + Blokiraj termin
+              </button>
             </div>
           </div>
 
@@ -652,6 +749,31 @@ function AdminDashboard() {
                       </button>
                     );
                   })}
+                  {(calendarData.blockedPeriods ?? []).map((period) => {
+                    const courtIndex = calendarData.courts.findIndex(
+                      (court) => court.id === period.courtId,
+                    );
+                    const startMinutes = Math.max(8 * 60, getWallClockMinutes(period.startTime));
+                    const endMinutes = Math.min(22 * 60, getWallClockMinutes(period.endTime));
+                    const rowStart = 2 + Math.floor((startMinutes - 8 * 60) / 60);
+                    const rowSpan = Math.max(1, Math.ceil((endMinutes - startMinutes) / 60));
+
+                    return (
+                      <button
+                        type="button"
+                        className="admin-calendar-reservation admin-calendar-blocked"
+                        style={{
+                          gridColumn: courtIndex + 2,
+                          gridRow: `${rowStart} / span ${rowSpan}`,
+                        }}
+                        key={`blocked-${period.id}`}
+                        onClick={() => setSelectedBlockedPeriod(period)}
+                      >
+                        <strong>{timeFormatter.format(new Date(period.startTime))}–{timeFormatter.format(new Date(period.endTime))}</strong>
+                        <span>Održavanje · {period.reason}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -660,12 +782,16 @@ function AdminDashboard() {
                   const courtReservations = calendarData.reservations.filter(
                     (reservation) => reservation.courtId === court.id,
                   );
+                  const courtBlockedPeriods = (calendarData.blockedPeriods ?? []).filter(
+                    (period) => period.courtId === court.id,
+                  );
                   return (
                     <article className="admin-calendar-court-card" key={court.id}>
                       <h3>{court.name}</h3>
-                      {courtReservations.length === 0 ? (
+                      {courtReservations.length === 0 && courtBlockedPeriods.length === 0 ? (
                         <p>Slobodan ceo dan</p>
-                      ) : courtReservations.map((reservation) => (
+                      ) : null}
+                      {courtReservations.map((reservation) => (
                         <button
                           type="button"
                           key={reservation.id}
@@ -673,6 +799,17 @@ function AdminDashboard() {
                         >
                           <strong>{timeFormatter.format(new Date(reservation.startTime))}–{timeFormatter.format(new Date(reservation.endTime))}</strong>
                           <span>{reservation.userName}</span>
+                        </button>
+                      ))}
+                      {courtBlockedPeriods.map((period) => (
+                        <button
+                          type="button"
+                          className="admin-calendar-blocked"
+                          key={`blocked-${period.id}`}
+                          onClick={() => setSelectedBlockedPeriod(period)}
+                        >
+                          <strong>{timeFormatter.format(new Date(period.startTime))}–{timeFormatter.format(new Date(period.endTime))}</strong>
+                          <span>Održavanje · {period.reason}</span>
                         </button>
                       ))}
                     </article>
@@ -881,6 +1018,94 @@ function AdminDashboard() {
           </div>}
           {!sectionState.reservations.loading && !sectionState.reservations.error && reservations.length === 0 && <p className="admin-empty">Nema rezervacija.</p>}
         </section>
+      )}
+
+      {showBlockForm && (
+        <div className="reschedule-modal-backdrop" role="presentation">
+          <form className="reschedule-modal admin-block-form" onSubmit={saveBlockedPeriod}>
+            <div className="reschedule-modal-heading">
+              <div>
+                <span className="admin-eyebrow">Održavanje</span>
+                <h2>Blokiraj termin</h2>
+              </div>
+              <button type="button" className="reschedule-close-button" aria-label="Zatvori" onClick={() => setShowBlockForm(false)}>×</button>
+            </div>
+
+            <label>
+              Teren
+              <select name="courtId" value={blockForm.courtId} onChange={handleBlockInput} required>
+                {calendarData.courts.map((court) => (
+                  <option value={court.id} key={court.id}>{court.name}</option>
+                ))}
+              </select>
+              {blockFieldErrors.courtId?.map((message) => <span className="field-error" key={message}>{message}</span>)}
+            </label>
+            <label>
+              Datum
+              <input type="date" name="date" value={blockForm.date} onChange={handleBlockInput} required />
+            </label>
+            <div className="admin-block-time-fields">
+              <label>
+                Početak
+                <select name="startHour" value={blockForm.startHour} onChange={handleBlockInput}>
+                  {calendarHours.map((hour) => (
+                    <option value={String(hour).padStart(2, "0")} key={hour}>{String(hour).padStart(2, "0")}:00</option>
+                  ))}
+                </select>
+                {blockFieldErrors.startTime?.map((message) => <span className="field-error" key={message}>{message}</span>)}
+              </label>
+              <label>
+                Kraj
+                <select name="endHour" value={blockForm.endHour} onChange={handleBlockInput}>
+                  {calendarBoundaryHours.slice(1).map((hour) => (
+                    <option value={String(hour).padStart(2, "0")} key={hour}>{String(hour).padStart(2, "0")}:00</option>
+                  ))}
+                </select>
+                {blockFieldErrors.endTime?.map((message) => <span className="field-error" key={message}>{message}</span>)}
+              </label>
+            </div>
+            <label>
+              Razlog
+              <textarea name="reason" value={blockForm.reason} onChange={handleBlockInput} maxLength="300" rows="4" required />
+              {blockFieldErrors.reason?.map((message) => <span className="field-error" key={message}>{message}</span>)}
+            </label>
+
+            {blockError && <p className="error-message" role="alert">{blockError}</p>}
+            <div className="reschedule-modal-actions">
+              <button type="button" onClick={() => setShowBlockForm(false)}>Otkaži</button>
+              <button type="submit" className="primary-button" disabled={savingBlock}>
+                {savingBlock ? "Blokiranje..." : "Blokiraj termin"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {selectedBlockedPeriod && (
+        <div className="reschedule-modal-backdrop" role="presentation">
+          <section className="reschedule-modal" role="dialog" aria-modal="true" aria-labelledby="blocked-period-title">
+            <div className="reschedule-modal-heading">
+              <div>
+                <span className="admin-eyebrow">Održavanje</span>
+                <h2 id="blocked-period-title">Blokirani termin</h2>
+              </div>
+              <button type="button" className="reschedule-close-button" aria-label="Zatvori" onClick={() => { setSelectedBlockedPeriod(null); setBlockError(""); }}>×</button>
+            </div>
+            <dl className="admin-calendar-details">
+              <div><dt>Teren</dt><dd>{selectedBlockedPeriod.courtName}</dd></div>
+              <div><dt>Datum</dt><dd>{dateFormatter.format(new Date(selectedBlockedPeriod.startTime))}</dd></div>
+              <div><dt>Vreme</dt><dd>{timeFormatter.format(new Date(selectedBlockedPeriod.startTime))}–{timeFormatter.format(new Date(selectedBlockedPeriod.endTime))}</dd></div>
+              <div><dt>Razlog</dt><dd>{selectedBlockedPeriod.reason}</dd></div>
+            </dl>
+            {blockError && <p className="error-message" role="alert">{blockError}</p>}
+            <div className="reschedule-modal-actions">
+              <button type="button" onClick={() => setSelectedBlockedPeriod(null)}>Zatvori</button>
+              <button type="button" className="danger-button" disabled={deletingBlock} onClick={deleteBlockedPeriod}>
+                {deletingBlock ? "Odblokiranje..." : "Odblokiraj termin"}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
 
       {selectedCalendarReservation && (

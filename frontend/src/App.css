@@ -1529,6 +1529,7 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .admin-calendar-date-controls button,
 .admin-calendar-date-controls input { min-height: 46px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-input); color: var(--color-text); }
 .admin-calendar-date-controls button { width: 46px; padding: 0; font-size: 1.15rem; font-weight: 700; }
+.admin-calendar-date-controls .admin-calendar-block-action { width: auto; padding: 0 15px; border-color: var(--color-orange); background: var(--color-orange); color: #17201b; font-size: .82rem; }
 .admin-calendar-date-controls button:hover { border-color: var(--color-green); background: var(--color-hover-soft); }
 .admin-calendar-date-controls input { padding: 0 12px; }
 .admin-calendar-desktop { max-width: 100%; overflow-x: auto; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
@@ -1544,11 +1545,23 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .admin-calendar-reservation span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-calendar-reservation strong { margin-bottom: 4px; color: var(--color-green); font-size: .78rem; }
 .admin-calendar-reservation span { font-size: .75rem; }
+.admin-calendar-reservation.admin-calendar-blocked,
+.admin-calendar-court-card .admin-calendar-blocked { border-color: color-mix(in srgb, var(--color-orange) 72%, var(--color-border)); background: color-mix(in srgb, var(--color-orange) 16%, var(--color-surface)); }
+.admin-calendar-reservation.admin-calendar-blocked strong,
+.admin-calendar-court-card .admin-calendar-blocked strong { color: var(--color-orange); }
 .admin-calendar-mobile { display: none; }
 .admin-calendar-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 0; }
 .admin-calendar-details div { min-width: 0; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); }
 .admin-calendar-details dt { margin-bottom: 5px; color: var(--color-muted); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .admin-calendar-details dd { margin: 0; overflow-wrap: anywhere; color: var(--color-text); font-weight: 700; }
+.admin-block-form { display: grid; gap: 14px; }
+.admin-block-form label { display: grid; gap: 7px; color: var(--color-text); font-size: .82rem; font-weight: 700; }
+.admin-block-form input,
+.admin-block-form select,
+.admin-block-form textarea { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-input); color: var(--color-text); font: inherit; }
+.admin-block-form textarea { resize: vertical; }
+.admin-block-time-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.reschedule-modal-actions .danger-button { border-color: #b64b3d; color: #b64b3d; }
 
 :root[data-theme="dark"] .booking-panel,
 :root[data-theme="dark"] .modal-content,
@@ -1660,7 +1673,9 @@ main { min-height: calc(100vh - 76px); padding: 0; }
   .admin-calendar-section { padding: 18px 14px; }
   .admin-calendar-toolbar { align-items: flex-start; flex-direction: column; }
   .admin-calendar-date-controls { width: 100%; }
+  .admin-calendar-date-controls { flex-wrap: wrap; }
   .admin-calendar-date-controls input { min-width: 0; flex: 1; }
+  .admin-calendar-date-controls .admin-calendar-block-action { width: 100%; }
   .admin-calendar-desktop { display: none; }
   .admin-calendar-mobile { display: grid; gap: 12px; }
   .admin-calendar-court-card { padding: 16px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface-muted); }
@@ -1670,6 +1685,7 @@ main { min-height: calc(100vh - 76px); padding: 0; }
   .admin-calendar-court-card button:hover { border-color: var(--color-green); }
   .admin-calendar-court-card button strong { color: var(--color-green); }
   .admin-calendar-details { grid-template-columns: 1fr; gap: 12px; }
+  .admin-block-time-fields { grid-template-columns: 1fr 1fr; }
   .reschedule-modal-backdrop { align-items: end; padding: 12px; }
   .reschedule-modal { width: 100%; max-height: calc(100vh - 24px); padding: 22px 18px; }
   .reschedule-modal-actions { flex-direction: column-reverse; }
