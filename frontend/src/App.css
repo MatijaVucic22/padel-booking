@@ -1532,6 +1532,17 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .admin-calendar-date-controls .admin-calendar-block-action { width: auto; padding: 0 15px; border-color: var(--color-orange); background: var(--color-orange); color: #17201b; font-size: .82rem; }
 .admin-calendar-date-controls button:hover { border-color: var(--color-green); background: var(--color-hover-soft); }
 .admin-calendar-date-controls input { padding: 0 12px; }
+.admin-calendar-viewport { position: relative; min-height: 240px; }
+.admin-calendar-loading-overlay { position: absolute; z-index: 8; inset: 0; display: flex; align-items: flex-start; justify-content: center; pointer-events: none; opacity: 0; background: color-mix(in srgb, var(--color-surface) 24%, transparent); transition: opacity 180ms ease; }
+.admin-calendar-loading-overlay.is-visible { opacity: 1; animation: admin-calendar-fade-in 180ms ease; }
+.admin-calendar-loading-pill,
+.admin-calendar-initial-loading { display: inline-flex; align-items: center; justify-content: center; gap: 9px; color: var(--color-muted); font-size: .82rem; font-weight: 700; }
+.admin-calendar-loading-pill { position: sticky; top: 14px; margin-top: 14px; padding: 9px 13px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface); box-shadow: 0 8px 24px rgba(9, 20, 14, .1); }
+.admin-calendar-initial-loading { width: 100%; min-height: 240px; opacity: 0; transition: opacity 180ms ease; }
+.admin-calendar-initial-loading.is-visible { opacity: 1; animation: admin-calendar-fade-in 180ms ease; }
+.admin-calendar-spinner { width: 15px; height: 15px; border: 2px solid var(--color-border); border-top-color: var(--color-green); border-radius: 50%; animation: admin-calendar-spin .7s linear infinite; }
+@keyframes admin-calendar-spin { to { transform: rotate(360deg); } }
+@keyframes admin-calendar-fade-in { from { opacity: 0; } to { opacity: 1; } }
 .admin-calendar-desktop { max-width: 100%; overflow-x: auto; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
 .admin-calendar-grid { display: grid; grid-template-rows: 58px repeat(14, 64px); position: relative; }
 .admin-calendar-corner,
