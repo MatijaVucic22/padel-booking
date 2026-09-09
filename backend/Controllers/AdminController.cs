@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using PadelBooking.Api.Data;
 using PadelBooking.Api.Services;
 
@@ -68,6 +69,74 @@ namespace PadelBooking.Api.Controllers
                 .ToListAsync();
 
             return Ok(reservations);
+        }
+
+        // GET api/admin/calendar?date=yyyy-MM-dd
+        [HttpGet("calendar")]
+        public async Task<IActionResult> GetCalendar([FromQuery] string? date)
+        {
+            if (!DateOnly.TryParseExact(
+                    date,
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var calendarDate))
+            {
+                return BadRequest(new
+                {
+                    message = "Podaci nisu ispravni.",
+                    errors = new
+                    {
+                        date = new[] { "Datum mora biti u formatu yyyy-MM-dd." }
+                    }
+                });
+            }
+
+            var dayStart = calendarDate.ToDateTime(
+                TimeOnly.MinValue,
+                DateTimeKind.Unspecified);
+            var dayEnd = dayStart.AddDays(1);
+
+            var courts = await _context.Courts
+                .AsNoTracking()
+                .Where(court => court.IsActive)
+                .OrderBy(court => court.Name)
+                .Select(court => new
+                {
+                    court.Id,
+                    court.Name
+                })
+                .ToListAsync();
+
+            var reservations = await _context.Reservations
+                .AsNoTracking()
+                .Where(reservation =>
+                    reservation.Court.IsActive &&
+                    reservation.Status != "Cancelled" &&
+                    reservation.StartTime < dayEnd &&
+                    reservation.EndTime > dayStart)
+                .OrderBy(reservation => reservation.StartTime)
+                .Select(reservation => new
+                {
+                    reservation.Id,
+                    reservation.CourtId,
+                    CourtName = reservation.Court.Name,
+                    UserName = reservation.User.FirstName + " " +
+                        reservation.User.LastName,
+                    UserEmail = reservation.User.Email,
+                    reservation.StartTime,
+                    reservation.EndTime,
+                    reservation.TotalPrice,
+                    reservation.Status
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                date = calendarDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                courts,
+                reservations
+            });
         }
 
         // GET api/admin/stats

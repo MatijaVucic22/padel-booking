@@ -1522,6 +1522,33 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .admin-table th { background: var(--color-surface-muted); color: var(--color-forest); }
 .admin-table td { border-color: var(--color-border); }
 .admin-action-message.admin-warning { border: 1px solid #efd27a; }
+.admin-calendar-section { padding: 24px; }
+.admin-calendar-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.admin-calendar-toolbar h2 { margin: 5px 0 0; color: var(--color-forest); }
+.admin-calendar-date-controls { display: flex; align-items: center; gap: 8px; }
+.admin-calendar-date-controls button,
+.admin-calendar-date-controls input { min-height: 46px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-input); color: var(--color-text); }
+.admin-calendar-date-controls button { width: 46px; padding: 0; font-size: 1.15rem; font-weight: 700; }
+.admin-calendar-date-controls button:hover { border-color: var(--color-green); background: var(--color-hover-soft); }
+.admin-calendar-date-controls input { padding: 0 12px; }
+.admin-calendar-desktop { max-width: 100%; overflow-x: auto; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
+.admin-calendar-grid { display: grid; grid-template-rows: 58px repeat(14, 64px); position: relative; }
+.admin-calendar-corner,
+.admin-calendar-court-heading { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; padding: 10px 12px; border-right: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); background: var(--color-surface-muted); color: var(--color-forest); font-size: .78rem; font-weight: 800; }
+.admin-calendar-corner { left: 0; z-index: 5; grid-column: 1; grid-row: 1; }
+.admin-calendar-hour-label { position: sticky; left: 0; z-index: 3; padding: 9px 10px; border-right: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-muted); font-size: .72rem; font-weight: 700; }
+.admin-calendar-cell { border-right: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
+.admin-calendar-reservation { z-index: 2; align-self: stretch; margin: 4px 5px; padding: 8px 10px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--color-green) 60%, var(--color-border)); border-radius: 8px; background: color-mix(in srgb, var(--color-green) 15%, var(--color-surface)); color: var(--color-text); text-align: left; }
+.admin-calendar-reservation:hover { border-color: var(--color-green); background: color-mix(in srgb, var(--color-green) 22%, var(--color-surface)); }
+.admin-calendar-reservation strong,
+.admin-calendar-reservation span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-calendar-reservation strong { margin-bottom: 4px; color: var(--color-green); font-size: .78rem; }
+.admin-calendar-reservation span { font-size: .75rem; }
+.admin-calendar-mobile { display: none; }
+.admin-calendar-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 0; }
+.admin-calendar-details div { min-width: 0; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); }
+.admin-calendar-details dt { margin-bottom: 5px; color: var(--color-muted); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.admin-calendar-details dd { margin: 0; overflow-wrap: anywhere; color: var(--color-text); font-weight: 700; }
 
 :root[data-theme="dark"] .booking-panel,
 :root[data-theme="dark"] .modal-content,
@@ -1630,6 +1657,19 @@ main { min-height: calc(100vh - 76px); padding: 0; }
   .admin-court-item { align-items: flex-start; flex-direction: column; }
   .admin-table-wrapper { max-width: 100%; overflow-x: auto; }
   .admin-table { min-width: 720px; }
+  .admin-calendar-section { padding: 18px 14px; }
+  .admin-calendar-toolbar { align-items: flex-start; flex-direction: column; }
+  .admin-calendar-date-controls { width: 100%; }
+  .admin-calendar-date-controls input { min-width: 0; flex: 1; }
+  .admin-calendar-desktop { display: none; }
+  .admin-calendar-mobile { display: grid; gap: 12px; }
+  .admin-calendar-court-card { padding: 16px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface-muted); }
+  .admin-calendar-court-card h3 { margin: 0 0 12px; color: var(--color-forest); }
+  .admin-calendar-court-card p { margin: 0; color: var(--color-muted); }
+  .admin-calendar-court-card button { display: flex; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; margin-top: 8px; padding: 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); text-align: left; }
+  .admin-calendar-court-card button:hover { border-color: var(--color-green); }
+  .admin-calendar-court-card button strong { color: var(--color-green); }
+  .admin-calendar-details { grid-template-columns: 1fr; gap: 12px; }
   .reschedule-modal-backdrop { align-items: end; padding: 12px; }
   .reschedule-modal { width: 100%; max-height: calc(100vh - 24px); padding: 22px 18px; }
   .reschedule-modal-actions { flex-direction: column-reverse; }

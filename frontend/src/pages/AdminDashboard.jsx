@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import api from "../api/api";
+import * as signalR from "@microsoft/signalr";
+import api, { courtAvailabilityHubUrl } from "../api/api";
 import {
   hasValidationErrors,
   parseValidationErrors,
@@ -34,10 +35,36 @@ const statusLabels = {
 
 const tabs = [
   { id: "dashboard", label: "Dashboard" },
+  { id: "calendar", label: "Kalendar" },
   { id: "courts", label: "Tereni" },
   { id: "reservations", label: "Rezervacije" },
   { id: "users", label: "Korisnici" },
 ];
+
+const calendarHours = Array.from({ length: 14 }, (_, index) => index + 8);
+
+function getTodayDate() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Belgrade",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function shiftCalendarDate(date, days) {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function getWallClockMinutes(value) {
+  const match = value?.match(/T(\d{2}):(\d{2})/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
+}
 
 const initialSectionState = {
   stats: { loading: true, error: "" },
@@ -85,6 +112,84 @@ function AdminDashboard() {
   const [courtFieldErrors, setCourtFieldErrors] = useState({});
   const [courtImage, setCourtImage] = useState(null);
   const [courtImagePreview, setCourtImagePreview] = useState("");
+  const [calendarDate, setCalendarDate] = useState(getTodayDate);
+  const [calendarData, setCalendarData] = useState({ courts: [], reservations: [] });
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarError, setCalendarError] = useState("");
+  const [calendarReloadKey, setCalendarReloadKey] = useState(0);
+  const [selectedCalendarReservation, setSelectedCalendarReservation] = useState(null);
+
+  const calendarCourtIds = calendarData.courts
+    .map((court) => court.id)
+    .join(",");
+
+  useEffect(() => {
+    if (activeTab !== "calendar") return undefined;
+
+    let ignoreResponse = false;
+    setCalendarLoading(true);
+    setCalendarError("");
+
+    api.get("/admin/calendar", { params: { date: calendarDate } })
+      .then((response) => {
+        if (!ignoreResponse) setCalendarData(response.data);
+      })
+      .catch((requestError) => {
+        if (ignoreResponse) return;
+        console.error(requestError);
+        setCalendarError("Kalendar trenutno nije moguće učitati.");
+      })
+      .finally(() => {
+        if (!ignoreResponse) setCalendarLoading(false);
+      });
+
+    return () => {
+      ignoreResponse = true;
+    };
+  }, [activeTab, calendarDate, calendarReloadKey]);
+
+  useEffect(() => {
+    if (activeTab !== "calendar" || !calendarCourtIds) return undefined;
+
+    let disposed = false;
+    const courtIds = calendarCourtIds.split(",").map(Number);
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(courtAvailabilityHubUrl)
+      .withAutomaticReconnect()
+      .build();
+
+    const joinGroups = () => Promise.all(
+      courtIds.map((courtId) =>
+        connection.invoke("JoinCourtDate", courtId, calendarDate)),
+    );
+    const refreshCalendar = () => {
+      if (!disposed) setCalendarReloadKey((current) => current + 1);
+    };
+
+    connection.on("AvailabilityChanged", refreshCalendar);
+    connection.onreconnected(() => {
+      joinGroups().catch((connectionError) => {
+        if (!disposed) console.error(connectionError);
+      });
+    });
+
+    connection.start()
+      .then(() => (disposed ? connection.stop() : joinGroups()))
+      .catch((connectionError) => {
+        if (!disposed) console.error(connectionError);
+      });
+
+    return () => {
+      disposed = true;
+      connection.off("AvailabilityChanged", refreshCalendar);
+      if (connection.state !== signalR.HubConnectionState.Disconnected) {
+        Promise.allSettled(
+          courtIds.map((courtId) =>
+            connection.invoke("LeaveCourtDate", courtId, calendarDate)),
+        ).finally(() => connection.stop());
+      }
+    };
+  }, [activeTab, calendarDate, calendarCourtIds]);
 
   useEffect(() => () => {
     if (courtImagePreview) URL.revokeObjectURL(courtImagePreview);
@@ -443,6 +548,142 @@ function AdminDashboard() {
         </>
       )}
 
+      {activeTab === "calendar" && (
+        <section className="admin-section admin-calendar-section">
+          <div className="admin-calendar-toolbar">
+            <div>
+              <span className="admin-eyebrow">Raspored terena</span>
+              <h2>{dateFormatter.format(new Date(`${calendarDate}T12:00:00`))}</h2>
+            </div>
+            <div className="admin-calendar-date-controls">
+              <button
+                type="button"
+                aria-label="Prethodni dan"
+                onClick={() => setCalendarDate((current) => shiftCalendarDate(current, -1))}
+              >
+                ←
+              </button>
+              <input
+                type="date"
+                value={calendarDate}
+                aria-label="Datum kalendara"
+                onChange={(event) => setCalendarDate(event.target.value)}
+              />
+              <button
+                type="button"
+                aria-label="Sledeći dan"
+                onClick={() => setCalendarDate((current) => shiftCalendarDate(current, 1))}
+              >
+                →
+              </button>
+            </div>
+          </div>
+
+          {calendarLoading && <p className="admin-feedback" aria-live="polite">Učitavanje kalendara...</p>}
+          {calendarError && (
+            <div className="admin-feedback" role="alert">
+              <p>{calendarError}</p>
+              <button type="button" onClick={() => setCalendarReloadKey((current) => current + 1)}>
+                Pokušaj ponovo
+              </button>
+            </div>
+          )}
+
+          {!calendarLoading && !calendarError && calendarData.courts.length === 0 && (
+            <p className="admin-empty">Nema aktivnih terena.</p>
+          )}
+
+          {!calendarLoading && !calendarError && calendarData.courts.length > 0 && (
+            <>
+              <div className="admin-calendar-desktop">
+                <div
+                  className="admin-calendar-grid"
+                  style={{
+                    gridTemplateColumns: `76px repeat(${calendarData.courts.length}, minmax(180px, 1fr))`,
+                    minWidth: `${76 + calendarData.courts.length * 180}px`,
+                  }}
+                >
+                  <div className="admin-calendar-corner">Vreme</div>
+                  {calendarData.courts.map((court, courtIndex) => (
+                    <div
+                      className="admin-calendar-court-heading"
+                      style={{ gridColumn: courtIndex + 2 }}
+                      key={court.id}
+                    >
+                      {court.name}
+                    </div>
+                  ))}
+                  {calendarHours.map((hour, hourIndex) => (
+                    <div className="admin-calendar-hour-label" style={{ gridRow: hourIndex + 2 }} key={hour}>
+                      {String(hour).padStart(2, "0")}:00
+                    </div>
+                  ))}
+                  {calendarData.courts.flatMap((court, courtIndex) =>
+                    calendarHours.map((hour, hourIndex) => (
+                      <div
+                        className="admin-calendar-cell"
+                        style={{ gridColumn: courtIndex + 2, gridRow: hourIndex + 2 }}
+                        key={`${court.id}-${hour}`}
+                      />
+                    )),
+                  )}
+                  {calendarData.reservations.map((reservation) => {
+                    const courtIndex = calendarData.courts.findIndex(
+                      (court) => court.id === reservation.courtId,
+                    );
+                    const startMinutes = Math.max(8 * 60, getWallClockMinutes(reservation.startTime));
+                    const endMinutes = Math.min(22 * 60, getWallClockMinutes(reservation.endTime));
+                    const rowStart = 2 + Math.floor((startMinutes - 8 * 60) / 60);
+                    const rowSpan = Math.max(1, Math.ceil((endMinutes - startMinutes) / 60));
+
+                    return (
+                      <button
+                        type="button"
+                        className="admin-calendar-reservation"
+                        style={{
+                          gridColumn: courtIndex + 2,
+                          gridRow: `${rowStart} / span ${rowSpan}`,
+                        }}
+                        key={reservation.id}
+                        onClick={() => setSelectedCalendarReservation(reservation)}
+                      >
+                        <strong>{timeFormatter.format(new Date(reservation.startTime))}–{timeFormatter.format(new Date(reservation.endTime))}</strong>
+                        <span>{reservation.userName}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="admin-calendar-mobile">
+                {calendarData.courts.map((court) => {
+                  const courtReservations = calendarData.reservations.filter(
+                    (reservation) => reservation.courtId === court.id,
+                  );
+                  return (
+                    <article className="admin-calendar-court-card" key={court.id}>
+                      <h3>{court.name}</h3>
+                      {courtReservations.length === 0 ? (
+                        <p>Slobodan ceo dan</p>
+                      ) : courtReservations.map((reservation) => (
+                        <button
+                          type="button"
+                          key={reservation.id}
+                          onClick={() => setSelectedCalendarReservation(reservation)}
+                        >
+                          <strong>{timeFormatter.format(new Date(reservation.startTime))}–{timeFormatter.format(new Date(reservation.endTime))}</strong>
+                          <span>{reservation.userName}</span>
+                        </button>
+                      ))}
+                    </article>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
       {activeTab === "courts" && (
         <section className="admin-courts-layout">
           <form className="admin-court-form" onSubmit={saveCourt}>
@@ -640,6 +881,36 @@ function AdminDashboard() {
           </div>}
           {!sectionState.reservations.loading && !sectionState.reservations.error && reservations.length === 0 && <p className="admin-empty">Nema rezervacija.</p>}
         </section>
+      )}
+
+      {selectedCalendarReservation && (
+        <div
+          className="reschedule-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedCalendarReservation(null);
+          }}
+        >
+          <section className="reschedule-modal admin-calendar-modal" role="dialog" aria-modal="true" aria-labelledby="calendar-reservation-title">
+            <div className="reschedule-modal-heading">
+              <div>
+                <span className="admin-eyebrow">Rezervacija #{selectedCalendarReservation.id}</span>
+                <h2 id="calendar-reservation-title">Detalji termina</h2>
+              </div>
+              <button type="button" className="reschedule-close-button" aria-label="Zatvori" onClick={() => setSelectedCalendarReservation(null)}>×</button>
+            </div>
+            <dl className="admin-calendar-details">
+              <div><dt>Korisnik</dt><dd>{selectedCalendarReservation.userName}</dd></div>
+              <div><dt>Email</dt><dd>{selectedCalendarReservation.userEmail}</dd></div>
+              <div><dt>Teren</dt><dd>{selectedCalendarReservation.courtName}</dd></div>
+              <div><dt>Datum</dt><dd>{dateFormatter.format(new Date(selectedCalendarReservation.startTime))}</dd></div>
+              <div><dt>Vreme</dt><dd>{timeFormatter.format(new Date(selectedCalendarReservation.startTime))}–{timeFormatter.format(new Date(selectedCalendarReservation.endTime))}</dd></div>
+              <div><dt>Trajanje</dt><dd>{(getWallClockMinutes(selectedCalendarReservation.endTime) - getWallClockMinutes(selectedCalendarReservation.startTime)) / 60} h</dd></div>
+              <div><dt>Cena</dt><dd>{priceFormatter.format(selectedCalendarReservation.totalPrice)}</dd></div>
+              <div><dt>Status</dt><dd>{statusLabels[selectedCalendarReservation.status] ?? selectedCalendarReservation.status}</dd></div>
+            </dl>
+          </section>
+        </div>
       )}
     </section>
   );
