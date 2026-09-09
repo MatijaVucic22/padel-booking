@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import api from "./api/api";
 import Navbar from "./components/Navbar";
@@ -20,6 +20,51 @@ function App() {
   const [sessionLoading, setSessionLoading] = useState(() =>
     Boolean(localStorage.getItem("token")),
   );
+  const [routeLoaderMounted, setRouteLoaderMounted] = useState(false);
+  const [routeLoaderActive, setRouteLoaderActive] = useState(false);
+  const previousPathname = useRef(location.pathname);
+  const routeLoaderVisible = useRef(false);
+  const routeLoaderHideTimer = useRef(null);
+  const routeLoaderUnmountTimer = useRef(null);
+
+  useLayoutEffect(() => {
+    if (previousPathname.current === location.pathname) return;
+    previousPathname.current = location.pathname;
+
+    [
+      routeLoaderHideTimer,
+      routeLoaderUnmountTimer,
+    ].forEach((timerRef) => {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    });
+
+    setRouteLoaderMounted(true);
+    routeLoaderVisible.current = true;
+    setRouteLoaderActive(true);
+
+    routeLoaderHideTimer.current = window.setTimeout(() => {
+      routeLoaderHideTimer.current = null;
+      routeLoaderVisible.current = false;
+      setRouteLoaderActive(false);
+
+      routeLoaderUnmountTimer.current = window.setTimeout(() => {
+        routeLoaderUnmountTimer.current = null;
+        setRouteLoaderMounted(false);
+      }, 200);
+    }, 700);
+  }, [location.pathname]);
+
+  useEffect(() => () => {
+    [
+      routeLoaderHideTimer,
+      routeLoaderUnmountTimer,
+    ].forEach((timerRef) => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    });
+  }, []);
 
   const handleLogin = (loggedInUser) => {
     setUser(loggedInUser);
@@ -116,6 +161,23 @@ function App() {
         </Routes>
         )}
       </main>
+
+      {routeLoaderMounted && (
+        <div
+          className={`route-transition-loader${routeLoaderActive ? " is-visible" : ""}`}
+          role="status"
+          aria-live="polite"
+          aria-label="Učitavanje stranice"
+        >
+          <div className="route-transition-content">
+            <span className="route-transition-brand">PadelBooking</span>
+            <span className="route-transition-spinner" aria-hidden="true">
+              <span />
+            </span>
+            <span className="route-transition-copy">Učitavanje...</span>
+          </div>
+        </div>
+      )}
     </>
   );
 }
