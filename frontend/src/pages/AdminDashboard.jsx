@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as signalR from "@microsoft/signalr";
 import api, { courtAvailabilityHubUrl } from "../api/api";
 import {
@@ -115,7 +115,10 @@ function AdminDashboard() {
   const [courtImagePreview, setCourtImagePreview] = useState("");
   const [calendarDate, setCalendarDate] = useState(getTodayDate);
   const [calendarData, setCalendarData] = useState({ courts: [], reservations: [], blockedPeriods: [] });
+  const [calendarDataDate, setCalendarDataDate] = useState("");
   const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarOverlayMounted, setCalendarOverlayMounted] = useState(false);
+  const [calendarOverlayActive, setCalendarOverlayActive] = useState(false);
   const [calendarError, setCalendarError] = useState("");
   const [calendarReloadKey, setCalendarReloadKey] = useState(0);
   const [selectedCalendarReservation, setSelectedCalendarReservation] = useState(null);
@@ -126,6 +129,78 @@ function AdminDashboard() {
   const [blockError, setBlockError] = useState("");
   const [savingBlock, setSavingBlock] = useState(false);
   const [deletingBlock, setDeletingBlock] = useState(false);
+  const calendarCache = useRef(new Map());
+  const calendarRequestId = useRef(0);
+  const calendarOverlayShownAt = useRef(0);
+  const calendarOverlayVisible = useRef(false);
+  const calendarOverlayIsMounted = useRef(false);
+  const calendarOverlayShowTimer = useRef(null);
+  const calendarOverlayHideTimer = useRef(null);
+  const calendarOverlayRemoveTimer = useRef(null);
+
+  useEffect(() => {
+    const clearTimer = (timerRef) => {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+
+    if (calendarLoading) {
+      clearTimer(calendarOverlayHideTimer);
+      clearTimer(calendarOverlayRemoveTimer);
+
+      if (calendarOverlayVisible.current || calendarOverlayShowTimer.current !== null) {
+        return;
+      }
+
+      calendarOverlayShowTimer.current = window.setTimeout(() => {
+        calendarOverlayShowTimer.current = null;
+        calendarOverlayVisible.current = true;
+        calendarOverlayIsMounted.current = true;
+        calendarOverlayShownAt.current = Date.now();
+        setCalendarOverlayMounted(true);
+        setCalendarOverlayActive(true);
+      }, 150);
+      return;
+    }
+
+    clearTimer(calendarOverlayShowTimer);
+    if (!calendarOverlayVisible.current) {
+      if (calendarOverlayIsMounted.current) {
+        calendarOverlayRemoveTimer.current = window.setTimeout(() => {
+          calendarOverlayRemoveTimer.current = null;
+          calendarOverlayIsMounted.current = false;
+          setCalendarOverlayMounted(false);
+        }, 180);
+      }
+      return;
+    }
+
+    const visibleFor = Date.now() - calendarOverlayShownAt.current;
+    const remainingMinimum = Math.max(0, 600 - visibleFor);
+
+    calendarOverlayHideTimer.current = window.setTimeout(() => {
+      calendarOverlayHideTimer.current = null;
+      calendarOverlayVisible.current = false;
+      setCalendarOverlayActive(false);
+      calendarOverlayRemoveTimer.current = window.setTimeout(() => {
+        calendarOverlayRemoveTimer.current = null;
+        calendarOverlayIsMounted.current = false;
+        setCalendarOverlayMounted(false);
+      }, 180);
+    }, remainingMinimum);
+  }, [calendarLoading]);
+
+  useEffect(() => () => {
+    [
+      calendarOverlayShowTimer,
+      calendarOverlayHideTimer,
+      calendarOverlayRemoveTimer,
+    ].forEach((timerRef) => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    });
+  }, []);
 
   const calendarCourtIds = calendarData.courts
     .map((court) => court.id)
@@ -215,30 +290,46 @@ function AdminDashboard() {
   useEffect(() => {
     if (activeTab !== "calendar") return undefined;
 
-    let ignoreResponse = false;
+    const controller = new AbortController();
+    const requestId = ++calendarRequestId.current;
+    const cachedData = calendarCache.current.get(calendarDate);
+
+    if (cachedData) {
+      setCalendarData(cachedData);
+      setCalendarDataDate(calendarDate);
+    }
+
     setCalendarLoading(true);
     setCalendarError("");
 
-    api.get("/admin/calendar", { params: { date: calendarDate } })
+    api.get("/admin/calendar", {
+      params: { date: calendarDate },
+      signal: controller.signal,
+    })
       .then((response) => {
-        if (!ignoreResponse) setCalendarData(response.data);
+        if (requestId !== calendarRequestId.current) return;
+        calendarCache.current.set(calendarDate, response.data);
+        setCalendarData(response.data);
+        setCalendarDataDate(calendarDate);
       })
       .catch((requestError) => {
-        if (ignoreResponse) return;
+        if (requestError.code === "ERR_CANCELED" || requestId !== calendarRequestId.current) return;
         console.error(requestError);
         setCalendarError("Kalendar trenutno nije moguće učitati.");
       })
       .finally(() => {
-        if (!ignoreResponse) setCalendarLoading(false);
+        if (!controller.signal.aborted && requestId === calendarRequestId.current) {
+          setCalendarLoading(false);
+        }
       });
 
     return () => {
-      ignoreResponse = true;
+      controller.abort();
     };
   }, [activeTab, calendarDate, calendarReloadKey]);
 
   useEffect(() => {
-    if (activeTab !== "calendar" || !calendarCourtIds) return undefined;
+    if (activeTab !== "calendar" || !calendarCourtIds || !calendarDataDate) return undefined;
 
     let disposed = false;
     const courtIds = calendarCourtIds.split(",").map(Number);
@@ -249,7 +340,7 @@ function AdminDashboard() {
 
     const joinGroups = () => Promise.all(
       courtIds.map((courtId) =>
-        connection.invoke("JoinCourtDate", courtId, calendarDate)),
+        connection.invoke("JoinCourtDate", courtId, calendarDataDate)),
     );
     const refreshCalendar = () => {
       if (!disposed) setCalendarReloadKey((current) => current + 1);
@@ -274,11 +365,11 @@ function AdminDashboard() {
       if (connection.state !== signalR.HubConnectionState.Disconnected) {
         Promise.allSettled(
           courtIds.map((courtId) =>
-            connection.invoke("LeaveCourtDate", courtId, calendarDate)),
+            connection.invoke("LeaveCourtDate", courtId, calendarDataDate)),
         ).finally(() => connection.stop());
       }
     };
-  }, [activeTab, calendarDate, calendarCourtIds]);
+  }, [activeTab, calendarDataDate, calendarCourtIds]);
 
   useEffect(() => () => {
     if (courtImagePreview) URL.revokeObjectURL(courtImagePreview);
@@ -676,7 +767,6 @@ function AdminDashboard() {
             </div>
           </div>
 
-          {calendarLoading && <p className="admin-feedback" aria-live="polite">Učitavanje kalendara...</p>}
           {calendarError && (
             <div className="admin-feedback" role="alert">
               <p>{calendarError}</p>
@@ -686,12 +776,19 @@ function AdminDashboard() {
             </div>
           )}
 
-          {!calendarLoading && !calendarError && calendarData.courts.length === 0 && (
+          {calendarOverlayMounted && calendarData.courts.length === 0 && (
+            <div className={`admin-calendar-initial-loading${calendarOverlayActive ? " is-visible" : ""}`} aria-live="polite">
+              <span className="admin-calendar-spinner" aria-hidden="true" />
+              Učitavanje...
+            </div>
+          )}
+
+          {!calendarLoading && !calendarError && calendarDataDate === calendarDate && calendarData.courts.length === 0 && (
             <p className="admin-empty">Nema aktivnih terena.</p>
           )}
 
-          {!calendarLoading && !calendarError && calendarData.courts.length > 0 && (
-            <>
+          {calendarData.courts.length > 0 && (
+            <div className="admin-calendar-viewport" aria-busy={calendarLoading}>
               <div className="admin-calendar-desktop">
                 <div
                   className="admin-calendar-grid"
@@ -816,7 +913,15 @@ function AdminDashboard() {
                   );
                 })}
               </div>
-            </>
+              {calendarOverlayMounted && (
+                <div className={`admin-calendar-loading-overlay${calendarOverlayActive ? " is-visible" : ""}`} aria-live="polite">
+                  <span className="admin-calendar-loading-pill">
+                    <span className="admin-calendar-spinner" aria-hidden="true" />
+                    Učitavanje...
+                  </span>
+                </div>
+              )}
+            </div>
           )}
         </section>
       )}
