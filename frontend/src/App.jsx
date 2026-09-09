@@ -11,6 +11,7 @@ import Register from "./pages/Register";
 import "./App.css";
 import MyReservations from "./pages/MyReservations";
 import AdminDashboard from "./pages/AdminDashboard";
+import Book from "./pages/Book";
 
 function App() {
   const navigate = useNavigate();
@@ -86,6 +87,8 @@ function App() {
           <Route path="/" element={<Home />} />
 
           <Route path="/courts" element={<Courts />} />
+
+          <Route path="/book" element={<Book />} />
 
           <Route path="/courts/:id" element={<CourtDetails />} />
 

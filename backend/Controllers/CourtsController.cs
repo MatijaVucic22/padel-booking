@@ -55,6 +55,26 @@ namespace PadelBooking.Api.Controllers
             return Ok(court);
         }
 
+        [HttpGet("available")]
+        public async Task<IActionResult> GetAvailableCourts(
+            [FromQuery] AvailableCourtsRequest request)
+        {
+            var endTime = request.StartTime.AddHours(request.DurationHours);
+
+            var courts = await _context.Courts
+                .Where(court =>
+                    court.IsActive &&
+                    !_context.Reservations.Any(reservation =>
+                        reservation.CourtId == court.Id &&
+                        reservation.Status != "Cancelled" &&
+                        request.StartTime < reservation.EndTime &&
+                        endTime > reservation.StartTime))
+                .OrderBy(court => court.Name)
+                .ToListAsync();
+
+            return Ok(courts);
+        }
+
         // POST api/courts
         [Authorize(Roles = "Admin")]
         [HttpPost]
