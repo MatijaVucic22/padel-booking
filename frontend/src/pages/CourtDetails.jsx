@@ -14,6 +14,7 @@ import {
   longDateWithWeekdayFormatter as dateFormatter,
   timeFormatter,
 } from "../utils/dateFormatters";
+import DatePicker from "../components/DatePicker";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
@@ -301,7 +302,13 @@ function CourtDetails() {
           </div>
           <label className="date-field">
             Izabrani datum
-            <input type="date" min={getLocalDate()} value={selectedDate} onChange={selectDate} disabled={booking} />
+            <DatePicker
+              min={getLocalDate()}
+              value={selectedDate}
+              disabled={booking}
+              ariaLabel="Izaberi datum rezervacije"
+              onChange={(date) => selectDate({ target: { value: date } })}
+            />
           </label>
         </div>
 

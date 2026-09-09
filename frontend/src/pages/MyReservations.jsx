@@ -10,6 +10,7 @@ import {
   shortMonthFormatter as monthFormatter,
   timeFormatter,
 } from "../utils/dateFormatters";
+import DatePicker from "../components/DatePicker";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
@@ -529,12 +530,12 @@ function MyReservations() {
 
             <label className="date-field">
               Novi datum
-              <input
-                type="date"
+              <DatePicker
                 min={getLocalDate()}
                 value={rescheduleDate}
                 disabled={rescheduleSaving}
-                onChange={changeRescheduleDate}
+                ariaLabel="Izaberi novi datum rezervacije"
+                onChange={(date) => changeRescheduleDate({ target: { value: date } })}
               />
             </label>
 

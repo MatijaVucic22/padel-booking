@@ -1602,12 +1602,13 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .admin-calendar-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .admin-calendar-toolbar h2 { margin: 5px 0 0; color: var(--color-forest); }
 .admin-calendar-date-controls { display: flex; align-items: center; gap: 8px; }
-.admin-calendar-date-controls button,
-.admin-calendar-date-controls input { min-height: 46px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-input); color: var(--color-text); }
-.admin-calendar-date-controls button { width: 46px; padding: 0; font-size: 1.15rem; font-weight: 700; }
-.admin-calendar-date-controls .admin-calendar-block-action { width: auto; padding: 0 15px; border-color: var(--color-orange); background: var(--color-orange); color: #17201b; font-size: .82rem; }
-.admin-calendar-date-controls button:hover { border-color: var(--color-green); background: var(--color-hover-soft); }
-.admin-calendar-date-controls input { padding: 0 12px; }
+.admin-calendar-date-controls > button,
+.admin-calendar-date-controls > input { min-height: 46px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-input); color: var(--color-text); }
+.admin-calendar-date-controls > button { width: 46px; padding: 0; font-size: 1.15rem; font-weight: 700; }
+.admin-calendar-date-controls > .admin-calendar-block-action { width: auto; padding: 0 15px; border-color: var(--color-orange); background: var(--color-orange); color: #17201b; font-size: .82rem; }
+.admin-calendar-date-controls > button:hover { border-color: var(--color-green); background: var(--color-hover-soft); }
+.admin-calendar-date-controls > input { padding: 0 12px; }
+.admin-calendar-date-controls > .premium-date-picker { width: 230px; }
 .admin-calendar-viewport { position: relative; min-height: 240px; }
 .admin-calendar-loading-overlay { position: absolute; z-index: 8; inset: 0; display: flex; align-items: flex-start; justify-content: center; pointer-events: none; opacity: 0; background: color-mix(in srgb, var(--color-surface) 24%, transparent); transition: opacity 180ms ease; }
 .admin-calendar-loading-overlay.is-visible { opacity: 1; animation: admin-calendar-fade-in 180ms ease; }
@@ -1761,8 +1762,9 @@ main { min-height: calc(100vh - 76px); padding: 0; }
   .admin-calendar-toolbar { align-items: flex-start; flex-direction: column; }
   .admin-calendar-date-controls { width: 100%; }
   .admin-calendar-date-controls { flex-wrap: wrap; }
-  .admin-calendar-date-controls input { min-width: 0; flex: 1; }
-  .admin-calendar-date-controls .admin-calendar-block-action { width: 100%; }
+  .admin-calendar-date-controls > input { min-width: 0; flex: 1; }
+  .admin-calendar-date-controls > .premium-date-picker { min-width: 0; flex: 1; width: auto; }
+  .admin-calendar-date-controls > .admin-calendar-block-action { width: 100%; }
   .admin-calendar-desktop { display: none; }
   .admin-calendar-mobile { display: grid; gap: 12px; }
   .admin-calendar-court-card { padding: 16px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface-muted); }

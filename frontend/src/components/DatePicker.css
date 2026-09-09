@@ -1,0 +1,30 @@
+.premium-date-picker { position: relative; width: 100%; }
+.premium-date-picker-trigger { display: grid; grid-template-columns: 22px minmax(0, 1fr) 20px; align-items: center; gap: 11px; width: 100%; min-height: 50px; padding: 0 14px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-input); color: var(--color-text); text-align: left; transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease; }
+.premium-date-picker-trigger:hover:not(:disabled) { border-color: var(--color-green); background: color-mix(in srgb, var(--color-input) 88%, var(--color-green)); }
+.premium-date-picker-trigger:focus-visible { border-color: var(--color-green); outline: 3px solid color-mix(in srgb, var(--color-green) 22%, transparent); }
+.premium-date-picker-trigger:disabled { cursor: not-allowed; opacity: .55; }
+.premium-date-picker-trigger svg { width: 22px; height: 22px; fill: none; stroke: var(--color-green); stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.premium-date-picker-trigger span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.premium-date-picker-trigger .is-placeholder { color: var(--color-muted); }
+.premium-date-picker-chevron { color: var(--color-muted); font-size: 1.2rem; text-align: right; transition: transform .18s ease; }
+.premium-date-picker-trigger[aria-expanded="true"] .premium-date-picker-chevron { transform: rotate(180deg); }
+.premium-date-picker-popover { position: absolute; z-index: 80; top: calc(100% + 9px); left: 0; width: max-content; max-width: min(360px, calc(100vw - 32px)); padding: 16px; opacity: 0; transform: translateY(-5px) scale(.985); border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-text); box-shadow: 0 20px 55px rgba(9, 20, 14, .2); transform-origin: top left; pointer-events: none; transition: opacity 160ms ease, transform 160ms ease; }
+.premium-date-picker-popover.is-open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.premium-date-picker-popover .rdp-root { --rdp-accent-color: var(--color-green); --rdp-accent-background-color: var(--color-hover-soft); --rdp-day-width: 42px; --rdp-day-height: 42px; --rdp-day_button-width: 38px; --rdp-day_button-height: 38px; --rdp-nav_button-width: 42px; --rdp-nav_button-height: 42px; --rdp-today-color: var(--color-orange); margin: 0; }
+.premium-date-picker-popover .rdp-month_caption { align-items: center; color: var(--color-forest); font-family: "Sora", sans-serif; font-size: .95rem; text-transform: capitalize; }
+.premium-date-picker-popover .rdp-button_previous,
+.premium-date-picker-popover .rdp-button_next { border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface-muted); }
+.premium-date-picker-popover .rdp-button_previous:hover,
+.premium-date-picker-popover .rdp-button_next:hover { border-color: var(--color-green); background: var(--color-hover-soft); }
+.premium-date-picker-popover .rdp-weekday { color: var(--color-muted); font-size: .68rem; font-weight: 800; text-transform: uppercase; }
+.premium-date-picker-popover .rdp-day_button { color: var(--color-text); font-size: .8rem; font-weight: 700; }
+.premium-date-picker-popover .rdp-day_button:hover:not(:disabled) { background: var(--color-hover-soft); }
+.premium-date-picker-popover .rdp-selected .rdp-day_button { border-color: var(--color-green); background: var(--color-green); color: var(--color-on-primary); }
+.premium-date-picker-popover .rdp-today:not(.rdp-selected) .rdp-day_button { border-color: var(--color-orange); color: var(--color-orange); }
+.premium-date-picker-popover .rdp-outside { opacity: .38; }
+.premium-date-picker-popover .rdp-disabled { opacity: .28; text-decoration: line-through; }
+@media (max-width: 420px) {
+  .premium-date-picker-popover { position: fixed; top: 50%; right: auto; left: 50%; width: min(344px, calc(100vw - 24px)); transform: translate(-50%, calc(-50% - 5px)) scale(.985); transform-origin: center; }
+  .premium-date-picker-popover.is-open { transform: translate(-50%, -50%) scale(1); }
+  .premium-date-picker-popover .rdp-root { --rdp-day-width: 40px; --rdp-day-height: 40px; --rdp-day_button-width: 36px; --rdp-day_button-height: 36px; }
+}
