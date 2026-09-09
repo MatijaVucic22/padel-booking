@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
 import {
@@ -99,6 +99,8 @@ function getLocalDate() {
 }
 
 function MyReservations() {
+  const cancellationTimer = useRef(null);
+  const componentMounted = useRef(true);
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -116,6 +118,30 @@ function MyReservations() {
   const [rescheduleFieldErrors, setRescheduleFieldErrors] = useState({});
   const [activeTab, setActiveTab] = useState("upcoming");
   const [belgradeNow, setBelgradeNow] = useState(getBelgradeWallClockValue);
+  const [cancellationReservation, setCancellationReservation] = useState(null);
+  const [cancellationPhase, setCancellationPhase] = useState("confirm");
+  const [cancellationError, setCancellationError] = useState("");
+
+  useEffect(() => {
+    componentMounted.current = true;
+    return () => {
+      componentMounted.current = false;
+      if (cancellationTimer.current !== null) {
+        window.clearTimeout(cancellationTimer.current);
+        cancellationTimer.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!cancellationReservation || cancellationPhase !== "confirm") return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setCancellationReservation(null);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [cancellationPhase, cancellationReservation]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -160,6 +186,9 @@ function MyReservations() {
 
   const visibleReservations = reservationsByTab[activeTab];
   const activeTabDetails = reservationTabs.find((tab) => tab.id === activeTab);
+  const cancellationDuration = cancellationReservation
+    ? (toWallClockValue(cancellationReservation.endTime) - toWallClockValue(cancellationReservation.startTime)) / 3_600_000
+    : 0;
 
   useEffect(() => {
     if (!rescheduling || !rescheduleDate) return undefined;
@@ -232,19 +261,38 @@ function MyReservations() {
     setReloadKey((currentKey) => currentKey + 1);
   };
 
-  const cancelReservation = async (reservation) => {
-    const confirmed = window.confirm(
-      `Da li sigurno želiš da otkažeš rezervaciju za teren „${reservation.courtName}”?`,
-    );
-
-    if (!confirmed) return;
-
-    setCancellingId(reservation.id);
+  const openCancellation = (reservation) => {
+    setCancellationReservation(reservation);
+    setCancellationPhase("confirm");
+    setCancellationError("");
     setActionMessage("");
     setActionError("");
+  };
+
+  const closeCancellation = () => {
+    if (cancellationPhase === "confirm") setCancellationReservation(null);
+  };
+
+  const waitForCancellationLoading = (startedAt) => new Promise((resolve) => {
+    cancellationTimer.current = window.setTimeout(() => {
+      cancellationTimer.current = null;
+      resolve();
+    }, Math.max(0, 500 - (Date.now() - startedAt)));
+  });
+
+  const cancelReservation = async () => {
+    if (!cancellationReservation || cancellationPhase !== "confirm" || cancellingId !== null) return;
+
+    const reservation = cancellationReservation;
+    const loadingStartedAt = Date.now();
+    setCancellingId(reservation.id);
+    setCancellationPhase("loading");
+    setCancellationError("");
 
     try {
       const response = await api.delete(`/reservations/${reservation.id}`);
+      await waitForCancellationLoading(loadingStartedAt);
+      if (!componentMounted.current) return;
 
       setReservations((currentReservations) =>
         currentReservations.map((currentReservation) =>
@@ -257,18 +305,27 @@ function MyReservations() {
             : currentReservation,
         ),
       );
-      setActionMessage(
-        response.data?.message ?? "Rezervacija je uspešno otkazana.",
-      );
+      setActionMessage(response.data?.message ?? "Rezervacija je uspešno otkazana.");
+      setCancellationPhase("success");
+      cancellationTimer.current = window.setTimeout(() => {
+        cancellationTimer.current = null;
+        setCancellationReservation(null);
+        setCancellationPhase("confirm");
+        setReloadKey((currentKey) => currentKey + 1);
+      }, 1200);
     } catch (requestError) {
+      await waitForCancellationLoading(loadingStartedAt);
+      if (!componentMounted.current) return;
+
       console.error(requestError);
-      setActionError(
+      setCancellationError(
         typeof requestError.response?.data === "string"
           ? requestError.response.data
-          : "Rezervaciju trenutno nije moguće otkazati.",
+          : requestError.response?.data?.message ?? "Rezervaciju trenutno nije moguće otkazati.",
       );
+      setCancellationPhase("confirm");
     } finally {
-      setCancellingId(null);
+      if (componentMounted.current) setCancellingId(null);
     }
   };
 
@@ -381,7 +438,7 @@ function MyReservations() {
           <p>Pregled svih tvojih termina na jednom mestu.</p>
         </div>
 
-        <Link to="/courts" className="primary-button">
+        <Link to="/book" className="primary-button">
           Rezerviši teren
         </Link>
       </header>
@@ -481,11 +538,9 @@ function MyReservations() {
                       type="button"
                       className="cancel-reservation-button"
                       disabled={cancellingId !== null}
-                      onClick={() => cancelReservation(reservation)}
+                      onClick={() => openCancellation(reservation)}
                     >
-                      {cancellingId === reservation.id
-                        ? "Otkazivanje..."
-                        : "Otkaži rezervaciju"}
+                      Otkaži rezervaciju
                     </button>
                   </div>
                 )}
@@ -493,6 +548,56 @@ function MyReservations() {
               </article>
             );
           })}
+        </div>
+      )}
+
+      {cancellationReservation && (
+        <div className="booking-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCancellation(); }}>
+          <section className="booking-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="cancellation-confirm-title">
+            {cancellationPhase === "confirm" && (
+              <>
+                <header className="booking-confirm-heading">
+                  <div>
+                    <h2 id="cancellation-confirm-title">Otkaži rezervaciju?</h2>
+                    <p>Ova radnja će otkazati rezervaciju.</p>
+                  </div>
+                  <button type="button" className="booking-confirm-close" aria-label="Zatvori potvrdu" onClick={closeCancellation}>×</button>
+                </header>
+
+                <dl className="booking-confirm-details">
+                  <div><dt>Teren</dt><dd>{cancellationReservation.courtName}</dd></div>
+                  <div><dt>Datum</dt><dd>{dateFormatter.format(new Date(cancellationReservation.startTime))}</dd></div>
+                  <div><dt>Vreme</dt><dd>{timeFormatter.format(new Date(cancellationReservation.startTime))}–{timeFormatter.format(new Date(cancellationReservation.endTime))}</dd></div>
+                  <div><dt>Trajanje</dt><dd>{cancellationDuration} {cancellationDuration === 1 ? "sat" : "sata"}</dd></div>
+                  {cancellationReservation.totalPrice != null && (
+                    <div className="booking-confirm-total"><dt>Ukupna cena</dt><dd>{priceFormatter.format(cancellationReservation.totalPrice)}</dd></div>
+                  )}
+                </dl>
+
+                {cancellationError && <p className="booking-confirm-error" role="alert">{cancellationError}</p>}
+                <div className="booking-confirm-actions">
+                  <button type="button" onClick={closeCancellation}>Nazad</button>
+                  <button type="button" className="cancellation-confirm-button" onClick={cancelReservation}>Otkaži rezervaciju</button>
+                </div>
+              </>
+            )}
+
+            {cancellationPhase === "loading" && (
+              <div className="booking-confirm-state" role="status">
+                <span className="booking-confirm-spinner cancellation-spinner" aria-hidden="true" />
+                <h2 id="cancellation-confirm-title">Otkazivanje u toku...</h2>
+                <p>Obrađujemo tvoj zahtev.</p>
+              </div>
+            )}
+
+            {cancellationPhase === "success" && (
+              <div className="booking-confirm-state" role="status">
+                <span className="booking-confirm-check" aria-hidden="true">✓</span>
+                <h2 id="cancellation-confirm-title">Rezervacija otkazana!</h2>
+                <p>Termin je uspešno otkazan.</p>
+              </div>
+            )}
+          </section>
         </div>
       )}
 
