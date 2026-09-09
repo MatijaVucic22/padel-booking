@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { flushSync } from "react-dom";
 import api from "./api/api";
 import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import Courts from "./pages/Courts";
@@ -26,10 +28,58 @@ function App() {
   const routeLoaderVisible = useRef(false);
   const routeLoaderHideTimer = useRef(null);
   const routeLoaderUnmountTimer = useRef(null);
+  const pendingNavigationFrame = useRef(null);
+  const scrollLockBeforeLoader = useRef(null);
+
+  const restoreBodyScroll = () => {
+    if (scrollLockBeforeLoader.current === null) return;
+
+    const { htmlWasLocked, bodyWasLocked } = scrollLockBeforeLoader.current;
+    if (!htmlWasLocked) document.documentElement.classList.remove("route-transition-locked");
+    if (!bodyWasLocked) document.body.classList.remove("route-transition-locked");
+    scrollLockBeforeLoader.current = null;
+  };
+
+  const lockPageScroll = () => {
+    if (scrollLockBeforeLoader.current !== null) return;
+
+    scrollLockBeforeLoader.current = {
+      htmlWasLocked: document.documentElement.classList.contains("route-transition-locked"),
+      bodyWasLocked: document.body.classList.contains("route-transition-locked"),
+    };
+    document.documentElement.classList.add("route-transition-locked");
+    document.body.classList.add("route-transition-locked");
+  };
+
+  const handleRouteNavigation = (destination, closeMenu) => {
+    if (destination === location.pathname) {
+      closeMenu();
+      return;
+    }
+
+    if (pendingNavigationFrame.current !== null) {
+      window.cancelAnimationFrame(pendingNavigationFrame.current);
+    }
+
+    lockPageScroll();
+    flushSync(() => {
+      setRouteLoaderMounted(true);
+      setRouteLoaderActive(true);
+      closeMenu();
+    });
+
+    pendingNavigationFrame.current = window.requestAnimationFrame(() => {
+      pendingNavigationFrame.current = null;
+      navigate(destination);
+    });
+  };
 
   useLayoutEffect(() => {
     if (previousPathname.current === location.pathname) return;
     previousPathname.current = location.pathname;
+    window.scrollTo(0, 0);
+
+    lockPageScroll();
 
     [
       routeLoaderHideTimer,
@@ -53,6 +103,7 @@ function App() {
       routeLoaderUnmountTimer.current = window.setTimeout(() => {
         routeLoaderUnmountTimer.current = null;
         setRouteLoaderMounted(false);
+        restoreBodyScroll();
       }, 200);
     }, 700);
   }, [location.pathname]);
@@ -64,6 +115,10 @@ function App() {
     ].forEach((timerRef) => {
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
     });
+    restoreBodyScroll();
+    if (pendingNavigationFrame.current !== null) {
+      window.cancelAnimationFrame(pendingNavigationFrame.current);
+    }
   }, []);
 
   const handleLogin = (loggedInUser) => {
@@ -120,7 +175,7 @@ function App() {
 
   return (
     <>
-      <Navbar user={user} onLogout={handleLogout} />
+      <Navbar user={user} onLogout={handleLogout} onNavigate={handleRouteNavigation} />
 
       <main>
         {sessionLoading ? (
@@ -161,6 +216,8 @@ function App() {
         </Routes>
         )}
       </main>
+
+      <Footer />
 
       {routeLoaderMounted && (
         <div

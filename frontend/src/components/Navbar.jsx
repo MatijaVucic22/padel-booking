@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
-function Navbar({ user, onLogout }) {
-  const navigate = useNavigate();
+function Navbar({ user, onLogout, onNavigate }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setTheme] = useState(
     () => document.documentElement.dataset.theme || "light",
@@ -25,10 +24,24 @@ function Navbar({ user, onLogout }) {
 
   const closeMenu = () => setMenuOpen(false);
 
+  const handleNavigation = (event, destination) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    onNavigate(destination, closeMenu);
+  };
+
   const handleLogout = () => {
-    setMenuOpen(false);
     onLogout();
-    navigate("/");
+    onNavigate("/", closeMenu);
   };
 
   const toggleTheme = () => {
@@ -40,7 +53,7 @@ function Navbar({ user, onLogout }) {
 
   return (
     <nav className="navbar">
-      <Link to="/" className="logo" onClick={closeMenu}>
+      <Link to="/" className="logo" onClick={(event) => handleNavigation(event, "/")}>
         PADEL<span>BOOKING</span>
       </Link>
 
@@ -54,7 +67,6 @@ function Navbar({ user, onLogout }) {
       >
         <span />
         <span />
-        <span />
       </button>
 
       <div
@@ -62,12 +74,12 @@ function Navbar({ user, onLogout }) {
         className={`nav-links${menuOpen ? " open" : ""}`}
       >
         <div className="nav-primary">
-          <Link to="/" onClick={closeMenu}>Početna</Link>
-          <Link to="/courts" onClick={closeMenu}>Tereni</Link>
-          <Link to="/book" onClick={closeMenu}>Rezerviši</Link>
+          <Link to="/" onClick={(event) => handleNavigation(event, "/")}>Početna</Link>
+          <Link to="/courts" onClick={(event) => handleNavigation(event, "/courts")}>Tereni</Link>
+          <Link to="/book" onClick={(event) => handleNavigation(event, "/book")}>Rezerviši</Link>
 
-          {user && <Link to="/my-reservations" onClick={closeMenu}>Moje rezervacije</Link>}
-          {user?.role === "Admin" && <Link to="/admin" onClick={closeMenu}>Admin</Link>}
+          {user && <Link to="/my-reservations" onClick={(event) => handleNavigation(event, "/my-reservations")}>Moje rezervacije</Link>}
+          {user?.role === "Admin" && <Link to="/admin" onClick={(event) => handleNavigation(event, "/admin")}>Admin</Link>}
         </div>
 
         <div className="nav-account">{user ? (
@@ -80,8 +92,8 @@ function Navbar({ user, onLogout }) {
           </>
         ) : (
           <>
-            <Link to="/login" onClick={closeMenu}>Prijava</Link>
-            <Link to="/register" onClick={closeMenu}>Registracija</Link>
+            <Link to="/login" onClick={(event) => handleNavigation(event, "/login")}>Prijava</Link>
+            <Link to="/register" onClick={(event) => handleNavigation(event, "/register")}>Registracija</Link>
           </>
         )}
 
