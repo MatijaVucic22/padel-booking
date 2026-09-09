@@ -1383,6 +1383,25 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .court-booking-link:hover { background: var(--color-green); color: white; }
 .courts-feedback, .court-feedback { padding: 56px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-muted); text-align: center; }
 
+/* Quick booking */
+.quick-book-page { width: min(1240px, calc(100% - 64px)); }
+.quick-book-header { max-width: 760px; margin-bottom: 34px; }
+.quick-book-header h1 { margin: 0 0 14px; color: var(--color-forest); font-size: clamp(2.7rem, 5vw, 5rem); line-height: 1.04; }
+.quick-book-header p { color: var(--color-muted); }
+.quick-book-search { display: grid; grid-template-columns: minmax(190px, .7fr) 1.6fr 1fr; gap: 24px; padding: 26px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); }
+.quick-book-search fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.quick-book-search legend { margin-bottom: 8px; color: var(--color-text); font-size: .82rem; font-weight: 700; }
+.quick-book-hours, .quick-book-durations { display: flex; flex-wrap: wrap; gap: 7px; }
+.quick-book-hours button, .quick-book-durations button { min-height: 42px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-cream); color: var(--color-text); font-weight: 700; }
+.quick-book-hours button.selected, .quick-book-durations button.selected { border-color: var(--color-orange); background: var(--color-orange); color: #17201b; }
+.quick-book-hours button:disabled { cursor: not-allowed; opacity: .35; }
+.quick-book-interval { grid-column: 1 / -1; margin: 0; padding-top: 20px; border-top: 1px solid var(--color-border); color: var(--color-muted); }
+.quick-book-interval strong { color: var(--color-text); }
+.quick-book-results { margin-top: 28px; }
+.quick-book-prices { display: grid; gap: 7px; margin: 20px 0; padding-top: 18px; border-top: 1px solid var(--color-border); color: var(--color-muted); }
+.quick-book-prices strong { color: var(--color-forest); }
+.quick-book-results .primary-button { width: 100%; }
+
 /* Court details and booking */
 .court-details-page { width: min(1320px, calc(100% - 64px)); }
 .back-link { display: inline-flex; margin-bottom: 28px; color: var(--color-muted); font-weight: 700; text-decoration: none; }
@@ -1557,6 +1576,8 @@ main { min-height: calc(100vh - 76px); padding: 0; }
   .auth-visual-copy h2 { font-size: 2.8rem; }
   .reservation-ticket-body { grid-template-columns: 1fr; }
   .reservation-actions { justify-content: flex-start; }
+  .quick-book-search { grid-template-columns: 1fr 1fr; }
+  .quick-book-search .date-field { grid-column: 1 / -1; }
 }
 
 @media (max-width: 700px) {
@@ -1572,6 +1593,9 @@ main { min-height: calc(100vh - 76px); padding: 0; }
   .home-section { padding: 64px 0; }
   .editorial-heading { align-items: flex-start; flex-direction: column; margin-bottom: 30px; }
   .featured-grid, .courts-grid { grid-template-columns: 1fr; }
+  .quick-book-page { width: calc(100vw - 32px); }
+  .quick-book-search { grid-template-columns: 1fr; padding: 20px 16px; }
+  .quick-book-search .date-field, .quick-book-interval { grid-column: 1; }
   .featured-image { aspect-ratio: 5 / 4; }
   .process-list li { grid-template-columns: 54px 1fr; }
   .home-cta, .home-cta-content { min-height: 430px; }

@@ -28,8 +28,13 @@ namespace PadelBooking.Api.Validators
 
             RuleFor(request => request.EndTime)
                 .Must((request, endTime) =>
-                    endTime - request.StartTime == TimeSpan.FromHours(1))
-                .WithMessage("Rezervacija mora trajati tačno 60 minuta.");
+                {
+                    var duration = endTime - request.StartTime;
+                    return duration >= TimeSpan.FromHours(1) &&
+                        duration <= TimeSpan.FromHours(3) &&
+                        duration.Ticks % TimeSpan.TicksPerHour == 0;
+                })
+                .WithMessage("Rezervacija mora trajati 1, 2 ili 3 sata.");
 
             RuleFor(request => request.EndTime)
                 .Must((request, endTime) =>

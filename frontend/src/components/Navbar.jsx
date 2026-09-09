@@ -64,6 +64,7 @@ function Navbar({ user, onLogout }) {
         <div className="nav-primary">
           <Link to="/" onClick={closeMenu}>Početna</Link>
           <Link to="/courts" onClick={closeMenu}>Tereni</Link>
+          <Link to="/book" onClick={closeMenu}>Rezerviši</Link>
 
           {user && <Link to="/my-reservations" onClick={closeMenu}>Moje rezervacije</Link>}
           {user?.role === "Admin" && <Link to="/admin" onClick={closeMenu}>Admin</Link>}
