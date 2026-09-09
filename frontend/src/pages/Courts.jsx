@@ -71,8 +71,8 @@ function Courts() {
   return (
     <section className="page courts-page">
       <header className="courts-header">
-        <h1>Padel tereni</h1>
-        <p>Izaberi teren, datum i slobodan termin.</p>
+        <div><span className="section-kicker">Naša ponuda</span><h1>Padel tereni</h1></div>
+        <p>Upoznaj svaki teren, ambijent i lokaciju, pa pronađi termin koji ti odgovara.</p>
       </header>
 
       {courts.length === 0 ? (
@@ -80,16 +80,23 @@ function Courts() {
       ) : (
         <div className="courts-grid">
           {courts.map((court, index) => (
-            <article className="court-card" key={court.id}>
-              <Link to={`/courts/${court.id}`} className="court-card-image" aria-label={`Otvori teren ${court.name}`}>
+            <Link
+              to={`/courts/${court.id}`}
+              className="court-card"
+              key={court.id}
+              aria-label={`Otvori detalje terena ${court.name}`}
+            >
+              <div className="court-card-image">
                 <img src={court.imageUrl ? getBackendAssetUrl(court.imageUrl) : getCourtImage(court.id, index)} alt={`${court.name}, padel teren`} loading="lazy" />
-              </Link>
-              <div className="court-card-content">
-                <div className="court-card-heading"><div><span>{court.location}</span><h2>{court.name}</h2></div><span className="court-card-arrow" aria-hidden="true">↗</span></div>
-                {court.description && <p className="court-description">{court.description}</p>}
-                <div className="court-card-footer"><p className="price"><strong>{priceFormatter.format(court.pricePerHour)}</strong><span>/ sat</span></p><Link to={`/courts/${court.id}`} className="court-booking-link">Izaberi termin</Link></div>
               </div>
-            </article>
+              <div className="court-card-content">
+                <div className="court-card-status"><span aria-hidden="true" /> Dostupan za rezervacije</div>
+                <div className="court-card-heading"><div><span>{court.location}</span><h2>{court.name}</h2></div></div>
+                <p className="court-description">{court.description || "Detalji o terenu dostupni su na stranici terena."}</p>
+                <div className="court-card-price"><span>Cena po satu</span><strong>{priceFormatter.format(court.pricePerHour)}</strong></div>
+                <span className="court-card-details">Detalji →</span>
+              </div>
+            </Link>
           ))}
         </div>
       )}
