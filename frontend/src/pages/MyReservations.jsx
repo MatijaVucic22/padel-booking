@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
 import {
@@ -23,6 +23,73 @@ const statusLabels = {
   Completed: "Završena",
 };
 
+const reservationTabs = [
+  {
+    id: "upcoming",
+    label: "Predstojeće",
+    emptyTitle: "Nema predstojećih rezervacija",
+    emptyText: "Pronađi teren i rezerviši sledeći termin.",
+  },
+  {
+    id: "completed",
+    label: "Završene",
+    emptyTitle: "Nema završenih rezervacija",
+    emptyText: "Ovde će se prikazati istorija odigranih termina.",
+  },
+  {
+    id: "cancelled",
+    label: "Otkazane",
+    emptyTitle: "Nema otkazanih rezervacija",
+    emptyText: "Ovde će se prikazati istorija otkazanih termina.",
+  },
+];
+
+const belgradeClockFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Belgrade",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+function toWallClockValue(value) {
+  const match = String(value).match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/,
+  );
+
+  if (!match) return Number.NaN;
+
+  return Date.UTC(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    Number(match[4]),
+    Number(match[5]),
+    Number(match[6] ?? 0),
+  );
+}
+
+function getBelgradeWallClockValue() {
+  const parts = Object.fromEntries(
+    belgradeClockFormatter
+      .formatToParts(new Date())
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)]),
+  );
+
+  return Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  );
+}
+
 function getLocalDate() {
   const today = new Date();
   const offset = today.getTimezoneOffset() * 60_000;
@@ -46,6 +113,52 @@ function MyReservations() {
   const [rescheduleSaving, setRescheduleSaving] = useState(false);
   const [rescheduleError, setRescheduleError] = useState("");
   const [rescheduleFieldErrors, setRescheduleFieldErrors] = useState({});
+  const [activeTab, setActiveTab] = useState("upcoming");
+  const [belgradeNow, setBelgradeNow] = useState(getBelgradeWallClockValue);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setBelgradeNow(getBelgradeWallClockValue());
+    }, 60_000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const reservationsByTab = useMemo(() => {
+    const categorized = {
+      upcoming: [],
+      completed: [],
+      cancelled: [],
+    };
+
+    reservations.forEach((reservation) => {
+      if (reservation.status === "Cancelled") {
+        categorized.cancelled.push(reservation);
+      } else if (toWallClockValue(reservation.endTime) > belgradeNow) {
+        categorized.upcoming.push(reservation);
+      } else {
+        categorized.completed.push(reservation);
+      }
+    });
+
+    categorized.upcoming.sort(
+      (first, second) =>
+        toWallClockValue(first.startTime) - toWallClockValue(second.startTime),
+    );
+    categorized.completed.sort(
+      (first, second) =>
+        toWallClockValue(second.endTime) - toWallClockValue(first.endTime),
+    );
+    categorized.cancelled.sort(
+      (first, second) =>
+        toWallClockValue(second.startTime) - toWallClockValue(first.startTime),
+    );
+
+    return categorized;
+  }, [reservations, belgradeNow]);
+
+  const visibleReservations = reservationsByTab[activeTab];
+  const activeTabDetails = reservationTabs.find((tab) => tab.id === activeTab);
 
   useEffect(() => {
     if (!rescheduling || !rescheduleDate) return undefined;
@@ -284,17 +397,34 @@ function MyReservations() {
         </p>
       )}
 
-      {reservations.length === 0 ? (
+      <div className="reservation-tabs" role="tablist" aria-label="Vrste rezervacija">
+        {reservationTabs.map((tab) => (
+          <button
+            type="button"
+            role="tab"
+            className={activeTab === tab.id ? "active" : ""}
+            aria-selected={activeTab === tab.id}
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label} <span>({reservationsByTab[tab.id].length})</span>
+          </button>
+        ))}
+      </div>
+
+      {visibleReservations.length === 0 ? (
         <div className="reservations-empty">
-          <h2>Još nemaš rezervacije</h2>
-          <p>Pronađi teren i izaberi termin koji ti odgovara.</p>
-          <Link to="/courts" className="primary-button">
-            Pogledaj terene
-          </Link>
+          <h2>{activeTabDetails.emptyTitle}</h2>
+          <p>{activeTabDetails.emptyText}</p>
+          {activeTab === "upcoming" && (
+            <Link to="/courts" className="primary-button">
+              Pogledaj terene
+            </Link>
+          )}
         </div>
       ) : (
         <div className="reservations-list">
-          {reservations.map((reservation) => {
+          {visibleReservations.map((reservation) => {
             const startTime = new Date(reservation.startTime);
             const endTime = new Date(reservation.endTime);
             const normalizedStatus = reservation.status.toLowerCase();
@@ -336,7 +466,7 @@ function MyReservations() {
                   </div>
                 </dl>
 
-                {reservation.canCancel && (
+                {activeTab === "upcoming" && reservation.canCancel && (
                   <div className="reservation-actions">
                     <button
                       type="button"
