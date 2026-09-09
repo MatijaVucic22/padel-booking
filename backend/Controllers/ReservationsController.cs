@@ -99,7 +99,7 @@ namespace PadelBooking.Api.Controllers
                 var isOccupied = await _context.Reservations
                     .AnyAsync(r =>
                         r.CourtId == request.CourtId &&
-                        r.Status == "Active" &&
+                        r.Status != "Cancelled" &&
                         request.StartTime < r.EndTime &&
                         request.EndTime > r.StartTime
                     );
@@ -107,6 +107,17 @@ namespace PadelBooking.Api.Controllers
                 if (isOccupied)
                 {
                     return Conflict("Izabrani termin je već zauzet.");
+                }
+
+                var isBlocked = await _context.BlockedPeriods
+                    .AnyAsync(period =>
+                        period.CourtId == request.CourtId &&
+                        period.StartTime < request.EndTime &&
+                        period.EndTime > request.StartTime);
+
+                if (isBlocked)
+                {
+                    return Conflict("Izabrani termin je blokiran zbog održavanja.");
                 }
 
                 var durationHours =
@@ -293,13 +304,24 @@ namespace PadelBooking.Api.Controllers
                     .AnyAsync(item =>
                         item.Id != reservation.Id &&
                         item.CourtId == reservation.CourtId &&
-                        item.Status == "Active" &&
+                        item.Status != "Cancelled" &&
                         request.StartTime < item.EndTime &&
                         request.EndTime > item.StartTime);
 
                 if (isOccupied)
                 {
                     return Conflict("Izabrani termin je već zauzet.");
+                }
+
+                var isBlocked = await _context.BlockedPeriods
+                    .AnyAsync(period =>
+                        period.CourtId == reservation.CourtId &&
+                        period.StartTime < request.EndTime &&
+                        period.EndTime > request.StartTime);
+
+                if (isBlocked)
+                {
+                    return Conflict("Izabrani termin je blokiran zbog održavanja.");
                 }
 
                 oldStartTime = reservation.StartTime;
@@ -457,9 +479,16 @@ namespace PadelBooking.Api.Controllers
             var reservations = await _context.Reservations
                 .Where(r =>
                     r.CourtId == courtId &&
-                    r.Status == "Active" &&
+                    r.Status != "Cancelled" &&
                     r.StartTime < dayEnd &&
                     r.EndTime > dayStart)
+                .ToListAsync();
+
+            var blockedPeriods = await _context.BlockedPeriods
+                .Where(period =>
+                    period.CourtId == courtId &&
+                    period.StartTime < dayEnd &&
+                    period.EndTime > dayStart)
                 .ToListAsync();
 
             var availableSlots = new List<object>();
@@ -475,7 +504,11 @@ namespace PadelBooking.Api.Controllers
                     endTime > r.StartTime
                 );
 
-                if (!isOccupied && startTime > now)
+                var isBlocked = blockedPeriods.Any(period =>
+                    startTime < period.EndTime &&
+                    endTime > period.StartTime);
+
+                if (!isOccupied && !isBlocked && startTime > now)
                 {
                     availableSlots.Add(new
                     {

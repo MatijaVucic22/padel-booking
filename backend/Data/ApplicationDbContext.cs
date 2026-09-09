@@ -16,6 +16,8 @@ namespace PadelBooking.Api.Data
 
         public DbSet<Reservation> Reservations { get; set; }
 
+        public DbSet<BlockedPeriod> BlockedPeriods { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -47,6 +49,24 @@ namespace PadelBooking.Api.Data
             {
                 entity.Property(court => court.ImageUrl)
                     .HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<BlockedPeriod>(entity =>
+            {
+                entity.Property(period => period.Reason)
+                    .HasMaxLength(300);
+
+                entity.HasIndex(period => new
+                {
+                    period.CourtId,
+                    period.StartTime,
+                    period.EndTime
+                });
+
+                entity.HasOne(period => period.Court)
+                    .WithMany()
+                    .HasForeignKey(period => period.CourtId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }
