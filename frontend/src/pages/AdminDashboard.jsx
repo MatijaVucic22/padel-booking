@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as signalR from "@microsoft/signalr";
 import api, { courtAvailabilityHubUrl } from "../api/api";
+import DatePicker from "../components/DatePicker";
 import {
   hasValidationErrors,
   parseValidationErrors,
@@ -743,11 +744,10 @@ function AdminDashboard() {
               >
                 ←
               </button>
-              <input
-                type="date"
+              <DatePicker
                 value={calendarDate}
-                aria-label="Datum kalendara"
-                onChange={(event) => setCalendarDate(event.target.value)}
+                ariaLabel="Datum kalendara"
+                onChange={setCalendarDate}
               />
               <button
                 type="button"
@@ -1147,7 +1147,11 @@ function AdminDashboard() {
             </label>
             <label>
               Datum
-              <input type="date" name="date" value={blockForm.date} onChange={handleBlockInput} required />
+              <DatePicker
+                value={blockForm.date}
+                ariaLabel="Datum blokiranog termina"
+                onChange={(date) => setBlockForm((current) => ({ ...current, date }))}
+              />
             </label>
             <div className="admin-block-time-fields">
               <label>

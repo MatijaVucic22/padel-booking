@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api, { getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 import { longDateFormatter } from "../utils/dateFormatters";
+import DatePicker from "../components/DatePicker";
 
 const hours = Array.from({ length: 14 }, (_, index) => index + 8);
 const durations = [1, 2, 3];
@@ -134,12 +135,12 @@ function Book() {
       <div className="quick-book-search">
         <label className="date-field">
           Datum
-          <input
-            type="date"
+          <DatePicker
             min={getBelgradeDate()}
             value={date}
-            onChange={(event) => {
-              setDate(event.target.value);
+            ariaLabel="Izaberi datum rezervacije"
+            onChange={(nextDate) => {
+              setDate(nextDate);
               setSuccess("");
             }}
           />
