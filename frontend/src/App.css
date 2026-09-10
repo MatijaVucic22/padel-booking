@@ -7,14 +7,22 @@
   position: fixed;
   z-index: 1000;
   inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px;
   opacity: 0;
-  background: color-mix(in srgb, var(--color-cream) 96%, transparent);
+  background-color: var(--color-cream);
+  background-image:
+    linear-gradient(rgba(10, 20, 15, .18), rgba(10, 20, 15, .18)),
+    url("./assets/images/page-loader-desktop.jpg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   color: var(--color-text);
-  backdrop-filter: blur(7px);
-  transition: opacity 200ms ease;
+  transition: opacity 200ms ease-in-out;
 }
 
 .route-transition-loader.is-visible { opacity: 1; }
@@ -77,6 +85,14 @@
 @media (prefers-reduced-motion: reduce) {
   .route-transition-loader { transition-duration: 1ms; }
   .route-transition-spinner { animation-duration: 2s; }
+}
+
+@media (max-width: 768px) {
+  .route-transition-loader {
+    background-image:
+      linear-gradient(rgba(10, 20, 15, .18), rgba(10, 20, 15, .18)),
+      url("./assets/images/page-loader-mobile.jpg");
+  }
 }
 
 .navbar {
@@ -1782,10 +1798,6 @@ body.route-transition-locked {
   overflow: hidden !important;
   overscroll-behavior: none;
   touch-action: none;
-}
-
-html.route-transition-locked {
-  scrollbar-gutter: stable;
 }
 
 @media (max-width: 900px) {
