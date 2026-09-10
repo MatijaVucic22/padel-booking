@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api, { getBackendAssetUrl } from "../api/api";
+import * as signalR from "@microsoft/signalr";
+import api, { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 import { longDateFormatter } from "../utils/dateFormatters";
 import DatePicker from "../components/DatePicker";
@@ -27,6 +28,8 @@ function Book() {
   const navigate = useNavigate();
   const requestId = useRef(0);
   const modalTimer = useRef(null);
+  const signalRRefreshTimer = useRef(null);
+  const courtChangeRefreshTimer = useRef(null);
   const componentMounted = useRef(true);
   const [date, setDate] = useState("");
   const [startHour, setStartHour] = useState(null);
@@ -39,6 +42,8 @@ function Book() {
   const [selectedCourt, setSelectedCourt] = useState(null);
   const [modalPhase, setModalPhase] = useState("confirm");
   const [modalError, setModalError] = useState("");
+  const [activeCourtIds, setActiveCourtIds] = useState([]);
+  const [activeCourtsReloadKey, setActiveCourtsReloadKey] = useState(0);
 
   useEffect(() => {
     componentMounted.current = true;
@@ -49,8 +54,100 @@ function Book() {
         window.clearTimeout(modalTimer.current);
         modalTimer.current = null;
       }
+      if (signalRRefreshTimer.current !== null) {
+        window.clearTimeout(signalRRefreshTimer.current);
+        signalRRefreshTimer.current = null;
+      }
+      if (courtChangeRefreshTimer.current !== null) {
+        window.clearTimeout(courtChangeRefreshTimer.current);
+        courtChangeRefreshTimer.current = null;
+      }
     };
   }, []);
+
+  useEffect(() => {
+    let disposed = false;
+
+    api.get("/courts")
+      .then((response) => {
+        if (!disposed) setActiveCourtIds(response.data.map((court) => court.id));
+      })
+      .catch((requestError) => {
+        if (!disposed) console.error("SignalR court subscriptions could not be prepared.", requestError);
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, [activeCourtsReloadKey]);
+
+  useEffect(() => {
+    if (!date) return undefined;
+
+    let disposed = false;
+    const subscribedDate = date;
+    const courtIds = [...activeCourtIds];
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(courtAvailabilityHubUrl)
+      .withAutomaticReconnect()
+      .build();
+
+    const joinGroups = () => Promise.all(
+      courtIds.map((courtId) => connection.invoke("JoinCourtDate", courtId, subscribedDate)),
+    );
+    const refreshAvailability = () => {
+      if (disposed) return;
+      if (signalRRefreshTimer.current !== null) window.clearTimeout(signalRRefreshTimer.current);
+      signalRRefreshTimer.current = window.setTimeout(() => {
+        signalRRefreshTimer.current = null;
+        if (!disposed) setReloadKey((key) => key + 1);
+      }, 120);
+    };
+    const refreshCourtData = () => {
+      if (disposed) return;
+      if (courtChangeRefreshTimer.current !== null) window.clearTimeout(courtChangeRefreshTimer.current);
+      courtChangeRefreshTimer.current = window.setTimeout(() => {
+        courtChangeRefreshTimer.current = null;
+        if (!disposed) {
+          setActiveCourtsReloadKey((key) => key + 1);
+          setReloadKey((key) => key + 1);
+        }
+      }, 120);
+    };
+
+    connection.on("AvailabilityChanged", refreshAvailability);
+    connection.on("CourtChanged", refreshCourtData);
+    connection.onreconnected(() => {
+      joinGroups().catch((connectionError) => {
+        if (!disposed) console.error(connectionError);
+      });
+    });
+
+    connection.start()
+      .then(() => (disposed ? connection.stop() : joinGroups()))
+      .catch((connectionError) => {
+        if (!disposed) console.error(connectionError);
+      });
+
+    return () => {
+      disposed = true;
+      if (signalRRefreshTimer.current !== null) {
+        window.clearTimeout(signalRRefreshTimer.current);
+        signalRRefreshTimer.current = null;
+      }
+      connection.off("AvailabilityChanged", refreshAvailability);
+      connection.off("CourtChanged", refreshCourtData);
+      if (courtChangeRefreshTimer.current !== null) {
+        window.clearTimeout(courtChangeRefreshTimer.current);
+        courtChangeRefreshTimer.current = null;
+      }
+      if (connection.state !== signalR.HubConnectionState.Disconnected) {
+        Promise.allSettled(
+          courtIds.map((courtId) => connection.invoke("LeaveCourtDate", courtId, subscribedDate)),
+        ).finally(() => connection.stop());
+      }
+    };
+  }, [date, activeCourtIds]);
 
   useEffect(() => {
     if (!selectedCourt || modalPhase !== "confirm") return undefined;

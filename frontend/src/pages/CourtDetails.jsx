@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import api, { getBackendAssetUrl } from "../api/api";
+import * as signalR from "@microsoft/signalr";
+import api, { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
@@ -12,6 +13,7 @@ function CourtDetails() {
   const [court, setCourt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -31,6 +33,30 @@ function CourtDetails() {
     };
     loadCourt();
     return () => controller.abort();
+  }, [id, reloadKey]);
+
+  useEffect(() => {
+    let disposed = false;
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(courtAvailabilityHubUrl)
+      .withAutomaticReconnect()
+      .build();
+    const refreshCourt = (change) => {
+      if (!disposed && Number(change?.courtId) === Number(id)) {
+        setReloadKey((key) => key + 1);
+      }
+    };
+
+    connection.on("CourtChanged", refreshCourt);
+    connection.start().catch((connectionError) => {
+      if (!disposed) console.error(connectionError);
+    });
+
+    return () => {
+      disposed = true;
+      connection.off("CourtChanged", refreshCourt);
+      connection.stop();
+    };
   }, [id]);
 
   if (loading) return <section className="page court-details-page"><div className="state-card">Učitavanje terena...</div></section>;

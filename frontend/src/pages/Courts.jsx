@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api, { getBackendAssetUrl } from "../api/api";
+import * as signalR from "@microsoft/signalr";
+import api, { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
@@ -40,6 +41,28 @@ function Courts() {
       ignoreResponse = true;
     };
   }, [reloadKey]);
+
+  useEffect(() => {
+    let disposed = false;
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(courtAvailabilityHubUrl)
+      .withAutomaticReconnect()
+      .build();
+    const refreshCourts = () => {
+      if (!disposed) setReloadKey((currentKey) => currentKey + 1);
+    };
+
+    connection.on("CourtChanged", refreshCourts);
+    connection.start().catch((connectionError) => {
+      if (!disposed) console.error(connectionError);
+    });
+
+    return () => {
+      disposed = true;
+      connection.off("CourtChanged", refreshCourts);
+      connection.stop();
+    };
+  }, []);
 
   const retryLoading = () => {
     setLoading(true);

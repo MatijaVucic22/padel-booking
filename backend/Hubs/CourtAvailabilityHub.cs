@@ -6,6 +6,7 @@ namespace PadelBooking.Api.Hubs;
 public sealed class CourtAvailabilityHub : Hub
 {
     public const string AvailabilityChangedEvent = "AvailabilityChanged";
+    public const string CourtChangedEvent = "CourtChanged";
 
     public Task JoinCourtDate(int courtId, string date)
     {
