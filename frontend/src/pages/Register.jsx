@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../api/api";
 import courtIndoor from "../assets/images/court-indoor.jpg";
 import {
@@ -152,6 +152,10 @@ function Register() {
           {error && <p className="error-message">{error}</p>}
 
           {message && <p className="success-message">{message}</p>}
+
+          <p className="auth-form-helper">
+            Već imaš nalog? <Link to="/login">Prijavi se ovde.</Link>
+          </p>
 
           <button type="submit" disabled={loading}>
             {loading ? "Registracija..." : "Registruj se"}

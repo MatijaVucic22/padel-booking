@@ -12,28 +12,49 @@ const timeGroups = [
   { label: "Veče", hours: [17, 18, 19, 20, 21] },
 ];
 const durations = [1, 2, 3];
+const savedSelectionKey = "padelBooking:bookingSelection";
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency", currency: "RSD", maximumFractionDigits: 2,
 });
 
-function getBelgradeDate() {
+function getBelgradeNow() {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Belgrade", year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: "Europe/Belgrade", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23",
   }).formatToParts(new Date());
   const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
+  return { date: `${values.year}-${values.month}-${values.day}`, hour: Number(values.hour) };
+}
+
+function readSavedSelection() {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(savedSelectionKey));
+    sessionStorage.removeItem(savedSelectionKey);
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value.date) || !durations.includes(value.duration) || !Number.isInteger(value.startHour)) return null;
+    return value;
+  } catch {
+    sessionStorage.removeItem(savedSelectionKey);
+    return null;
+  }
+}
+
+function isPastStartTime(date, hour, belgradeNow) {
+  return Boolean(date) && hour !== null &&
+    (date < belgradeNow.date || (date === belgradeNow.date && hour <= belgradeNow.hour));
 }
 
 function Book() {
   const navigate = useNavigate();
+  const [initialSelection] = useState(readSavedSelection);
   const requestId = useRef(0);
   const modalTimer = useRef(null);
   const signalRRefreshTimer = useRef(null);
   const courtChangeRefreshTimer = useRef(null);
   const componentMounted = useRef(true);
-  const [date, setDate] = useState("");
-  const [startHour, setStartHour] = useState(null);
-  const [duration, setDuration] = useState(1);
+  const [date, setDate] = useState(initialSelection?.date ?? "");
+  const [startHour, setStartHour] = useState(initialSelection?.startHour ?? null);
+  const [duration, setDuration] = useState(initialSelection?.duration ?? 1);
+  const [belgradeNow, setBelgradeNow] = useState(getBelgradeNow);
+  const [selectionError, setSelectionError] = useState("");
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -63,6 +84,11 @@ function Book() {
         courtChangeRefreshTimer.current = null;
       }
     };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setBelgradeNow(getBelgradeNow()), 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -150,7 +176,7 @@ function Book() {
   }, [date, activeCourtIds]);
 
   useEffect(() => {
-    if (!selectedCourt || modalPhase !== "confirm") return undefined;
+    if (!selectedCourt || !["confirm", "guest"].includes(modalPhase)) return undefined;
 
     const handleEscape = (event) => {
       if (event.key === "Escape") setSelectedCourt(null);
@@ -160,7 +186,19 @@ function Book() {
   }, [modalPhase, selectedCourt]);
 
   useEffect(() => {
-    if (!date || startHour === null) {
+    if (startHour === null) return;
+
+    if (isPastStartTime(date, startHour, belgradeNow)) {
+      setStartHour(null);
+      setSelectionError("Izabrani termin je već prošao. Odaberi kasnije vreme.");
+    } else if (startHour + duration > 22) {
+      setStartHour(null);
+      setSelectionError("");
+    }
+  }, [belgradeNow, date, duration, startHour]);
+
+  useEffect(() => {
+    if (!date || startHour === null || isPastStartTime(date, startHour, belgradeNow) || startHour + duration > 22) {
       setCourts([]);
       setLoading(false);
       return undefined;
@@ -190,16 +228,19 @@ function Book() {
       });
 
     return () => controller.abort();
-  }, [date, startHour, duration, reloadKey]);
+  }, [belgradeNow, date, startHour, duration, reloadKey]);
 
   const selectDuration = (value) => {
     setDuration(value);
+    setSelectionError("");
     if (startHour !== null && startHour + value > 22) setStartHour(null);
   };
 
   const openConfirmation = (court) => {
     if (!localStorage.getItem("token")) {
-      navigate("/login", { state: { from: "/book" } });
+      setSelectedCourt(court);
+      setModalPhase("guest");
+      setModalError("");
       return;
     }
 
@@ -208,8 +249,13 @@ function Book() {
     setModalError("");
   };
 
+  const continueToLogin = () => {
+    sessionStorage.setItem(savedSelectionKey, JSON.stringify({ date, startHour, duration }));
+    navigate("/login", { state: { from: "/book" } });
+  };
+
   const closeConfirmation = () => {
-    if (modalPhase === "confirm") setSelectedCourt(null);
+    if (["confirm", "guest"].includes(modalPhase)) setSelectedCourt(null);
   };
 
   const waitForMinimumLoading = (startedAt) => new Promise((resolve) => {
@@ -256,6 +302,7 @@ function Book() {
   };
 
   const hasInterval = date && startHour !== null;
+  const isAuthenticated = Boolean(localStorage.getItem("token"));
   const formattedDate = date ? longDateFormatter.format(new Date(`${date}T00:00:00`)) : "Izaberi datum";
   const formattedTime = startHour === null
     ? "Izaberi vreme početka"
@@ -269,10 +316,17 @@ function Book() {
         <p>Izaberi datum, vreme i trajanje termina.</p>
       </header>
 
+      {!isAuthenticated && (
+        <aside className="guest-booking-banner">
+          <div><strong>Rezervacije su dostupne prijavljenim korisnicima.</strong><p>Možeš pregledati slobodne termine, ali za potvrdu rezervacije potrebno je da se prijaviš.</p></div>
+          <div><button type="button" onClick={continueToLogin}>Prijavi se</button><button type="button" onClick={() => navigate("/register")}>Napravi nalog</button></div>
+        </aside>
+      )}
+
       <div className="quick-book-layout">
         <div className="quick-book-search">
           <label className="date-field">Datum
-            <DatePicker min={getBelgradeDate()} value={date} ariaLabel="Izaberi datum rezervacije" onChange={setDate} />
+            <DatePicker min={belgradeNow.date} value={date} ariaLabel="Izaberi datum rezervacije" onChange={(value) => { setDate(value); setSelectionError(""); }} />
           </label>
 
           <fieldset>
@@ -283,7 +337,7 @@ function Book() {
                   <span>{group.label}</span>
                   <div className="quick-book-hours">
                     {group.hours.map((hour) => (
-                      <button type="button" className={startHour === hour ? "selected" : ""} disabled={hour + duration > 22} key={hour} onClick={() => setStartHour(hour)}>
+                      <button type="button" className={startHour === hour ? "selected" : ""} disabled={hour + duration > 22 || isPastStartTime(date, hour, belgradeNow)} key={hour} onClick={() => { setStartHour(hour); setSelectionError(""); }}>
                         {String(hour).padStart(2, "0")}:00
                       </button>
                     ))}
@@ -313,6 +367,7 @@ function Book() {
         </aside>
       </div>
 
+      {selectionError && <p className="booking-error" role="alert">{selectionError}</p>}
       {error && <p className="booking-error" role="alert">{error}</p>}
 
       {hasInterval && (
@@ -349,6 +404,26 @@ function Book() {
       {selectedCourt && (
         <div className="booking-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeConfirmation(); }}>
           <section className="booking-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="booking-confirm-title">
+            {modalPhase === "guest" && (
+              <>
+                <header className="booking-confirm-heading">
+                  <div><h2 id="booking-confirm-title">Prijavi se za rezervaciju</h2><p>Da bi potvrdio ovaj termin, potrebno je da budeš prijavljen.</p></div>
+                  <button type="button" className="booking-confirm-close" aria-label="Zatvori" onClick={closeConfirmation}>×</button>
+                </header>
+                <dl className="booking-confirm-details">
+                  <div><dt>Teren</dt><dd>{selectedCourt.name}</dd></div>
+                  <div><dt>Datum</dt><dd>{formattedDate}</dd></div>
+                  <div><dt>Vreme</dt><dd>{formattedTime}</dd></div>
+                  <div><dt>Trajanje</dt><dd>{duration} {duration === 1 ? "sat" : "sata"}</dd></div>
+                  <div className="booking-confirm-total"><dt>Ukupna cena</dt><dd>{priceFormatter.format(selectedCourt.pricePerHour * duration)}</dd></div>
+                </dl>
+                <div className="booking-confirm-actions">
+                  <button type="button" onClick={closeConfirmation}>Odustani</button>
+                  <button type="button" className="primary-button" onClick={continueToLogin}>Prijavi se</button>
+                </div>
+              </>
+            )}
+
             {modalPhase === "confirm" && (
               <>
                 <header className="booking-confirm-heading">

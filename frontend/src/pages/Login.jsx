@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import api from "../api/api";
 import courtNight from "../assets/images/court-night.jpg";
 import {
@@ -123,6 +123,10 @@ function Login({ onLogin }) {
           ))}
 
           {error && <p className="error-message">{error}</p>}
+
+          <p className="auth-form-helper">
+            Nemaš nalog? <Link to="/register">Registruj se ovde.</Link>
+          </p>
 
           <button type="submit" disabled={loading}>
             {loading ? "Prijavljivanje..." : "Prijavi se"}
