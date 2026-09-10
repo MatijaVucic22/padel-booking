@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import api from "../api/api";
 import courtNight from "../assets/images/court-night.jpg";
 import {
@@ -8,7 +8,6 @@ import {
 } from "../utils/validationErrors";
 
 function Login({ onLogin }) {
-  const navigate = useNavigate();
   const location = useLocation();
 
   const [formData, setFormData] = useState({
@@ -49,8 +48,6 @@ function Login({ onLogin }) {
       localStorage.setItem("token", response.data.token);
       localStorage.removeItem("user");
 
-      onLogin(response.data.user);
-
       const requestedPath = location.state?.from;
       const destination =
         typeof requestedPath === "string" &&
@@ -60,7 +57,7 @@ function Login({ onLogin }) {
           ? requestedPath
           : "/";
 
-      navigate(destination, { replace: true });
+      onLogin(response.data.user, destination);
     } catch (error) {
       const validationErrors = parseValidationErrors(error);
 

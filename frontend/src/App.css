@@ -1653,13 +1653,24 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .reservation-card:has(.reservation-status-cancelled) { opacity: .66; }
 .reservations-empty { padding: 80px 24px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); }
 .reschedule-modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(9, 20, 14, .64); }
-.reschedule-modal { width: min(520px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; padding: 28px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-text); box-shadow: 0 24px 70px rgba(9, 20, 14, .24); }
+.reschedule-modal { width: min(620px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; padding: 28px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-text); box-shadow: 0 24px 70px rgba(9, 20, 14, .24); }
 .reschedule-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
 .reschedule-modal-heading h2 { margin: 5px 0 0; color: var(--color-forest); }
 .reschedule-close-button { flex: 0 0 42px; width: 42px; height: 42px; padding: 0; border: 1px solid var(--color-border); border-radius: 9px; background: transparent; color: var(--color-text); font-size: 1.6rem; line-height: 1; }
 .reschedule-current-slot { margin: 0 0 22px; padding: 14px 16px; border-radius: 9px; background: var(--color-surface-muted); color: var(--color-muted); line-height: 1.55; }
 .reschedule-current-slot strong { color: var(--color-text); }
 .reschedule-modal .date-field { margin-bottom: 20px; }
+.reschedule-duration-fieldset { min-width: 0; margin: 0 0 22px; padding: 0; border: 0; }
+.reschedule-duration-fieldset legend { margin-bottom: 10px; color: var(--color-text); font-size: .82rem; font-weight: 800; }
+.reschedule-new-summary { display: grid; gap: 6px; margin-top: 20px; padding: 17px 18px; border: 1px solid color-mix(in srgb, var(--color-green) 32%, var(--color-border)); border-radius: 10px; background: color-mix(in srgb, var(--color-green) 7%, var(--color-surface)); }
+.reschedule-new-summary strong { color: var(--color-forest); font-family: "Sora", sans-serif; }
+.reschedule-new-summary > span:not(.reservation-label), .reschedule-new-summary p { margin: 0; color: var(--color-muted); }
+.reschedule-confirm-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.reschedule-confirm-comparison section { display: grid; align-content: start; gap: 7px; min-width: 0; padding: 18px; border: 1px solid var(--color-border); border-radius: 11px; background: var(--color-surface-muted); }
+.reschedule-confirm-comparison strong { color: var(--color-forest); font-family: "Sora", sans-serif; }
+.reschedule-confirm-comparison p { margin: 0; color: var(--color-text); }
+.reschedule-confirm-comparison small { color: var(--color-muted); }
+.reschedule-confirm-comparison b { margin-top: 5px; color: var(--color-green); font-family: "Sora", sans-serif; }
 .reschedule-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--color-border); }
 .reschedule-modal-actions button { min-height: 46px; padding: 0 18px; border: 1px solid var(--color-border); border-radius: 9px; background: transparent; color: var(--color-text); font-weight: 700; }
 .reschedule-modal-actions .primary-button { border-color: var(--color-green); background: var(--color-green); color: var(--color-on-primary); }
@@ -1861,6 +1872,7 @@ body.route-transition-locked {
   .booking-confirm-details .booking-confirm-total { grid-column: 1; }
   .booking-confirm-actions { flex-direction: column-reverse; }
   .booking-confirm-actions button { width: 100%; }
+  .reschedule-confirm-comparison { grid-template-columns: 1fr; }
   .featured-image { aspect-ratio: 5 / 4; }
   .process-list li { grid-template-columns: 54px 1fr; }
   .home-cta, .home-cta-content { min-height: 430px; }

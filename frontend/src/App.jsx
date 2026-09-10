@@ -53,9 +53,13 @@ function App() {
     document.body.classList.add("route-transition-locked");
   };
 
-  const handleRouteNavigation = (destination, closeMenu = () => {}) => {
+  const handleRouteNavigation = (
+    destination,
+    beforeNavigation = () => {},
+    navigationOptions,
+  ) => {
     if (destination === location.pathname) {
-      closeMenu();
+      beforeNavigation();
       return;
     }
 
@@ -71,7 +75,6 @@ function App() {
     flushSync(() => {
       setRouteLoaderMounted(true);
       setRouteLoaderActive(false);
-      closeMenu();
     });
 
     const loaderElement = document.querySelector(".route-transition-loader");
@@ -83,7 +86,8 @@ function App() {
 
     routeNavigationTimer.current = window.setTimeout(() => {
       routeNavigationTimer.current = null;
-      navigate(destination);
+      flushSync(() => beforeNavigation());
+      navigate(destination, navigationOptions);
     }, 200);
   };
 
@@ -182,8 +186,12 @@ function App() {
     routeTransitionInProgress.current = false;
   }, []);
 
-  const handleLogin = (loggedInUser) => {
-    setUser(loggedInUser);
+  const handleLogin = (loggedInUser, destination) => {
+    handleRouteNavigation(
+      destination,
+      () => setUser(loggedInUser),
+      { replace: true },
+    );
   };
 
   const handleLogout = () => {
