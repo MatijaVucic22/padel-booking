@@ -56,6 +56,18 @@ public sealed class EmailService : IEmailService
             cancellationToken);
     }
 
+    public async Task SendReservationRescheduledAsync(
+        ReservationRescheduledEmail rescheduled,
+        CancellationToken cancellationToken = default)
+    {
+        await SendAsync(
+            rescheduled.RecipientEmail,
+            "Termin rezervacije je promenjen",
+            BuildRescheduledHtmlBody(rescheduled),
+            BuildRescheduledTextBody(rescheduled),
+            cancellationToken);
+    }
+
     private async Task SendAsync(
         string recipientEmail,
         string subject,
@@ -332,6 +344,89 @@ public sealed class EmailService : IEmailService
         Vidimo se na terenu!
         PadelBooking
         """;
+
+    private static string BuildRescheduledHtmlBody(ReservationRescheduledEmail data)
+    {
+        var name = Encode(data.UserFirstName);
+        var court = Encode(data.CourtName);
+        var oldDate = data.OldStartTime.ToString("dd.MM.yyyy.", SerbianCulture);
+        var newDate = data.NewStartTime.ToString("dd.MM.yyyy.", SerbianCulture);
+        var oldTime = $"{data.OldStartTime:HH:mm} &ndash; {data.OldEndTime:HH:mm}";
+        var newTime = $"{data.NewStartTime:HH:mm} &ndash; {data.NewEndTime:HH:mm}";
+        var duration = (data.NewEndTime - data.NewStartTime).TotalHours;
+        var durationText = duration == 1 ? "1 sat" : $"{duration:0} sata";
+        var price = Encode(FormatPrice(data.NewTotalPrice));
+
+        return $$"""
+            <!doctype html>
+            <html lang="sr-Latn">
+            <body style="margin:0;padding:0;background:#F6F4EE;color:#17201B;font-family:Arial,sans-serif;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F6F4EE;padding:32px 12px;">
+                <tr><td align="center">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#FFFFFF;border:1px solid #E2E5DF;border-radius:12px;overflow:hidden;">
+                    <tr><td style="background:#18392B;padding:28px 32px;color:#FFFFFF;">
+                      <div style="font-size:13px;letter-spacing:1.5px;color:#FF7547;font-weight:bold;">PADELBOOKING</div>
+                      <h1 style="margin:10px 0 0;font-size:26px;line-height:1.25;">Termin rezervacije je promenjen</h1>
+                    </td></tr>
+                    <tr><td style="padding:32px;">
+                      <p style="margin:0 0 24px;font-size:17px;">Zdravo {{name}},</p>
+                      <h2 style="margin:0 0 10px;font-size:17px;color:#68736C;">Prethodni termin</h2>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F6F4EE;border-left:4px solid #68736C;border-radius:8px;">
+                        <tr><td style="padding:18px 22px;line-height:1.8;">
+                          <strong>Teren:</strong> {{court}}<br>
+                          <strong>Datum:</strong> {{oldDate}}<br>
+                          <strong>Vreme:</strong> {{oldTime}}
+                        </td></tr>
+                      </table>
+                      <h2 style="margin:24px 0 10px;font-size:17px;color:#2F7657;">Novi termin</h2>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F6F4EE;border-left:4px solid #FF7547;border-radius:8px;">
+                        <tr><td style="padding:18px 22px;line-height:1.8;">
+                          <strong>Teren:</strong> {{court}}<br>
+                          <strong>Datum:</strong> {{newDate}}<br>
+                          <strong>Vreme:</strong> {{newTime}}<br>
+                          <strong>Trajanje:</strong> {{durationText}}<br>
+                          <strong>Cena:</strong> {{price}} RSD<br>
+                          <strong>Broj rezervacije:</strong> #{{data.ReservationId}}
+                        </td></tr>
+                      </table>
+                      <p style="margin:26px 0 4px;line-height:1.6;">Vidimo se na terenu!</p>
+                      <p style="margin:0;color:#2F7657;font-weight:bold;">PadelBooking</p>
+                    </td></tr>
+                  </table>
+                </td></tr>
+              </table>
+            </body>
+            </html>
+            """;
+    }
+
+    private static string BuildRescheduledTextBody(ReservationRescheduledEmail data)
+    {
+        var duration = (data.NewEndTime - data.NewStartTime).TotalHours;
+        var durationText = duration == 1 ? "1 sat" : $"{duration:0} sata";
+
+        return $$"""
+            Termin rezervacije je promenjen
+
+            Zdravo {{data.UserFirstName}},
+
+            Prethodni termin
+            Teren: {{data.CourtName}}
+            Datum: {{data.OldStartTime.ToString("dd.MM.yyyy.", SerbianCulture)}}
+            Vreme: {{data.OldStartTime:HH:mm}} – {{data.OldEndTime:HH:mm}}
+
+            Novi termin
+            Teren: {{data.CourtName}}
+            Datum: {{data.NewStartTime.ToString("dd.MM.yyyy.", SerbianCulture)}}
+            Vreme: {{data.NewStartTime:HH:mm}} – {{data.NewEndTime:HH:mm}}
+            Trajanje: {{durationText}}
+            Cena: {{FormatPrice(data.NewTotalPrice)}} RSD
+            Broj rezervacije: #{{data.ReservationId}}
+
+            Vidimo se na terenu!
+            PadelBooking
+            """;
+    }
 
     private static string FormatPrice(decimal price)
     {

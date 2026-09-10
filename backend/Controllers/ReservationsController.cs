@@ -259,11 +259,14 @@ namespace PadelBooking.Api.Controllers
             }
 
             DateTime oldStartTime;
+            DateTime oldEndTime;
             Reservation reservation;
+            ReservationRescheduledEmail rescheduledEmail;
 
             await using (acquiredCourtLock)
             {
                 var lockedReservation = await _context.Reservations
+                    .Include(item => item.User)
                     .FirstOrDefaultAsync(item =>
                         item.Id == id &&
                         item.UserId == userId);
@@ -325,6 +328,7 @@ namespace PadelBooking.Api.Controllers
                 }
 
                 oldStartTime = reservation.StartTime;
+                oldEndTime = reservation.EndTime;
                 reservation.StartTime = request.StartTime;
                 reservation.EndTime = request.EndTime;
                 reservation.TotalPrice = court.PricePerHour *
@@ -332,6 +336,17 @@ namespace PadelBooking.Api.Controllers
                 reservation.ReminderSentAtUtc = null;
 
                 await _context.SaveChangesAsync();
+
+                rescheduledEmail = new ReservationRescheduledEmail(
+                    reservation.User.Email,
+                    reservation.User.FirstName,
+                    court.Name,
+                    oldStartTime,
+                    oldEndTime,
+                    reservation.StartTime,
+                    reservation.EndTime,
+                    reservation.TotalPrice,
+                    reservation.Id);
             }
 
             await NotifyAvailabilityChangedAsync(
@@ -343,6 +358,20 @@ namespace PadelBooking.Api.Controllers
                 await NotifyAvailabilityChangedAsync(
                     reservation.CourtId,
                     reservation.StartTime);
+            }
+
+            try
+            {
+                await _emailService.SendReservationRescheduledAsync(
+                    rescheduledEmail,
+                    HttpContext.RequestAborted);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Email potvrda promene termina nije poslata za rezervaciju {ReservationId}.",
+                    reservation.Id);
             }
 
             return Ok(new

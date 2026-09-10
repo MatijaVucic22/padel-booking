@@ -221,6 +221,10 @@ function MyReservations() {
   const rescheduleHourlyPrice = rescheduling && originalRescheduleDuration
     ? rescheduling.totalPrice / originalRescheduleDuration
     : null;
+  const selectedRescheduleDuration = selectedRescheduleSlot
+    ? (toWallClockValue(selectedRescheduleSlot.endTime) -
+      toWallClockValue(selectedRescheduleSlot.startTime)) / 3_600_000
+    : 0;
   const availableRescheduleIntervals = useMemo(() => {
     if (!rescheduling) return [];
 
@@ -863,8 +867,8 @@ function MyReservations() {
                     <strong>{rescheduling.courtName}</strong>
                     <p>{dateFormatter.format(new Date(selectedRescheduleSlot.startTime))}</p>
                     <p>{timeFormatter.format(new Date(selectedRescheduleSlot.startTime))}–{timeFormatter.format(new Date(selectedRescheduleSlot.endTime))}</p>
-                    <small>{rescheduleDuration} {rescheduleDuration === 1 ? "sat" : "sata"}</small>
-                    {rescheduleHourlyPrice != null && <b>{priceFormatter.format(rescheduleHourlyPrice * rescheduleDuration)}</b>}
+                    <small>{selectedRescheduleDuration} {selectedRescheduleDuration === 1 ? "sat" : "sata"}</small>
+                    {rescheduleHourlyPrice != null && <b>{priceFormatter.format(rescheduleHourlyPrice * selectedRescheduleDuration)}</b>}
                   </section>
                 </div>
 
