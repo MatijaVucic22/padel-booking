@@ -28,7 +28,9 @@ function App() {
   const routeLoaderVisible = useRef(false);
   const routeLoaderHideTimer = useRef(null);
   const routeLoaderUnmountTimer = useRef(null);
-  const pendingNavigationFrame = useRef(null);
+  const routeLoaderShowFrame = useRef(null);
+  const routeNavigationTimer = useRef(null);
+  const routeTransitionInProgress = useRef(false);
   const scrollLockBeforeLoader = useRef(null);
 
   const restoreBodyScroll = () => {
@@ -51,28 +53,65 @@ function App() {
     document.body.classList.add("route-transition-locked");
   };
 
-  const handleRouteNavigation = (destination, closeMenu) => {
+  const handleRouteNavigation = (destination, closeMenu = () => {}) => {
     if (destination === location.pathname) {
       closeMenu();
       return;
     }
 
-    if (pendingNavigationFrame.current !== null) {
-      window.cancelAnimationFrame(pendingNavigationFrame.current);
+    if (routeTransitionInProgress.current) return;
+    routeTransitionInProgress.current = true;
+
+    if (routeLoaderShowFrame.current !== null) {
+      window.cancelAnimationFrame(routeLoaderShowFrame.current);
+      routeLoaderShowFrame.current = null;
     }
 
     lockPageScroll();
     flushSync(() => {
       setRouteLoaderMounted(true);
-      setRouteLoaderActive(true);
+      setRouteLoaderActive(false);
       closeMenu();
     });
 
-    pendingNavigationFrame.current = window.requestAnimationFrame(() => {
-      pendingNavigationFrame.current = null;
-      navigate(destination);
+    const loaderElement = document.querySelector(".route-transition-loader");
+    if (loaderElement) loaderElement.getBoundingClientRect();
+
+    flushSync(() => {
+      setRouteLoaderActive(true);
     });
+
+    routeNavigationTimer.current = window.setTimeout(() => {
+      routeNavigationTimer.current = null;
+      navigate(destination);
+    }, 200);
   };
+
+  useEffect(() => {
+    const handleInternalLinkClick = (event) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        !(event.target instanceof Element)
+      ) return;
+
+      const anchor = event.target.closest("a[href]");
+      if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download")) return;
+
+      const destinationUrl = new URL(anchor.href, window.location.href);
+      if (destinationUrl.origin !== window.location.origin || destinationUrl.pathname === location.pathname) return;
+
+      event.preventDefault();
+      handleRouteNavigation(`${destinationUrl.pathname}${destinationUrl.search}${destinationUrl.hash}`);
+    };
+
+    document.addEventListener("click", handleInternalLinkClick, true);
+    return () => document.removeEventListener("click", handleInternalLinkClick, true);
+  }, [location.pathname]);
 
   useLayoutEffect(() => {
     if (previousPathname.current === location.pathname) return;
@@ -80,6 +119,11 @@ function App() {
     window.scrollTo(0, 0);
 
     lockPageScroll();
+
+    if (routeLoaderShowFrame.current !== null) {
+      window.cancelAnimationFrame(routeLoaderShowFrame.current);
+      routeLoaderShowFrame.current = null;
+    }
 
     [
       routeLoaderHideTimer,
@@ -91,9 +135,19 @@ function App() {
       }
     });
 
+    const loaderWasAlreadyMounted = routeLoaderMounted;
     setRouteLoaderMounted(true);
     routeLoaderVisible.current = true;
-    setRouteLoaderActive(true);
+
+    if (loaderWasAlreadyMounted) {
+      setRouteLoaderActive(true);
+    } else {
+      setRouteLoaderActive(false);
+      routeLoaderShowFrame.current = window.requestAnimationFrame(() => {
+        routeLoaderShowFrame.current = null;
+        setRouteLoaderActive(true);
+      });
+    }
 
     routeLoaderHideTimer.current = window.setTimeout(() => {
       routeLoaderHideTimer.current = null;
@@ -104,6 +158,7 @@ function App() {
         routeLoaderUnmountTimer.current = null;
         setRouteLoaderMounted(false);
         restoreBodyScroll();
+        routeTransitionInProgress.current = false;
       }, 200);
     }, 700);
   }, [location.pathname]);
@@ -116,9 +171,15 @@ function App() {
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
     });
     restoreBodyScroll();
-    if (pendingNavigationFrame.current !== null) {
-      window.cancelAnimationFrame(pendingNavigationFrame.current);
+    if (routeLoaderShowFrame.current !== null) {
+      window.cancelAnimationFrame(routeLoaderShowFrame.current);
+      routeLoaderShowFrame.current = null;
     }
+    if (routeNavigationTimer.current !== null) {
+      window.clearTimeout(routeNavigationTimer.current);
+      routeNavigationTimer.current = null;
+    }
+    routeTransitionInProgress.current = false;
   }, []);
 
   const handleLogin = (loggedInUser) => {

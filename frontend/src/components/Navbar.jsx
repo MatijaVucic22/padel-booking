@@ -24,20 +24,7 @@ function Navbar({ user, onLogout, onNavigate }) {
 
   const closeMenu = () => setMenuOpen(false);
 
-  const handleNavigation = (event, destination) => {
-    if (
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    onNavigate(destination, closeMenu);
-  };
+  const handleNavigation = () => closeMenu();
 
   const handleLogout = () => {
     onLogout();
