@@ -27,8 +27,10 @@ function Navbar({ user, onLogout, onNavigate }) {
   const handleNavigation = () => closeMenu();
 
   const handleLogout = () => {
-    onLogout();
-    onNavigate("/", closeMenu);
+    onNavigate("/", () => {
+      onLogout();
+      closeMenu();
+    });
   };
 
   const toggleTheme = () => {

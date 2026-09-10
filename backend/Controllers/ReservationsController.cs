@@ -327,6 +327,8 @@ namespace PadelBooking.Api.Controllers
                 oldStartTime = reservation.StartTime;
                 reservation.StartTime = request.StartTime;
                 reservation.EndTime = request.EndTime;
+                reservation.TotalPrice = court.PricePerHour *
+                    (decimal)(request.EndTime - request.StartTime).TotalHours;
                 reservation.ReminderSentAtUtc = null;
 
                 await _context.SaveChangesAsync();
@@ -463,7 +465,8 @@ namespace PadelBooking.Api.Controllers
         [HttpGet("available")]
         public async Task<IActionResult> GetAvailableSlots(
             int courtId,
-            DateTime date)
+            DateTime date,
+            int? reservationId = null)
         {
             var court = await _context.Courts
                 .FirstOrDefaultAsync(c => c.Id == courtId && c.IsActive);
@@ -475,10 +478,27 @@ namespace PadelBooking.Api.Controllers
 
             var dayStart = date.Date;
             var dayEnd = dayStart.AddDays(1);
+            int? excludedReservationId = null;
+
+            if (reservationId.HasValue &&
+                int.TryParse(
+                    User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                    out var currentUserId))
+            {
+                excludedReservationId = await _context.Reservations
+                    .AsNoTracking()
+                    .Where(reservation =>
+                        reservation.Id == reservationId.Value &&
+                        reservation.CourtId == courtId &&
+                        reservation.UserId == currentUserId)
+                    .Select(reservation => (int?)reservation.Id)
+                    .FirstOrDefaultAsync();
+            }
 
             var reservations = await _context.Reservations
                 .Where(r =>
                     r.CourtId == courtId &&
+                    (!excludedReservationId.HasValue || r.Id != excludedReservationId.Value) &&
                     r.Status != "Cancelled" &&
                     r.StartTime < dayEnd &&
                     r.EndTime > dayStart)
