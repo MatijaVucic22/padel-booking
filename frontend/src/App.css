@@ -1518,6 +1518,13 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .quick-book-header { max-width: 760px; margin-bottom: 40px; }
 .quick-book-header h1 { margin: 4px 0 14px; color: var(--color-forest); font-size: clamp(2.7rem, 5vw, 5rem); line-height: 1.04; }
 .quick-book-header p { margin: 0; color: var(--color-muted); }
+.guest-booking-banner { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; padding: 17px 20px; border: 1px solid color-mix(in srgb, var(--color-green) 28%, var(--color-border)); border-radius: 12px; background: color-mix(in srgb, var(--color-green) 6%, var(--color-surface)); }
+.guest-booking-banner strong { color: var(--color-forest); }
+.guest-booking-banner p { margin: 4px 0 0; color: var(--color-muted); font-size: .88rem; line-height: 1.5; }
+.guest-booking-banner > div:last-child { display: flex; flex: 0 0 auto; gap: 8px; }
+.guest-booking-banner button { min-height: 42px; padding: 0 14px; border: 1px solid var(--color-border); border-radius: 9px; background: transparent; color: var(--color-text); font-weight: 750; cursor: pointer; }
+.guest-booking-banner button:first-child { border-color: var(--color-green); background: var(--color-green); color: var(--color-on-primary); }
+.guest-booking-banner button:hover { transform: translateY(-1px); }
 .quick-book-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .34fr); gap: 24px; align-items: start; }
 .quick-book-search { display: grid; gap: 28px; padding: clamp(22px, 3vw, 34px); border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); }
 .quick-book-search fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
@@ -1692,6 +1699,10 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .auth-card label { margin-top: 10px; color: var(--color-text); font-size: .82rem; font-weight: 700; }
 .auth-card input { height: 50px; padding: 0 14px; }
 .auth-card button[type="submit"] { margin-top: 16px; }
+.auth-form-helper { margin: 10px 0 0; color: var(--color-muted); text-align: center; font-size: .88rem; }
+.auth-form-helper a { color: var(--color-green); font-weight: 700; text-decoration: none; transition: color 160ms ease; }
+.auth-form-helper a:hover { color: var(--color-primary-hover); text-decoration: underline; }
+.auth-form-helper a:focus-visible { border-radius: 3px; outline: 2px solid var(--color-orange); outline-offset: 3px; }
 .field-error { color: var(--color-danger); }
 
 /* Admin */
@@ -1855,6 +1866,8 @@ body.route-transition-locked {
   .padel-intro-image, .padel-intro-image img { min-height: 330px; }
   .quick-book-page { width: calc(100vw - 32px); }
   .quick-book-header { margin-bottom: 28px; }
+  .guest-booking-banner { align-items: stretch; flex-direction: column; gap: 14px; }
+  .guest-booking-banner > div:last-child { display: grid; grid-template-columns: 1fr 1fr; }
   .quick-book-layout { grid-template-columns: 1fr; }
   .quick-book-search { padding: 20px 16px; }
   .quick-book-summary { position: static; }
