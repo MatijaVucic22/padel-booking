@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using PadelBooking.Api.Data;
 using PadelBooking.Api.DTOs;
+using PadelBooking.Api.Hubs;
 using PadelBooking.Api.Models;
 using PadelBooking.Api.Services;
 
@@ -16,17 +18,41 @@ namespace PadelBooking.Api.Controllers
         private readonly IBookingTimeService _bookingTime;
         private readonly ICourtAdvisoryLockService _courtLock;
         private readonly IWebHostEnvironment _environment;
+        private readonly IHubContext<CourtAvailabilityHub> _availabilityHub;
+        private readonly ILogger<CourtsController> _logger;
 
         public CourtsController(
             ApplicationDbContext context,
             IBookingTimeService bookingTime,
             ICourtAdvisoryLockService courtLock,
-            IWebHostEnvironment environment)
+            IWebHostEnvironment environment,
+            IHubContext<CourtAvailabilityHub> availabilityHub,
+            ILogger<CourtsController> logger)
         {
             _context = context;
             _bookingTime = bookingTime;
             _courtLock = courtLock;
             _environment = environment;
+            _availabilityHub = availabilityHub;
+            _logger = logger;
+        }
+
+        private async Task NotifyCourtChangedAsync(int courtId, string changeType)
+        {
+            try
+            {
+                await _availabilityHub.Clients.All.SendAsync(
+                    CourtAvailabilityHub.CourtChangedEvent,
+                    new { courtId, changeType },
+                    HttpContext.RequestAborted);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Court change notification failed for court {CourtId}.",
+                    courtId);
+            }
         }
 
         // GET api/courts
@@ -157,6 +183,8 @@ namespace PadelBooking.Api.Controllers
                 throw;
             }
 
+            await NotifyCourtChangedAsync(court.Id, "created");
+
             return CreatedAtAction(
                 nameof(GetCourt),
                 new { id = court.Id },
@@ -184,6 +212,7 @@ namespace PadelBooking.Api.Controllers
             court.PricePerHour = request.PricePerHour;
 
             await _context.SaveChangesAsync();
+            await NotifyCourtChangedAsync(court.Id, "updated");
 
             return Ok(court);
         }
@@ -235,6 +264,7 @@ namespace PadelBooking.Api.Controllers
             court.IsActive = false;
 
             await _context.SaveChangesAsync();
+            await NotifyCourtChangedAsync(court.Id, "deactivated");
 
             return Ok(new
             {
