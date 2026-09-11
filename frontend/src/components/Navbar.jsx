@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 
-function Navbar({ user, onLogout, onNavigate }) {
+function Navbar({ onLogout, onNavigate }) {
+  const user = useSelector((state) => state.auth.user);
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setTheme] = useState(
     () => document.documentElement.dataset.theme || "light",

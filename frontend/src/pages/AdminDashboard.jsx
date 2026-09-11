@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import * as signalR from "@microsoft/signalr";
-import api, { courtAvailabilityHubUrl } from "../api/api";
+import { courtAvailabilityHubUrl } from "../api/api";
+import {
+  toLegacyApiError,
+  useCreateBlockedPeriodMutation,
+  useCreateCourtMutation,
+  useDeactivateCourtMutation,
+  useDeleteBlockedPeriodMutation,
+  useLazyGetAdminCalendarQuery,
+  useLazyGetAdminReservationsQuery,
+  useLazyGetAdminStatsQuery,
+  useLazyGetAdminUsersQuery,
+  useLazyGetCourtsQuery,
+  useUpdateCourtMutation,
+} from "../services/padelApi";
 import DatePicker from "../components/DatePicker";
 import {
   hasValidationErrors,
@@ -27,6 +40,18 @@ const emptyCourtForm = {
   description: "",
   pricePerHour: "",
 };
+
+async function unwrapApiRequest(request) {
+  try {
+    return await request.unwrap();
+  } catch (error) {
+    throw toLegacyApiError(error);
+  }
+}
+
+async function getApiResponse(request) {
+  return { data: await unwrapApiRequest(request) };
+}
 
 const statusLabels = {
   Active: "Aktivna",
@@ -98,6 +123,16 @@ function SectionFeedback({ state, onRetry }) {
 }
 
 function AdminDashboard() {
+  const [getAdminUsers] = useLazyGetAdminUsersQuery();
+  const [getAdminReservations] = useLazyGetAdminReservationsQuery();
+  const [getAdminStats] = useLazyGetAdminStatsQuery();
+  const [getAdminCalendar] = useLazyGetAdminCalendarQuery();
+  const [getCourts] = useLazyGetCourtsQuery();
+  const [createBlockedPeriod] = useCreateBlockedPeriodMutation();
+  const [removeBlockedPeriod] = useDeleteBlockedPeriodMutation();
+  const [createCourt] = useCreateCourtMutation();
+  const [updateCourt] = useUpdateCourtMutation();
+  const [removeCourt] = useDeactivateCourtMutation();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [stats, setStats] = useState(null);
   const [courts, setCourts] = useState([]);
@@ -243,12 +278,12 @@ function AdminDashboard() {
     setBlockFieldErrors({});
 
     try {
-      await api.post("/admin/blocked-periods", {
+      await unwrapApiRequest(createBlockedPeriod({
         courtId: Number(blockForm.courtId),
         startTime: `${blockForm.date}T${blockForm.startHour}:00:00`,
         endTime: `${blockForm.date}T${blockForm.endHour}:00:00`,
         reason: blockForm.reason,
-      });
+      }));
       setShowBlockForm(false);
       setCalendarDate(blockForm.date);
       setCalendarReloadKey((current) => current + 1);
@@ -274,7 +309,7 @@ function AdminDashboard() {
     setDeletingBlock(true);
     setBlockError("");
     try {
-      await api.delete(`/admin/blocked-periods/${selectedBlockedPeriod.id}`);
+      await unwrapApiRequest(removeBlockedPeriod(selectedBlockedPeriod.id));
       setSelectedBlockedPeriod(null);
       setCalendarReloadKey((current) => current + 1);
     } catch (requestError) {
@@ -303,18 +338,16 @@ function AdminDashboard() {
     setCalendarLoading(true);
     setCalendarError("");
 
-    api.get("/admin/calendar", {
-      params: { date: calendarDate },
-      signal: controller.signal,
-    })
+    const request = getAdminCalendar(calendarDate);
+    request.unwrap()
       .then((response) => {
         if (requestId !== calendarRequestId.current) return;
-        calendarCache.current.set(calendarDate, response.data);
-        setCalendarData(response.data);
+        calendarCache.current.set(calendarDate, response);
+        setCalendarData(response);
         setCalendarDataDate(calendarDate);
       })
       .catch((requestError) => {
-        if (requestError.code === "ERR_CANCELED" || requestId !== calendarRequestId.current) return;
+        if (controller.signal.aborted || requestId !== calendarRequestId.current) return;
         console.error(requestError);
         setCalendarError("Kalendar trenutno nije moguće učitati.");
       })
@@ -326,8 +359,9 @@ function AdminDashboard() {
 
     return () => {
       controller.abort();
+      request.abort();
     };
-  }, [activeTab, calendarDate, calendarReloadKey]);
+  }, [activeTab, calendarDate, calendarReloadKey, getAdminCalendar]);
 
   useEffect(() => {
     if (activeTab !== "calendar" || !calendarCourtIds || !calendarDataDate) return undefined;
@@ -348,6 +382,7 @@ function AdminDashboard() {
     };
 
     connection.on("AvailabilityChanged", refreshCalendar);
+    connection.on("CourtChanged", refreshCalendar);
     connection.onreconnected(() => {
       joinGroups().catch((connectionError) => {
         if (!disposed) console.error(connectionError);
@@ -363,6 +398,7 @@ function AdminDashboard() {
     return () => {
       disposed = true;
       connection.off("AvailabilityChanged", refreshCalendar);
+      connection.off("CourtChanged", refreshCalendar);
       if (connection.state !== signalR.HubConnectionState.Disconnected) {
         Promise.allSettled(
           courtIds.map((courtId) =>
@@ -380,10 +416,10 @@ function AdminDashboard() {
     let ignoreResponse = false;
 
     const requests = [
-      api.get("/admin/stats"),
-      api.get("/courts"),
-      api.get("/admin/users"),
-      api.get("/admin/reservations"),
+      getApiResponse(getAdminStats()),
+      getApiResponse(getCourts()),
+      getApiResponse(getAdminUsers()),
+      getApiResponse(getAdminReservations()),
     ];
     const sections = ["stats", "courts", "users", "reservations"];
     const setters = [setStats, setCourts, setUsers, setReservations];
@@ -423,10 +459,10 @@ function AdminDashboard() {
 
   const retrySection = async (section) => {
     const requests = {
-      stats: () => api.get("/admin/stats"),
-      courts: () => api.get("/courts"),
-      users: () => api.get("/admin/users"),
-      reservations: () => api.get("/admin/reservations"),
+      stats: () => getApiResponse(getAdminStats()),
+      courts: () => getApiResponse(getCourts()),
+      users: () => getApiResponse(getAdminUsers()),
+      reservations: () => getApiResponse(getAdminReservations()),
     };
     const setters = {
       stats: setStats,
@@ -463,8 +499,8 @@ function AdminDashboard() {
 
   const refreshCourtsAndStats = async () => {
     const results = await Promise.allSettled([
-      api.get("/courts"),
-      api.get("/admin/stats"),
+      getApiResponse(getCourts()),
+      getApiResponse(getAdminStats()),
     ]);
 
     const sections = ["courts", "stats"];
@@ -554,10 +590,10 @@ function AdminDashboard() {
           let response;
 
           if (editingCourtId) {
-            response = await api.put(
-              `/courts/${editingCourtId}`,
-              courtPayload,
-            );
+            response = await unwrapApiRequest(updateCourt({
+              id: editingCourtId,
+              body: courtPayload,
+            }));
           } else {
             const formData = new FormData();
             formData.append("name", courtForm.name);
@@ -567,10 +603,10 @@ function AdminDashboard() {
 
             if (courtImage) formData.append("image", courtImage);
 
-            response = await api.post("/courts", formData);
+            response = await unwrapApiRequest(createCourt(formData));
           }
 
-          return response.data;
+          return response;
         },
         onSaved: (savedCourt) => {
           if (editingCourtId) {
@@ -637,7 +673,7 @@ function AdminDashboard() {
 
     try {
       const { refreshSucceeded } = await runAdminMutation({
-        mutate: () => api.delete(`/courts/${court.id}`),
+        mutate: () => unwrapApiRequest(removeCourt(court.id)),
         onSaved: () => {
           setCourts((currentCourts) =>
             currentCourts.filter((currentCourt) => currentCourt.id !== court.id),

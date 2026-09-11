@@ -1,10 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as signalR from "@microsoft/signalr";
-import api, { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
+import { useSelector } from "react-redux";
+import { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 import { longDateFormatter } from "../utils/dateFormatters";
 import DatePicker from "../components/DatePicker";
+import {
+  toLegacyApiError,
+  useCreateReservationMutation,
+  useGetCourtsQuery,
+  useLazyGetAvailableCourtsQuery,
+} from "../services/padelApi";
 
 const timeGroups = [
   { label: "Jutro", hours: [8, 9, 10, 11] },
@@ -44,6 +51,15 @@ function isPastStartTime(date, hour, belgradeNow) {
 
 function Book() {
   const navigate = useNavigate();
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  const { data: activeCourts = [], refetch: refetchActiveCourts } =
+    useGetCourtsQuery();
+  const activeCourtIds = useMemo(
+    () => activeCourts.map((court) => court.id),
+    [activeCourts],
+  );
+  const [getAvailableCourts] = useLazyGetAvailableCourtsQuery();
+  const [createReservation] = useCreateReservationMutation();
   const [initialSelection] = useState(readSavedSelection);
   const requestId = useRef(0);
   const modalTimer = useRef(null);
@@ -63,8 +79,6 @@ function Book() {
   const [selectedCourt, setSelectedCourt] = useState(null);
   const [modalPhase, setModalPhase] = useState("confirm");
   const [modalError, setModalError] = useState("");
-  const [activeCourtIds, setActiveCourtIds] = useState([]);
-  const [activeCourtsReloadKey, setActiveCourtsReloadKey] = useState(0);
 
   useEffect(() => {
     componentMounted.current = true;
@@ -90,22 +104,6 @@ function Book() {
     const timer = window.setInterval(() => setBelgradeNow(getBelgradeNow()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    let disposed = false;
-
-    api.get("/courts")
-      .then((response) => {
-        if (!disposed) setActiveCourtIds(response.data.map((court) => court.id));
-      })
-      .catch((requestError) => {
-        if (!disposed) console.error("SignalR court subscriptions could not be prepared.", requestError);
-      });
-
-    return () => {
-      disposed = true;
-    };
-  }, [activeCourtsReloadKey]);
 
   useEffect(() => {
     if (!date) return undefined;
@@ -135,7 +133,7 @@ function Book() {
       courtChangeRefreshTimer.current = window.setTimeout(() => {
         courtChangeRefreshTimer.current = null;
         if (!disposed) {
-          setActiveCourtsReloadKey((key) => key + 1);
+          refetchActiveCourts();
           setReloadKey((key) => key + 1);
         }
       }, 120);
@@ -173,7 +171,7 @@ function Book() {
         ).finally(() => connection.stop());
       }
     };
-  }, [date, activeCourtIds]);
+  }, [date, activeCourtIds, refetchActiveCourts]);
 
   useEffect(() => {
     if (!selectedCourt || !["confirm", "guest"].includes(modalPhase)) return undefined;
@@ -211,24 +209,26 @@ function Book() {
     setLoading(true);
     setError("");
 
-    api.get("/courts/available", {
-      params: { startTime, durationHours: duration },
-      signal: controller.signal,
-    })
+    const request = getAvailableCourts({ startTime, durationHours: duration });
+    request.unwrap()
       .then((response) => {
-        if (currentRequestId === requestId.current) setCourts(response.data);
+        if (currentRequestId === requestId.current) setCourts(response);
       })
       .catch((requestError) => {
         if (controller.signal.aborted || currentRequestId !== requestId.current) return;
         console.error(requestError);
-        setError(requestError.response?.data?.message ?? "Dostupne terene trenutno nije moguće učitati.");
+        const errorResponse = toLegacyApiError(requestError);
+        setError(errorResponse.response?.data?.message ?? "Dostupne terene trenutno nije moguće učitati.");
       })
       .finally(() => {
         if (currentRequestId === requestId.current) setLoading(false);
       });
 
-    return () => controller.abort();
-  }, [belgradeNow, date, startHour, duration, reloadKey]);
+    return () => {
+      controller.abort();
+      request.abort();
+    };
+  }, [belgradeNow, date, startHour, duration, reloadKey, getAvailableCourts]);
 
   const selectDuration = (value) => {
     setDuration(value);
@@ -237,7 +237,7 @@ function Book() {
   };
 
   const openConfirmation = (court) => {
-    if (!localStorage.getItem("token")) {
+    if (!isAuthenticated) {
       setSelectedCourt(court);
       setModalPhase("guest");
       setModalError("");
@@ -277,7 +277,11 @@ function Book() {
     setModalError("");
 
     try {
-      await api.post("/reservations", { courtId: selectedCourt.id, startTime, endTime });
+      await createReservation({
+        courtId: selectedCourt.id,
+        startTime,
+        endTime,
+      }).unwrap();
       await waitForMinimumLoading(loadingStartedAt);
       if (!componentMounted.current) return;
 
@@ -291,9 +295,10 @@ function Book() {
       if (!componentMounted.current) return;
 
       console.error(requestError);
-      setModalError(requestError.response?.status === 409
+      const errorResponse = toLegacyApiError(requestError);
+      setModalError(errorResponse.response?.status === 409
         ? "Teren je u međuvremenu rezervisan. Rezultati su osveženi."
-        : requestError.response?.data?.message ?? (typeof requestError.response?.data === "string" ? requestError.response.data : "Rezervacija nije uspela."));
+        : errorResponse.response?.data?.message ?? (typeof errorResponse.response?.data === "string" ? errorResponse.response.data : "Rezervacija nije uspela."));
       setModalPhase("confirm");
       setReloadKey((key) => key + 1);
     } finally {
@@ -302,7 +307,6 @@ function Book() {
   };
 
   const hasInterval = date && startHour !== null;
-  const isAuthenticated = Boolean(localStorage.getItem("token"));
   const formattedDate = date ? longDateFormatter.format(new Date(`${date}T00:00:00`)) : "Izaberi datum";
   const formattedTime = startHour === null
     ? "Izaberi vreme početka"
