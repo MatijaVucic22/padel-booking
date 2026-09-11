@@ -57,7 +57,7 @@ function Login({ onLogin }) {
           ? requestedPath
           : "/";
 
-      onLogin(response.data.user, destination);
+      onLogin(response.data.user, response.data.token, destination);
     } catch (error) {
       const validationErrors = parseValidationErrors(error);
 

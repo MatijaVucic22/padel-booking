@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../api/api";
+import { useSelector } from "react-redux";
+import {
+  toLegacyApiError,
+  useCancelReservationMutation,
+  useGetMyReservationsQuery,
+  useLazyGetReservationAvailabilityQuery,
+  useRescheduleReservationMutation,
+} from "../services/padelApi";
 import {
   hasValidationErrors,
   parseValidationErrors,
@@ -106,13 +113,19 @@ function getLocalDate() {
 }
 
 function MyReservations() {
+  const userId = useSelector((state) => state.auth.user?.id);
+  const {
+    data: reservations = [],
+    isLoading: loading,
+    error: reservationsRequestError,
+    refetch: refetchReservations,
+  } = useGetMyReservationsQuery(userId, { refetchOnMountOrArgChange: true });
+  const [getReservationAvailability] = useLazyGetReservationAvailabilityQuery();
+  const [cancelReservationRequest] = useCancelReservationMutation();
+  const [rescheduleReservationRequest] = useRescheduleReservationMutation();
   const cancellationTimer = useRef(null);
   const rescheduleTimer = useRef(null);
   const componentMounted = useRef(true);
-  const [reservations, setReservations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
   const [cancellingId, setCancellingId] = useState(null);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
@@ -133,6 +146,11 @@ function MyReservations() {
   const [cancellationReservation, setCancellationReservation] = useState(null);
   const [cancellationPhase, setCancellationPhase] = useState("confirm");
   const [cancellationError, setCancellationError] = useState("");
+  const error = reservationsRequestError
+    ? reservationsRequestError.status === 401
+      ? "Morate biti prijavljeni da biste videli rezervacije."
+      : "Rezervacije trenutno nije moguće učitati."
+    : "";
 
   useEffect(() => {
     componentMounted.current = true;
@@ -259,16 +277,14 @@ function MyReservations() {
     setRescheduleLoading(true);
     setRescheduleError("");
 
-    api
-      .get("/reservations/available", {
-        params: {
-          courtId: rescheduling.courtId,
-          date: rescheduleDate,
-          reservationId: rescheduling.id,
-        },
-      })
+    const request = getReservationAvailability({
+      courtId: rescheduling.courtId,
+      date: rescheduleDate,
+      reservationId: rescheduling.id,
+    });
+    request.unwrap()
       .then((response) => {
-        if (!ignoreResponse) setRescheduleSlots(response.data.slots);
+        if (!ignoreResponse) setRescheduleSlots(response.slots);
       })
       .catch((requestError) => {
         if (ignoreResponse) return;
@@ -283,46 +299,11 @@ function MyReservations() {
 
     return () => {
       ignoreResponse = true;
+      request.abort();
     };
-  }, [rescheduling, rescheduleDate, rescheduleAvailabilityKey]);
+  }, [rescheduling, rescheduleDate, rescheduleAvailabilityKey, getReservationAvailability]);
 
-  useEffect(() => {
-    let ignoreResponse = false;
-
-    api
-      .get("/reservations/my")
-      .then((response) => {
-        if (!ignoreResponse) {
-          setReservations(response.data);
-          setError("");
-        }
-      })
-      .catch((requestError) => {
-        if (ignoreResponse) return;
-
-        console.error(requestError);
-        setError(
-          requestError.response?.status === 401
-            ? "Morate biti prijavljeni da biste videli rezervacije."
-            : "Rezervacije trenutno nije moguće učitati.",
-        );
-      })
-      .finally(() => {
-        if (!ignoreResponse) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      ignoreResponse = true;
-    };
-  }, [reloadKey]);
-
-  const retryLoading = () => {
-    setLoading(true);
-    setError("");
-    setReloadKey((currentKey) => currentKey + 1);
-  };
+  const retryLoading = () => refetchReservations();
 
   const openCancellation = (reservation) => {
     setCancellationReservation(reservation);
@@ -353,38 +334,27 @@ function MyReservations() {
     setCancellationError("");
 
     try {
-      const response = await api.delete(`/reservations/${reservation.id}`);
+      const response = await cancelReservationRequest(reservation.id).unwrap();
       await waitForCancellationLoading(loadingStartedAt);
       if (!componentMounted.current) return;
 
-      setReservations((currentReservations) =>
-        currentReservations.map((currentReservation) =>
-          currentReservation.id === reservation.id
-            ? {
-                ...currentReservation,
-                status: "Cancelled",
-                canCancel: false,
-              }
-            : currentReservation,
-        ),
-      );
-      setActionMessage(response.data?.message ?? "Rezervacija je uspešno otkazana.");
+      setActionMessage(response?.message ?? "Rezervacija je uspešno otkazana.");
       setCancellationPhase("success");
       cancellationTimer.current = window.setTimeout(() => {
         cancellationTimer.current = null;
         setCancellationReservation(null);
         setCancellationPhase("confirm");
-        setReloadKey((currentKey) => currentKey + 1);
       }, 1200);
     } catch (requestError) {
       await waitForCancellationLoading(loadingStartedAt);
       if (!componentMounted.current) return;
 
       console.error(requestError);
+      const errorResponse = toLegacyApiError(requestError);
       setCancellationError(
-        typeof requestError.response?.data === "string"
-          ? requestError.response.data
-          : requestError.response?.data?.message ?? "Rezervaciju trenutno nije moguće otkazati.",
+        typeof errorResponse.response?.data === "string"
+          ? errorResponse.response.data
+          : errorResponse.response?.data?.message ?? "Rezervaciju trenutno nije moguće otkazati.",
       );
       setCancellationPhase("confirm");
     } finally {
@@ -466,24 +436,18 @@ function MyReservations() {
     setRescheduleConfirmationPhase("loading");
 
     try {
-      const response = await api.put(
-        `/reservations/${rescheduling.id}/reschedule`,
-        {
+      const response = await rescheduleReservationRequest({
+          id: rescheduling.id,
           startTime: selectedRescheduleSlot.startTime,
           endTime: selectedRescheduleSlot.endTime,
-        },
-      );
+        }).unwrap();
 
       await waitForRescheduleLoading(loadingStartedAt);
       if (!componentMounted.current) return;
 
       setActionMessage(
-        response.data?.message ?? "Termin rezervacije je uspešno promenjen.",
+        response?.message ?? "Termin rezervacije je uspešno promenjen.",
       );
-      setReservations((currentReservations) => currentReservations.map((reservation) =>
-        reservation.id === rescheduling.id
-          ? { ...reservation, ...response.data?.reservation }
-          : reservation));
       setRescheduleConfirmationPhase("success");
       rescheduleTimer.current = window.setTimeout(() => {
         rescheduleTimer.current = null;
@@ -492,27 +456,27 @@ function MyReservations() {
         setRescheduleDate("");
         setRescheduleSlots([]);
         setSelectedRescheduleSlot(null);
-        setReloadKey((currentKey) => currentKey + 1);
       }, 1200);
     } catch (requestError) {
       await waitForRescheduleLoading(loadingStartedAt);
       if (!componentMounted.current) return;
 
       console.error(requestError);
-      const validationErrors = parseValidationErrors(requestError);
+      const errorResponse = toLegacyApiError(requestError);
+      const validationErrors = parseValidationErrors(errorResponse);
 
       if (hasValidationErrors(validationErrors)) {
         setRescheduleFieldErrors(validationErrors);
         setRescheduleConfirmationError(Object.values(validationErrors).flat()[0]);
       } else {
         setRescheduleConfirmationError(
-          typeof requestError.response?.data === "string"
-            ? requestError.response.data
-            : requestError.response?.data?.message ?? "Termin rezervacije trenutno nije moguće promeniti.",
+          typeof errorResponse.response?.data === "string"
+            ? errorResponse.response.data
+            : errorResponse.response?.data?.message ?? "Termin rezervacije trenutno nije moguće promeniti.",
         );
       }
 
-      if (requestError.response?.status === 409) {
+      if (errorResponse.response?.status === 409) {
         setRescheduleAvailabilityKey((key) => key + 1);
       }
       setRescheduleConfirmationPhase("confirm");

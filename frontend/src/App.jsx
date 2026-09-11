@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { flushSync } from "react-dom";
+import { useDispatch, useSelector } from "react-redux";
 import api from "./api/api";
+import { clearAuth, setCredentials } from "./store/authSlice";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -18,9 +20,10 @@ import Book from "./pages/Book";
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState(null);
+  const dispatch = useDispatch();
+  const { token, user } = useSelector((state) => state.auth);
   const [sessionLoading, setSessionLoading] = useState(() =>
-    Boolean(localStorage.getItem("token")),
+    Boolean(token),
   );
   const [routeLoaderMounted, setRouteLoaderMounted] = useState(false);
   const [routeLoaderActive, setRouteLoaderActive] = useState(false);
@@ -186,10 +189,10 @@ function App() {
     routeTransitionInProgress.current = false;
   }, []);
 
-  const handleLogin = (loggedInUser, destination) => {
+  const handleLogin = (loggedInUser, loggedInToken, destination) => {
     handleRouteNavigation(
       destination,
-      () => setUser(loggedInUser),
+      () => dispatch(setCredentials({ token: loggedInToken, user: loggedInUser })),
       { replace: true },
     );
   };
@@ -198,12 +201,12 @@ function App() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
 
-    setUser(null);
+    dispatch(clearAuth());
   };
 
   useEffect(() => {
     const handleUnauthorized = () => {
-      setUser(null);
+      dispatch(clearAuth());
       setSessionLoading(false);
       navigate("/login", {
         replace: true,
@@ -228,10 +231,10 @@ function App() {
 
     api.get("/auth/me")
       .then((response) => {
-        if (!cancelled) setUser(response.data);
+        if (!cancelled) dispatch(setCredentials({ token, user: response.data }));
       })
       .catch(() => {
-        if (!cancelled) setUser(null);
+        if (!cancelled) dispatch(clearAuth());
       })
       .finally(() => {
         if (!cancelled) setSessionLoading(false);
@@ -240,11 +243,11 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dispatch]);
 
   return (
     <>
-      <Navbar user={user} onLogout={handleLogout} onNavigate={handleRouteNavigation} />
+      <Navbar onLogout={handleLogout} onNavigate={handleRouteNavigation} />
 
       <main>
         {sessionLoading ? (
@@ -268,7 +271,7 @@ function App() {
           <Route
             path="/my-reservations"
             element={
-              <ProtectedRoute user={user}>
+              <ProtectedRoute>
                 <MyReservations />
               </ProtectedRoute>
             }
@@ -277,7 +280,7 @@ function App() {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute user={user} requiredRole="Admin">
+              <ProtectedRoute requiredRole="Admin">
                 <AdminDashboard />
               </ProtectedRoute>
             }

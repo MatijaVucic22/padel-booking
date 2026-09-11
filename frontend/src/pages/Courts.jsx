@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import * as signalR from "@microsoft/signalr";
-import api, { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
+import { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
+import { useGetCourtsQuery } from "../services/padelApi";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
@@ -11,36 +12,13 @@ const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
 });
 
 function Courts() {
-  const [courts, setCourts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
-
-  useEffect(() => {
-    let ignoreResponse = false;
-
-    api
-      .get("/courts")
-      .then((response) => {
-        if (!ignoreResponse) {
-          setCourts(response.data);
-          setError("");
-        }
-      })
-      .catch((requestError) => {
-        if (ignoreResponse) return;
-
-        console.error(requestError);
-        setError("Terene trenutno nije moguće učitati.");
-      })
-      .finally(() => {
-        if (!ignoreResponse) setLoading(false);
-      });
-
-    return () => {
-      ignoreResponse = true;
-    };
-  }, [reloadKey]);
+  const {
+    data: courts = [],
+    isLoading,
+    isFetching,
+    isError,
+    refetch,
+  } = useGetCourtsQuery(undefined, { refetchOnMountOrArgChange: true });
 
   useEffect(() => {
     let disposed = false;
@@ -49,7 +27,7 @@ function Courts() {
       .withAutomaticReconnect()
       .build();
     const refreshCourts = () => {
-      if (!disposed) setReloadKey((currentKey) => currentKey + 1);
+      if (!disposed) refetch();
     };
 
     connection.on("CourtChanged", refreshCourts);
@@ -62,15 +40,11 @@ function Courts() {
       connection.off("CourtChanged", refreshCourts);
       connection.stop();
     };
-  }, []);
+  }, [refetch]);
 
-  const retryLoading = () => {
-    setLoading(true);
-    setError("");
-    setReloadKey((currentKey) => currentKey + 1);
-  };
+  const retryLoading = () => refetch();
 
-  if (loading) {
+  if (isLoading || isFetching) {
     return (
       <section className="page courts-page" aria-live="polite">
         <h1>Padel tereni</h1>
@@ -79,12 +53,12 @@ function Courts() {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <section className="page courts-page">
         <h1>Padel tereni</h1>
         <div className="courts-feedback" role="alert">
-          <p>{error}</p>
+          <p>Terene trenutno nije moguće učitati.</p>
           <button type="button" onClick={retryLoading}>Pokušaj ponovo</button>
         </div>
       </section>

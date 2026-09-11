@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import * as signalR from "@microsoft/signalr";
-import api, { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
+import { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
+import { useGetCourtByIdQuery } from "../services/padelApi";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency", currency: "RSD", maximumFractionDigits: 2,
@@ -10,30 +11,13 @@ const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
 
 function CourtDetails() {
   const { id } = useParams();
-  const [court, setCourt] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const loadCourt = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const response = await api.get(`/courts/${id}`, { signal: controller.signal });
-        setCourt(response.data);
-      } catch (requestError) {
-        if (requestError.code !== "ERR_CANCELED") {
-          setError(requestError.response?.data?.message || "Podaci o terenu trenutno nisu dostupni.");
-        }
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    };
-    loadCourt();
-    return () => controller.abort();
-  }, [id, reloadKey]);
+  const {
+    data: court,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useGetCourtByIdQuery(id, { refetchOnMountOrArgChange: true });
 
   useEffect(() => {
     let disposed = false;
@@ -43,7 +27,7 @@ function CourtDetails() {
       .build();
     const refreshCourt = (change) => {
       if (!disposed && Number(change?.courtId) === Number(id)) {
-        setReloadKey((key) => key + 1);
+        refetch();
       }
     };
 
@@ -57,14 +41,14 @@ function CourtDetails() {
       connection.off("CourtChanged", refreshCourt);
       connection.stop();
     };
-  }, [id]);
+  }, [id, refetch]);
 
-  if (loading) return <section className="page court-details-page"><div className="state-card">Učitavanje terena...</div></section>;
+  if (isLoading || isFetching) return <section className="page court-details-page"><div className="state-card">Učitavanje terena...</div></section>;
 
   if (error || !court) {
     return (
       <section className="page court-details-page">
-        <div className="state-card error-message">{error || "Teren nije pronađen."}</div>
+        <div className="state-card error-message">{error?.data?.message || "Podaci o terenu trenutno nisu dostupni."}</div>
         <Link className="text-link court-details-back" to="/courts">← Svi tereni</Link>
       </section>
     );
