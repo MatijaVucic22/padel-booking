@@ -6,6 +6,7 @@ dist/
 bin/
 obj/
 .vs/
+BenchmarkDotNet.Artifacts/
 
 # Environment variables
 .env

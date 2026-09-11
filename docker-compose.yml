@@ -1,6 +1,8 @@
 services:
   mysql:
     image: mysql:8.4
+    ports:
+    - "3307:3306"
     environment:
       MYSQL_DATABASE: padel_booking
       MYSQL_USER: padel_user
@@ -15,6 +17,7 @@ services:
       retries: 20
       start_period: 30s
     restart: unless-stopped
+    
 
   backend:
     build:
@@ -36,6 +39,7 @@ services:
       Email__UseSsl: ${EMAIL_USE_SSL:-false}
     ports:
       - "5238:8080"
+
     volumes:
       - padel_court_uploads:/app/wwwroot/uploads
     depends_on:
