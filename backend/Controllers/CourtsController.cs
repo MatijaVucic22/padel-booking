@@ -1,275 +1,111 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.SignalR;
-using PadelBooking.Api.Data;
 using PadelBooking.Api.DTOs;
-using PadelBooking.Api.Hubs;
-using PadelBooking.Api.Models;
-using PadelBooking.Api.Services;
+using PadelBooking.Application.Abstractions.Storage;
+using PadelBooking.Application.Courts.CreateCourt;
+using PadelBooking.Application.Courts.DeactivateCourt;
+using PadelBooking.Application.Courts.GetAvailableCourts;
+using PadelBooking.Application.Courts.GetCourt;
+using PadelBooking.Application.Courts.GetCourts;
+using PadelBooking.Application.Courts.UpdateCourt;
 
-namespace PadelBooking.Api.Controllers
+namespace PadelBooking.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class CourtsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class CourtsController : ControllerBase
+    private readonly GetActiveCourts _getCourts;
+    private readonly GetActiveCourt _getCourt;
+    private readonly GetAvailableCourts _getAvailableCourts;
+    private readonly CreateCourt _createCourt;
+    private readonly UpdateCourt _updateCourt;
+    private readonly DeactivateCourt _deactivateCourt;
+
+    public CourtsController(GetActiveCourts getCourts, GetActiveCourt getCourt,
+        GetAvailableCourts getAvailableCourts, CreateCourt createCourt,
+        UpdateCourt updateCourt, DeactivateCourt deactivateCourt)
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IBookingTimeService _bookingTime;
-        private readonly ICourtAdvisoryLockService _courtLock;
-        private readonly IWebHostEnvironment _environment;
-        private readonly IHubContext<CourtAvailabilityHub> _availabilityHub;
-        private readonly ILogger<CourtsController> _logger;
+        _getCourts = getCourts;
+        _getCourt = getCourt;
+        _getAvailableCourts = getAvailableCourts;
+        _createCourt = createCourt;
+        _updateCourt = updateCourt;
+        _deactivateCourt = deactivateCourt;
+    }
 
-        public CourtsController(
-            ApplicationDbContext context,
-            IBookingTimeService bookingTime,
-            ICourtAdvisoryLockService courtLock,
-            IWebHostEnvironment environment,
-            IHubContext<CourtAvailabilityHub> availabilityHub,
-            ILogger<CourtsController> logger)
+    [HttpGet]
+    public async Task<IActionResult> GetCourts()
+    {
+        var courts = await _getCourts.ExecuteAsync(HttpContext.RequestAborted);
+        return Ok(courts);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetCourt(int id)
+    {
+        var court = await _getCourt.ExecuteAsync(id, HttpContext.RequestAborted);
+        return court is null ? NotFound("Teren nije pronađen.") : Ok(court);
+    }
+
+    [HttpGet("available")]
+    public async Task<IActionResult> GetAvailableCourts([FromQuery] AvailableCourtsRequest request)
+    {
+        var courts = await _getAvailableCourts.ExecuteAsync(
+            request.StartTime, request.DurationHours, HttpContext.RequestAborted);
+        return Ok(courts);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPost]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> CreateCourt([FromForm] CreateCourtRequest request)
+    {
+        await using Stream? imageStream = request.Image?.OpenReadStream();
+        var image = request.Image is null || imageStream is null
+            ? null
+            : new CourtImageUpload(request.Image.FileName, request.Image.ContentType,
+                request.Image.Length, imageStream);
+        var court = await _createCourt.ExecuteAsync(
+            new CreateCourtCommand(request.Name, request.Location, request.Description,
+                request.PricePerHour, image),
+            HttpContext.RequestAborted);
+        return CreatedAtAction(nameof(GetCourt), new { id = court.Id }, court);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateCourt(int id, UpdateCourtRequest request)
+    {
+        var court = await _updateCourt.ExecuteAsync(
+            new UpdateCourtCommand(id, request.Name, request.Location,
+                request.Description, request.PricePerHour),
+            HttpContext.RequestAborted);
+        return court is null ? NotFound("Teren nije pronađen.") : Ok(court);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteCourt(int id)
+    {
+        var result = await _deactivateCourt.ExecuteAsync(id, HttpContext.RequestAborted);
+        return result.Status switch
         {
-            _context = context;
-            _bookingTime = bookingTime;
-            _courtLock = courtLock;
-            _environment = environment;
-            _availabilityHub = availabilityHub;
-            _logger = logger;
-        }
+            DeactivateCourtStatus.NotFound => NotFound("Teren nije pronađen."),
+            DeactivateCourtStatus.HasFutureReservations => Conflict(
+                "Teren nije moguće deaktivirati dok postoje aktivne buduće rezervacije."),
+            DeactivateCourtStatus.LockTimeout => LockTimeout(),
+            _ => Ok(new { message = "Teren je uspešno deaktiviran." })
+        };
+    }
 
-        private async Task NotifyCourtChangedAsync(int courtId, string changeType)
+    private IActionResult LockTimeout()
+    {
+        Response.Headers.RetryAfter = "1";
+        return StatusCode(StatusCodes.Status503ServiceUnavailable, new
         {
-            try
-            {
-                await _availabilityHub.Clients.All.SendAsync(
-                    CourtAvailabilityHub.CourtChangedEvent,
-                    new { courtId, changeType },
-                    HttpContext.RequestAborted);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogWarning(
-                    exception,
-                    "Court change notification failed for court {CourtId}.",
-                    courtId);
-            }
-        }
-
-        // GET api/courts
-        [HttpGet]
-        public async Task<IActionResult> GetCourts()
-        {
-            var courts = await _context.Courts
-                .Where(c => c.IsActive)
-                .ToListAsync();
-
-            return Ok(courts);
-        }
-
-        // GET api/courts/1
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetCourt(int id)
-        {
-            var court = await _context.Courts
-                .FirstOrDefaultAsync(c => c.Id == id && c.IsActive);
-
-            if (court == null)
-            {
-                return NotFound("Teren nije pronađen.");
-            }
-
-            return Ok(court);
-        }
-
-        [HttpGet("available")]
-        public async Task<IActionResult> GetAvailableCourts(
-            [FromQuery] AvailableCourtsRequest request)
-        {
-            var endTime = request.StartTime.AddHours(request.DurationHours);
-
-            var courts = await _context.Courts
-                .Where(court =>
-                    court.IsActive &&
-                    !_context.Reservations.Any(reservation =>
-                        reservation.CourtId == court.Id &&
-                        reservation.Status != "Cancelled" &&
-                        request.StartTime < reservation.EndTime &&
-                        endTime > reservation.StartTime) &&
-                    !_context.BlockedPeriods.Any(period =>
-                        period.CourtId == court.Id &&
-                        request.StartTime < period.EndTime &&
-                        endTime > period.StartTime))
-                .OrderBy(court => court.Name)
-                .ToListAsync();
-
-            return Ok(courts);
-        }
-
-        // POST api/courts
-        [Authorize(Roles = "Admin")]
-        [HttpPost]
-        [Consumes("multipart/form-data")]
-        public async Task<IActionResult> CreateCourt([FromForm] CreateCourtRequest request)
-        {
-            string? storedImagePath = null;
-            string? imageUrl = null;
-
-            if (request.Image != null)
-            {
-                var uploadsDirectory = Path.Combine(
-                    _environment.WebRootPath ??
-                        Path.Combine(_environment.ContentRootPath, "wwwroot"),
-                    "uploads",
-                    "courts");
-
-                Directory.CreateDirectory(uploadsDirectory);
-
-                var extension = request.Image.ContentType.ToLowerInvariant() switch
-                {
-                    "image/jpeg" => ".jpg",
-                    "image/png" => ".png",
-                    "image/webp" => ".webp",
-                    _ => throw new InvalidOperationException(
-                        "Nepodržan tip slike prošao je validaciju.")
-                };
-                var generatedFileName = $"{Guid.NewGuid():N}{extension}";
-                storedImagePath = Path.Combine(uploadsDirectory, generatedFileName);
-                imageUrl = $"/uploads/courts/{generatedFileName}";
-
-                try
-                {
-                    await using var imageStream = new FileStream(
-                        storedImagePath,
-                        FileMode.CreateNew,
-                        FileAccess.Write,
-                        FileShare.None);
-                    await request.Image.CopyToAsync(
-                        imageStream,
-                        HttpContext.RequestAborted);
-                }
-                catch
-                {
-                    if (System.IO.File.Exists(storedImagePath))
-                    {
-                        System.IO.File.Delete(storedImagePath);
-                    }
-
-                    throw;
-                }
-            }
-
-            var court = new Court
-            {
-                Name = request.Name.Trim(),
-                Location = request.Location.Trim(),
-                Description = request.Description?.Trim(),
-                PricePerHour = request.PricePerHour,
-                ImageUrl = imageUrl,
-                IsActive = true
-            };
-
-            try
-            {
-                _context.Courts.Add(court);
-                await _context.SaveChangesAsync();
-            }
-            catch
-            {
-                if (storedImagePath != null && System.IO.File.Exists(storedImagePath))
-                {
-                    System.IO.File.Delete(storedImagePath);
-                }
-
-                throw;
-            }
-
-            await NotifyCourtChangedAsync(court.Id, "created");
-
-            return CreatedAtAction(
-                nameof(GetCourt),
-                new { id = court.Id },
-                court
-            );
-        }
-
-        // PUT api/courts/4
-        [Authorize(Roles = "Admin")]
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCourt(
-            int id,
-            UpdateCourtRequest request)
-        {
-            var court = await _context.Courts.FindAsync(id);
-
-            if (court == null)
-            {
-                return NotFound("Teren nije pronađen.");
-            }
-
-            court.Name = request.Name.Trim();
-            court.Location = request.Location.Trim();
-            court.Description = request.Description?.Trim();
-            court.PricePerHour = request.PricePerHour;
-
-            await _context.SaveChangesAsync();
-            await NotifyCourtChangedAsync(court.Id, "updated");
-
-            return Ok(court);
-        }
-
-        // DELETE api/courts/4
-        [Authorize(Roles = "Admin")]
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteCourt(int id)
-        {
-            await using var courtLock = await _courtLock.TryAcquireAsync(
-                id,
-                HttpContext.RequestAborted
-            );
-
-            if (courtLock == null)
-            {
-                Response.Headers.RetryAfter = "1";
-                return StatusCode(
-                    StatusCodes.Status503ServiceUnavailable,
-                    new
-                    {
-                        code = "COURT_LOCK_TIMEOUT",
-                        message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
-                    }
-                );
-            }
-
-            var court = await _context.Courts.FindAsync(id);
-
-            if (court == null)
-            {
-                return NotFound("Teren nije pronađen.");
-            }
-
-            var hasFutureReservations = await _context.Reservations
-                .AnyAsync(reservation =>
-                    reservation.CourtId == id &&
-                    reservation.Status == "Active" &&
-                    reservation.StartTime > _bookingTime.Now
-                );
-
-            if (hasFutureReservations)
-            {
-                return Conflict(
-                    "Teren nije moguće deaktivirati dok postoje aktivne buduće rezervacije."
-                );
-            }
-
-            court.IsActive = false;
-
-            await _context.SaveChangesAsync();
-            await NotifyCourtChangedAsync(court.Id, "deactivated");
-
-            return Ok(new
-            {
-                message = "Teren je uspešno deaktiviran."
-            });
-        }
+            code = "COURT_LOCK_TIMEOUT",
+            message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
+        });
     }
 }

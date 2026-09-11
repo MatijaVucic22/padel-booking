@@ -1,377 +1,123 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using System.Globalization;
-using PadelBooking.Api.Data;
 using PadelBooking.Api.DTOs;
-using PadelBooking.Api.Hubs;
-using PadelBooking.Api.Models;
-using PadelBooking.Api.Services;
+using PadelBooking.Application.Admin.BlockedPeriods;
+using PadelBooking.Application.Admin.Calendar;
+using PadelBooking.Application.Admin.Reservations;
+using PadelBooking.Application.Admin.Statistics;
+using PadelBooking.Application.Admin.Users;
 
-namespace PadelBooking.Api.Controllers
+namespace PadelBooking.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize(Roles = "Admin")]
+public class AdminController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    [Authorize(Roles = "Admin")]
-    public class AdminController : ControllerBase
+    private readonly GetAdminUsers _getUsers;
+    private readonly GetAdminReservations _getReservations;
+    private readonly GetAdminStatistics _getStatistics;
+    private readonly GetAdminCalendar _getCalendar;
+    private readonly CreateBlockedPeriod _createBlockedPeriod;
+    private readonly DeleteBlockedPeriod _deleteBlockedPeriod;
+
+    public AdminController(GetAdminUsers getUsers,
+        GetAdminReservations getReservations, GetAdminStatistics getStatistics,
+        GetAdminCalendar getCalendar, CreateBlockedPeriod createBlockedPeriod,
+        DeleteBlockedPeriod deleteBlockedPeriod)
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IBookingTimeService _bookingTime;
-        private readonly ICourtAdvisoryLockService _courtLock;
-        private readonly IHubContext<CourtAvailabilityHub> _availabilityHub;
-        private readonly ILogger<AdminController> _logger;
+        _getUsers = getUsers; _getReservations = getReservations;
+        _getStatistics = getStatistics; _getCalendar = getCalendar;
+        _createBlockedPeriod = createBlockedPeriod;
+        _deleteBlockedPeriod = deleteBlockedPeriod;
+    }
 
-        public AdminController(
-            ApplicationDbContext context,
-            IBookingTimeService bookingTime,
-            ICourtAdvisoryLockService courtLock,
-            IHubContext<CourtAvailabilityHub> availabilityHub,
-            ILogger<AdminController> logger)
+    [HttpGet("users")]
+    public async Task<IActionResult> GetUsers() =>
+        Ok(await _getUsers.ExecuteAsync(HttpContext.RequestAborted));
+
+    [HttpGet("reservations")]
+    public async Task<IActionResult> GetReservations() =>
+        Ok(await _getReservations.ExecuteAsync(HttpContext.RequestAborted));
+
+    [HttpGet("calendar")]
+    public async Task<IActionResult> GetCalendar([FromQuery] string? date)
+    {
+        if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var calendarDate))
         {
-            _context = context;
-            _bookingTime = bookingTime;
-            _courtLock = courtLock;
-            _availabilityHub = availabilityHub;
-            _logger = logger;
-        }
-
-        // GET api/admin/users
-        [HttpGet("users")]
-        public async Task<IActionResult> GetUsers()
-        {
-            var users = await _context.Users
-                .AsNoTracking()
-                .OrderByDescending(user => user.CreatedAt)
-                .Select(user => new
+            return BadRequest(new
+            {
+                message = "Podaci nisu ispravni.",
+                errors = new
                 {
-                    user.Id,
-                    user.FirstName,
-                    user.LastName,
-                    user.Email,
-                    user.Role,
-                    user.CreatedAt
-                })
-                .ToListAsync();
-
-            return Ok(users);
-        }
-
-        // GET api/admin/reservations
-        [HttpGet("reservations")]
-        public async Task<IActionResult> GetReservations()
-        {
-            var reservations = await _context.Reservations
-                .AsNoTracking()
-                .OrderByDescending(reservation => reservation.StartTime)
-                .Select(reservation => new
-                {
-                    reservation.Id,
-                    reservation.UserId,
-                    UserName = reservation.User.FirstName + " " +
-                        reservation.User.LastName,
-                    UserEmail = reservation.User.Email,
-                    reservation.CourtId,
-                    CourtName = reservation.Court.Name,
-                    reservation.StartTime,
-                    reservation.EndTime,
-                    reservation.TotalPrice,
-                    reservation.Status,
-                    reservation.CreatedAt
-                })
-                .ToListAsync();
-
-            return Ok(reservations);
-        }
-
-        // GET api/admin/calendar?date=yyyy-MM-dd
-        [HttpGet("calendar")]
-        public async Task<IActionResult> GetCalendar([FromQuery] string? date)
-        {
-            if (!DateOnly.TryParseExact(
-                    date,
-                    "yyyy-MM-dd",
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.None,
-                    out var calendarDate))
-            {
-                return BadRequest(new
-                {
-                    message = "Podaci nisu ispravni.",
-                    errors = new
-                    {
-                        date = new[] { "Datum mora biti u formatu yyyy-MM-dd." }
-                    }
-                });
-            }
-
-            var dayStart = calendarDate.ToDateTime(
-                TimeOnly.MinValue,
-                DateTimeKind.Unspecified);
-            var dayEnd = dayStart.AddDays(1);
-
-            var courts = await _context.Courts
-                .AsNoTracking()
-                .Where(court => court.IsActive)
-                .OrderBy(court => court.Name)
-                .Select(court => new
-                {
-                    court.Id,
-                    court.Name
-                })
-                .ToListAsync();
-
-            var reservations = await _context.Reservations
-                .AsNoTracking()
-                .Where(reservation =>
-                    reservation.Court.IsActive &&
-                    reservation.Status != "Cancelled" &&
-                    reservation.StartTime < dayEnd &&
-                    reservation.EndTime > dayStart)
-                .OrderBy(reservation => reservation.StartTime)
-                .Select(reservation => new
-                {
-                    reservation.Id,
-                    reservation.CourtId,
-                    CourtName = reservation.Court.Name,
-                    UserName = reservation.User.FirstName + " " +
-                        reservation.User.LastName,
-                    UserEmail = reservation.User.Email,
-                    reservation.StartTime,
-                    reservation.EndTime,
-                    reservation.TotalPrice,
-                    reservation.Status
-                })
-                .ToListAsync();
-
-            var blockedPeriods = await _context.BlockedPeriods
-                .AsNoTracking()
-                .Where(period =>
-                    period.Court.IsActive &&
-                    period.StartTime < dayEnd &&
-                    period.EndTime > dayStart)
-                .OrderBy(period => period.StartTime)
-                .Select(period => new
-                {
-                    period.Id,
-                    period.CourtId,
-                    CourtName = period.Court.Name,
-                    period.StartTime,
-                    period.EndTime,
-                    period.Reason
-                })
-                .ToListAsync();
-
-            return Ok(new
-            {
-                date = calendarDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                courts,
-                reservations,
-                blockedPeriods
-            });
-        }
-
-        // POST api/admin/blocked-periods
-        [HttpPost("blocked-periods")]
-        public async Task<IActionResult> CreateBlockedPeriod(
-            CreateBlockedPeriodRequest request)
-        {
-            await using var courtLock = await _courtLock.TryAcquireAsync(
-                request.CourtId,
-                HttpContext.RequestAborted);
-
-            if (courtLock == null)
-            {
-                Response.Headers.RetryAfter = "1";
-                return StatusCode(
-                    StatusCodes.Status503ServiceUnavailable,
-                    new
-                    {
-                        code = "COURT_LOCK_TIMEOUT",
-                        message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
-                    });
-            }
-
-            var court = await _context.Courts
-                .FirstOrDefaultAsync(item =>
-                    item.Id == request.CourtId &&
-                    item.IsActive);
-
-            if (court == null)
-            {
-                return NotFound("Teren nije pronađen ili više nije aktivan.");
-            }
-
-            var overlapsReservation = await _context.Reservations
-                .AnyAsync(reservation =>
-                    reservation.CourtId == request.CourtId &&
-                    reservation.Status != "Cancelled" &&
-                    reservation.StartTime < request.EndTime &&
-                    reservation.EndTime > request.StartTime);
-
-            if (overlapsReservation)
-            {
-                return Conflict("Blokirani period se preklapa sa postojećom rezervacijom.");
-            }
-
-            var overlapsBlockedPeriod = await _context.BlockedPeriods
-                .AnyAsync(period =>
-                    period.CourtId == request.CourtId &&
-                    period.StartTime < request.EndTime &&
-                    period.EndTime > request.StartTime);
-
-            if (overlapsBlockedPeriod)
-            {
-                return Conflict("Izabrani period je već blokiran.");
-            }
-
-            var blockedPeriod = new BlockedPeriod
-            {
-                CourtId = request.CourtId,
-                StartTime = request.StartTime,
-                EndTime = request.EndTime,
-                Reason = request.Reason.Trim(),
-                CreatedAtUtc = _bookingTime.UtcNow
-            };
-
-            _context.BlockedPeriods.Add(blockedPeriod);
-            await _context.SaveChangesAsync();
-
-            await NotifyAvailabilityChangedAsync(
-                blockedPeriod.CourtId,
-                blockedPeriod.StartTime);
-
-            return Ok(new
-            {
-                message = "Termin je uspešno blokiran.",
-                blockedPeriod = new
-                {
-                    blockedPeriod.Id,
-                    blockedPeriod.CourtId,
-                    CourtName = court.Name,
-                    blockedPeriod.StartTime,
-                    blockedPeriod.EndTime,
-                    blockedPeriod.Reason
+                    date = new[] { "Datum mora biti u formatu yyyy-MM-dd." }
                 }
             });
         }
 
-        // DELETE api/admin/blocked-periods/5
-        [HttpDelete("blocked-periods/{id:int}")]
-        public async Task<IActionResult> DeleteBlockedPeriod(int id)
+        var result = await _getCalendar.ExecuteAsync(
+            calendarDate, HttpContext.RequestAborted);
+        return Ok(new
         {
-            var courtId = await _context.BlockedPeriods
-                .AsNoTracking()
-                .Where(period => period.Id == id)
-                .Select(period => (int?)period.CourtId)
-                .FirstOrDefaultAsync();
+            date = result.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            result.Data.Courts,
+            result.Data.Reservations,
+            result.Data.BlockedPeriods
+        });
+    }
 
-            if (courtId == null)
-            {
-                return NotFound("Blokirani period nije pronađen.");
-            }
-
-            await using var courtLock = await _courtLock.TryAcquireAsync(
-                courtId.Value,
-                HttpContext.RequestAborted);
-
-            if (courtLock == null)
-            {
-                Response.Headers.RetryAfter = "1";
-                return StatusCode(
-                    StatusCodes.Status503ServiceUnavailable,
-                    new
-                    {
-                        code = "COURT_LOCK_TIMEOUT",
-                        message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
-                    });
-            }
-
-            var blockedPeriod = await _context.BlockedPeriods
-                .FirstOrDefaultAsync(period => period.Id == id);
-
-            if (blockedPeriod == null)
-            {
-                return NotFound("Blokirani period nije pronađen.");
-            }
-
-            _context.BlockedPeriods.Remove(blockedPeriod);
-            await _context.SaveChangesAsync();
-
-            await NotifyAvailabilityChangedAsync(
-                blockedPeriod.CourtId,
-                blockedPeriod.StartTime);
-
-            return Ok(new { message = "Termin je uspešno odblokiran." });
-        }
-
-        private async Task NotifyAvailabilityChangedAsync(
-            int courtId,
-            DateTime startTime)
+    [HttpPost("blocked-periods")]
+    public async Task<IActionResult> CreateBlockedPeriod(
+        CreateBlockedPeriodRequest request)
+    {
+        var result = await _createBlockedPeriod.ExecuteAsync(
+            new CreateBlockedPeriodCommand(request.CourtId, request.StartTime,
+                request.EndTime, request.Reason),
+            HttpContext.RequestAborted);
+        return result.Status switch
         {
-            try
+            CreateBlockedPeriodStatus.CourtNotFound => NotFound(
+                "Teren nije pronađen ili više nije aktivan."),
+            CreateBlockedPeriodStatus.ReservationOverlap => Conflict(
+                "Blokirani period se preklapa sa postojećom rezervacijom."),
+            CreateBlockedPeriodStatus.BlockedPeriodOverlap => Conflict(
+                "Izabrani period je već blokiran."),
+            CreateBlockedPeriodStatus.LockTimeout => LockTimeout(),
+            _ => Ok(new
             {
-                await _availabilityHub.Clients
-                    .Group(CourtAvailabilityHub.GetGroupName(courtId, startTime))
-                    .SendAsync(CourtAvailabilityHub.AvailabilityChangedEvent);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogWarning(
-                    exception,
-                    "SignalR availability obaveštenje nije poslato za teren {CourtId} i datum {Date}.",
-                    courtId,
-                    startTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
-            }
-        }
+                message = "Termin je uspešno blokiran.",
+                blockedPeriod = result.BlockedPeriod
+            })
+        };
+    }
 
-        // GET api/admin/stats
-        [HttpGet("stats")]
-        public async Task<IActionResult> GetStats()
+    [HttpDelete("blocked-periods/{id:int}")]
+    public async Task<IActionResult> DeleteBlockedPeriod(int id)
+    {
+        var result = await _deleteBlockedPeriod.ExecuteAsync(
+            id, HttpContext.RequestAborted);
+        return result.Status switch
         {
-            var now = _bookingTime.Now;
-            var totalUsers = await _context.Users.CountAsync();
-            var activeCourts = await _context.Courts
-                .CountAsync(court => court.IsActive);
-            var totalReservations = await _context.Reservations.CountAsync();
-            var upcomingReservations = await _context.Reservations
-                .CountAsync(reservation =>
-                    reservation.Status != "Cancelled" &&
-                    reservation.StartTime > now);
-            var ongoingReservations = await _context.Reservations
-                .CountAsync(reservation =>
-                    reservation.Status != "Cancelled" &&
-                    reservation.StartTime <= now &&
-                    reservation.EndTime > now);
-            var completedReservations = await _context.Reservations
-                .CountAsync(reservation =>
-                    reservation.Status != "Cancelled" &&
-                    reservation.EndTime <= now);
-            var cancelledReservations = await _context.Reservations
-                .CountAsync(reservation => reservation.Status == "Cancelled");
-            var realizedRevenue = await _context.Reservations
-                .Where(reservation =>
-                    reservation.Status != "Cancelled" &&
-                    reservation.EndTime <= now)
-                .SumAsync(reservation => (decimal?)reservation.TotalPrice) ?? 0;
-            var upcomingRevenue = await _context.Reservations
-                .Where(reservation =>
-                    reservation.Status != "Cancelled" &&
-                    reservation.StartTime > now)
-                .SumAsync(reservation => (decimal?)reservation.TotalPrice) ?? 0;
+            DeleteBlockedPeriodStatus.NotFound => NotFound(
+                "Blokirani period nije pronađen."),
+            DeleteBlockedPeriodStatus.LockTimeout => LockTimeout(),
+            _ => Ok(new { message = "Termin je uspešno odblokiran." })
+        };
+    }
 
-            return Ok(new
-            {
-                totalUsers,
-                activeCourts,
-                totalReservations,
-                upcomingReservations,
-                ongoingReservations,
-                completedReservations,
-                cancelledReservations,
-                realizedRevenue,
-                upcomingRevenue
-            });
-        }
+    [HttpGet("stats")]
+    public async Task<IActionResult> GetStats() =>
+        Ok(await _getStatistics.ExecuteAsync(HttpContext.RequestAborted));
+
+    private IActionResult LockTimeout()
+    {
+        Response.Headers.RetryAfter = "1";
+        return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+        {
+            code = "COURT_LOCK_TIMEOUT",
+            message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
+        });
     }
 }
