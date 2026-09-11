@@ -1,0 +1,36 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PadelBooking.Api", "PadelBooking.Api.csproj", "{139A3E4A-8BAB-43BA-BE60-315D4B1E2B97}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PadelBooking.Domain", "src\PadelBooking.Domain\PadelBooking.Domain.csproj", "{B3B08B9E-C6D6-4CC1-B350-4CB929FE93D7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PadelBooking.Application", "src\PadelBooking.Application\PadelBooking.Application.csproj", "{7055832A-D621-470A-BD1D-D041BA970157}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PadelBooking.Infrastructure", "src\PadelBooking.Infrastructure\PadelBooking.Infrastructure.csproj", "{350F2C0F-D036-472E-837E-C5013CACAE54}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{139A3E4A-8BAB-43BA-BE60-315D4B1E2B97}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{139A3E4A-8BAB-43BA-BE60-315D4B1E2B97}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{139A3E4A-8BAB-43BA-BE60-315D4B1E2B97}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{139A3E4A-8BAB-43BA-BE60-315D4B1E2B97}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B3B08B9E-C6D6-4CC1-B350-4CB929FE93D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B3B08B9E-C6D6-4CC1-B350-4CB929FE93D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B3B08B9E-C6D6-4CC1-B350-4CB929FE93D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B3B08B9E-C6D6-4CC1-B350-4CB929FE93D7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7055832A-D621-470A-BD1D-D041BA970157}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7055832A-D621-470A-BD1D-D041BA970157}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7055832A-D621-470A-BD1D-D041BA970157}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7055832A-D621-470A-BD1D-D041BA970157}.Release|Any CPU.Build.0 = Release|Any CPU
+		{350F2C0F-D036-472E-837E-C5013CACAE54}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{350F2C0F-D036-472E-837E-C5013CACAE54}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{350F2C0F-D036-472E-837E-C5013CACAE54}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{350F2C0F-D036-472E-837E-C5013CACAE54}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

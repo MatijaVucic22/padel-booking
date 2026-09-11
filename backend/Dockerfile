@@ -2,6 +2,9 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY ["PadelBooking.Api.csproj", "."]
+COPY ["src/PadelBooking.Domain/PadelBooking.Domain.csproj", "src/PadelBooking.Domain/"]
+COPY ["src/PadelBooking.Application/PadelBooking.Application.csproj", "src/PadelBooking.Application/"]
+COPY ["src/PadelBooking.Infrastructure/PadelBooking.Infrastructure.csproj", "src/PadelBooking.Infrastructure/"]
 RUN dotnet restore "PadelBooking.Api.csproj"
 
 COPY . .

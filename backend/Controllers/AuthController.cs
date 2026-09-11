@@ -1,16 +1,11 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using MySql.Data.MySqlClient;
-using PadelBooking.Api.Data;
 using PadelBooking.Api.DTOs;
-using PadelBooking.Api.Models;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+using PadelBooking.Application.Authentication.GetCurrentUser;
+using PadelBooking.Application.Authentication.Login;
+using PadelBooking.Application.Authentication.Register;
 
 namespace PadelBooking.Api.Controllers
 {
@@ -18,62 +13,37 @@ namespace PadelBooking.Api.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private static readonly User DummyUser = new();
-        private static readonly string DummyPasswordHash =
-            new PasswordHasher<User>().HashPassword(DummyUser, "DummyPassword1");
-
-        private readonly ApplicationDbContext _context;
-        private readonly IConfiguration _configuration;
+        private readonly RegisterUser _registerUser;
+        private readonly LoginUser _loginUser;
+        private readonly GetCurrentUser _getCurrentUser;
 
         public AuthController(
-            ApplicationDbContext context,
-            IConfiguration configuration)
+            RegisterUser registerUser,
+            LoginUser loginUser,
+            GetCurrentUser getCurrentUser)
         {
-            _context = context;
-            _configuration = configuration;
+            _registerUser = registerUser;
+            _loginUser = loginUser;
+            _getCurrentUser = getCurrentUser;
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
-            var email = request.Email.Trim().ToLower();
+            var result = await _registerUser.ExecuteAsync(
+                new RegisterCommand(
+                    request.FirstName,
+                    request.LastName,
+                    request.Email,
+                    request.Password),
+                HttpContext.RequestAborted);
 
-            var userExists = await _context.Users
-                .AnyAsync(u => u.Email == email);
-
-            if (userExists)
+            if (result.IsDuplicateEmail)
             {
                 return BadRequest("Korisnik sa ovim email-om već postoji.");
             }
 
-            var user = new User
-            {
-                FirstName = request.FirstName.Trim(),
-                LastName = request.LastName.Trim(),
-                Email = email,
-                Role = "User",
-                CreatedAt = DateTime.UtcNow
-            };
-
-            var passwordHasher = new PasswordHasher<User>();
-
-            user.PasswordHash = passwordHasher.HashPassword(
-                user,
-                request.Password
-            );
-
-            _context.Users.Add(user);
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException exception)
-                when (exception.InnerException is MySqlException { Number: 1062 })
-            {
-                return BadRequest("Korisnik sa ovim email-om već postoji.");
-            }
-
+            var user = result.User!;
             return Ok(new
             {
                 message = "Registracija uspešna.",
@@ -92,41 +62,20 @@ namespace PadelBooking.Api.Controllers
         [EnableRateLimiting("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
-            var email = request.Email.Trim().ToLower();
+            var result = await _loginUser.ExecuteAsync(
+                new LoginCommand(request.Email, request.Password),
+                HttpContext.RequestAborted);
 
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == email);
-
-            var passwordHasher = new PasswordHasher<User>();
-
-            if (user == null)
-            {
-                passwordHasher.VerifyHashedPassword(
-                    DummyUser,
-                    DummyPasswordHash,
-                    request.Password
-                );
-
-                return Unauthorized("Pogrešan email ili lozinka.");
-            }
-
-            var result = passwordHasher.VerifyHashedPassword(
-                user,
-                user.PasswordHash,
-                request.Password
-            );
-
-            if (result == PasswordVerificationResult.Failed)
+            if (!result.Succeeded)
             {
                 return Unauthorized("Pogrešan email ili lozinka.");
             }
 
-            var token = GenerateJwtToken(user);
-
+            var user = result.User!;
             return Ok(new
             {
                 message = "Prijava uspešna.",
-                token,
+                token = result.Token,
                 user = new
                 {
                     user.Id,
@@ -149,7 +98,9 @@ namespace PadelBooking.Api.Controllers
                 return Unauthorized();
             }
 
-            var user = await _context.Users.FindAsync(userId);
+            var user = await _getCurrentUser.ExecuteAsync(
+                userId,
+                HttpContext.RequestAborted);
 
             if (user == null)
             {
@@ -164,49 +115,6 @@ namespace PadelBooking.Api.Controllers
                 user.Email,
                 user.Role
             });
-        }
-
-        private string GenerateJwtToken(User user)
-        {
-            var key = _configuration["Jwt:Key"]
-                ?? throw new InvalidOperationException("JWT key nije konfigurisan.");
-
-            var issuer = _configuration["Jwt:Issuer"]
-                ?? throw new InvalidOperationException("JWT issuer nije konfigurisan.");
-
-            var audience = _configuration["Jwt:Audience"]
-                ?? throw new InvalidOperationException("JWT audience nije konfigurisan.");
-
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role),
-                new Claim(
-                    JwtRegisteredClaimNames.Jti,
-                    Guid.NewGuid().ToString()
-                )
-            };
-
-            var securityKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(key)
-            );
-
-            var credentials = new SigningCredentials(
-                securityKey,
-                SecurityAlgorithms.HmacSha256
-            );
-
-            var token = new JwtSecurityToken(
-                issuer: issuer,
-                audience: audience,
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(2),
-                signingCredentials: credentials
-            );
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }

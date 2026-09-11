@@ -1,6 +1,6 @@
 using FluentValidation;
+using PadelBooking.Application.Abstractions.Time;
 using PadelBooking.Api.DTOs;
-using PadelBooking.Api.Services;
 
 namespace PadelBooking.Api.Validators
 {

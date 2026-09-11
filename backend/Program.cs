@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using PadelBooking.Api.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -8,26 +7,30 @@ using Microsoft.AspNetCore.Mvc;
 using PadelBooking.Api.Validation;
 using PadelBooking.Api.Validators;
 using PadelBooking.Api.Services;
-using PadelBooking.Api.Options;
 using PadelBooking.Api.Hubs;
 using System.Threading.RateLimiting;
+using PadelBooking.Application.Abstractions.Notifications;
+using PadelBooking.Application;
+using PadelBooking.Infrastructure;
+using PadelBooking.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySQL(
-        builder.Configuration.GetConnectionString("DefaultConnection")!
-    )
-);
+var courtImageStorageRoot = Path.Combine(
+    builder.Environment.WebRootPath ??
+        Path.Combine(builder.Environment.ContentRootPath, "wwwroot"),
+    "uploads",
+    "courts");
+
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(
+    builder.Configuration,
+    courtImageStorageRoot);
 
 builder.Services.AddScoped<FluentValidationFilter>();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
-builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddSingleton<IBookingTimeService, BookingTimeService>();
-builder.Services.AddScoped<ICourtAdvisoryLockService, CourtAdvisoryLockService>();
-builder.Services.Configure<EmailOptions>(
-    builder.Configuration.GetSection(EmailOptions.SectionName));
-builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<ICourtChangeNotifier, SignalRCourtChangeNotifier>();
+builder.Services.AddScoped<IReservationNotificationLogger, ReservationNotificationLogger>();
 builder.Services.AddHostedService<ReservationReminderBackgroundService>();
 builder.Services.AddSignalR();
 
