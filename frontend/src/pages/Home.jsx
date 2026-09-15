@@ -3,6 +3,7 @@ import heroPadel from "../assets/images/hero-padel.jpg";
 import courtIndoor from "../assets/images/court-indoor.jpg";
 import courtNight from "../assets/images/court-night.jpg";
 import courtSunset from "../assets/images/court-sunset.jpg";
+import Reveal from "../components/Reveal";
 
 const padelRules = [
   "Igra se uglavnom dva na dva",
@@ -16,7 +17,7 @@ const padelRules = [
 function Home() {
   return (
     <div className="home-page">
-      <section className="home-hero">
+      <Reveal as="section" className="home-hero">
         <div className="home-hero-copy">
           <span className="section-kicker">Premium urban padel</span>
           <h1>Rezerviši teren.<br />Igraj bez čekanja.</h1>
@@ -33,9 +34,9 @@ function Home() {
             <strong>Teren. Termin. Meč.</strong>
           </div>
         </div>
-      </section>
+      </Reveal>
 
-      <section className="home-section featured-section">
+      <Reveal as="section" className="home-section featured-section">
         <header className="editorial-heading">
           <div><span className="section-kicker">Naši tereni</span><h2>Pronađi teren za sledeći meč</h2></div>
         </header>
@@ -48,18 +49,18 @@ function Home() {
             <span className="featured-banner-cta">Pogledaj sve terene <span aria-hidden="true">→</span></span>
           </span>
         </Link>
-      </section>
+      </Reveal>
 
-      <section className="home-section process-section" aria-labelledby="process-title">
+      <Reveal as="section" className="home-section process-section" aria-labelledby="process-title">
         <header><span className="section-kicker">Kako funkcioniše</span><h2 id="process-title">Od ideje do terena u tri koraka.</h2></header>
         <ol className="process-list">
           <li><strong>01</strong><div><h3>Izaberi datum i vreme</h3><p>Odredi termin i trajanje koje odgovara tvojoj ekipi.</p></div></li>
           <li><strong>02</strong><div><h3>Pronađi slobodan teren</h3><p>Odmah vidi terene dostupne za ceo izabrani interval.</p></div></li>
           <li><strong>03</strong><div><h3>Potvrdi rezervaciju</h3><p>Rezerviši u nekoliko klikova i spremi se za meč.</p></div></li>
         </ol>
-      </section>
+      </Reveal>
 
-      <section className="home-section padel-intro-section" aria-labelledby="padel-intro-title">
+      <Reveal as="section" className="home-section padel-intro-section" aria-labelledby="padel-intro-title">
         <div className="padel-intro-image">
           <img src={courtIndoor} alt="Moderan zatvoreni padel teren" loading="lazy" />
         </div>
@@ -69,27 +70,27 @@ function Home() {
           <p>Padel je nastao u Meksiku 1969. godine i najčešće se igra dva na dva. Spaja elemente tenisa i skvoša, uz jednu posebnost: staklo i zidovi ostaju deo igre nakon što lopta odskoči.</p>
           <Link to="/book" className="text-link">Pronađi slobodan termin <span aria-hidden="true">→</span></Link>
         </div>
-      </section>
+      </Reveal>
 
-      <section className="home-section rules-section" aria-labelledby="rules-title">
+      <Reveal as="section" className="home-section rules-section" aria-labelledby="rules-title">
         <header className="editorial-heading">
           <div><span className="section-kicker">Osnovna pravila</span><h2 id="rules-title">Dovoljno jednostavno za prvi meč.</h2></div>
           <p>Najvažnije smernice koje treba da znaš pre izlaska na teren.</p>
         </header>
         <div className="rules-grid">
           {padelRules.map((rule, index) => (
-            <article className="rule-card" key={rule}>
+            <Reveal as="article" className="rule-card" delay={index * 70} key={rule}>
               <span>{String(index + 1).padStart(2, "0")}</span>
               <p>{rule}</p>
-            </article>
+            </Reveal>
           ))}
         </div>
-      </section>
+      </Reveal>
 
-      <section className="home-section home-cta">
+      <Reveal as="section" className="home-section home-cta">
         <img src={courtSunset} alt="Padel teren uz more u vreme zalaska sunca" loading="lazy" />
         <div className="home-cta-content"><span className="section-kicker">Vreme je za igru</span><h2>Spreman za sledeći meč?</h2><Link to="/book" className="primary-button">Rezerviši termin <span aria-hidden="true">→</span></Link></div>
-      </section>
+      </Reveal>
 
     </div>
   );
