@@ -4,6 +4,7 @@ import * as signalR from "@microsoft/signalr";
 import { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 import { useGetCourtsQuery } from "../services/padelApi";
+import Reveal from "../components/Reveal";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
@@ -67,20 +68,22 @@ function Courts() {
 
   return (
     <section className="page courts-page">
-      <header className="courts-header">
+      <Reveal as="header" className="courts-header">
         <div><span className="section-kicker">Naša ponuda</span><h1>Padel tereni</h1></div>
         <p>Upoznaj svaki teren, ambijent i lokaciju, pa pronađi termin koji ti odgovara.</p>
-      </header>
+      </Reveal>
 
       {courts.length === 0 ? (
         <p className="courts-feedback">Trenutno nema dostupnih terena.</p>
       ) : (
         <div className="courts-grid">
           {courts.map((court, index) => (
-            <Link
+            <Reveal
+              as={Link}
               to={`/courts/${court.id}`}
               className="court-card"
               key={court.id}
+              delay={(index % 3) * 80}
               aria-label={`Otvori detalje terena ${court.name}`}
             >
               <div className="court-card-image">
@@ -93,7 +96,7 @@ function Courts() {
                 <div className="court-card-price"><span>Cena po satu</span><strong>{priceFormatter.format(court.pricePerHour)}</strong></div>
                 <span className="court-card-details">Detalji →</span>
               </div>
-            </Link>
+            </Reveal>
           ))}
         </div>
       )}

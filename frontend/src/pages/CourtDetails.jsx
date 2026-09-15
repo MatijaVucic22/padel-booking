@@ -4,6 +4,7 @@ import * as signalR from "@microsoft/signalr";
 import { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 import { useGetCourtByIdQuery } from "../services/padelApi";
+import Reveal from "../components/Reveal";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency", currency: "RSD", maximumFractionDigits: 2,
@@ -60,7 +61,7 @@ function CourtDetails() {
   return (
     <section className="page court-details-page">
       <Link className="text-link court-details-back" to="/courts">← Svi tereni</Link>
-      <div className="court-information-layout">
+      <Reveal className="court-information-layout">
         <div className="court-information-image-wrap">
           <img className="court-information-image" src={courtImage} alt={court.name} />
         </div>
@@ -79,7 +80,7 @@ function CourtDetails() {
           {court.description && <p className="court-information-description">{court.description}</p>}
           <Link className="primary-button court-information-cta" to="/book">Rezerviši termin</Link>
         </article>
-      </div>
+      </Reveal>
     </section>
   );
 }
