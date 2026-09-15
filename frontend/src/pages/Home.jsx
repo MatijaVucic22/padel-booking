@@ -4,12 +4,6 @@ import courtIndoor from "../assets/images/court-indoor.jpg";
 import courtNight from "../assets/images/court-night.jpg";
 import courtSunset from "../assets/images/court-sunset.jpg";
 
-const featuredCourts = [
-  { title: "Indoor arena", meta: "Celogodišnja igra", image: courtIndoor },
-  { title: "Sunset court", meta: "Meč na otvorenom", image: courtSunset },
-  { title: "Night court", meta: "Večernji termini", image: courtNight },
-];
-
 const padelRules = [
   "Igra se uglavnom dva na dva",
   "Servis je ispod visine struka i dijagonalno",
@@ -44,17 +38,16 @@ function Home() {
       <section className="home-section featured-section">
         <header className="editorial-heading">
           <div><span className="section-kicker">Naši tereni</span><h2>Pronađi teren za sledeći meč</h2></div>
-          <Link to="/courts" className="text-link">Svi tereni <span aria-hidden="true">→</span></Link>
         </header>
-        <div className="featured-grid">
-          {featuredCourts.map((court) => (
-            <Link className="featured-court" to="/courts" key={court.title}>
-              <div className="featured-image"><img src={court.image} alt={`${court.title} padel teren`} loading="lazy" /></div>
-              <div><span>{court.meta}</span><h3>{court.title}</h3></div>
-              <span className="featured-details-link">Detalji →</span>
-            </Link>
-          ))}
-        </div>
+        <Link className="featured-banner" to="/courts" aria-label="Pogledaj sve aktivne terene">
+          <img src={courtNight} alt="Padel teren spreman za večernji meč" loading="lazy" />
+          <span className="featured-banner-overlay" aria-hidden="true" />
+          <span className="featured-banner-content">
+            <span className="featured-banner-label">Aktivni tereni</span>
+            <strong>Teren za svaki meč</strong>
+            <span className="featured-banner-cta">Pogledaj sve terene <span aria-hidden="true">→</span></span>
+          </span>
+        </Link>
       </section>
 
       <section className="home-section process-section" aria-labelledby="process-title">
