@@ -1446,14 +1446,16 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .home-section { width: min(1240px, calc(100% - 64px)); margin: 0 auto; padding: 90px 0; }
 .editorial-heading { display: flex; align-items: end; justify-content: space-between; gap: 32px; margin-bottom: 42px; }
 .editorial-heading h2, .process-section h2 { max-width: 760px; margin: 0; color: var(--color-forest); font-size: clamp(2rem, 4vw, 4.15rem); line-height: 1.08; }
-.featured-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
-.featured-court { position: relative; color: inherit; text-decoration: none; }
-.featured-image { aspect-ratio: 4 / 5; margin-bottom: 20px; overflow: hidden; border-radius: 12px; background: #d9ded9; }
-.featured-image img { width: 100%; height: 100%; object-fit: cover; transition: transform .45s ease; }
-.featured-court:hover .featured-image img { transform: scale(1.025); }
-.featured-court > div:nth-child(2) span { color: var(--color-muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
-.featured-court h3 { margin: 7px 0 0; color: var(--color-forest); font-size: 1.35rem; }
-.featured-arrow { position: absolute; right: 0; bottom: 2px; color: var(--color-orange); font-size: 1.5rem; }
+.featured-banner { position: relative; display: block; height: clamp(390px, 43vw, 540px); overflow: hidden; border: 1px solid var(--color-border); border-radius: 20px; color: #fff; text-decoration: none; isolation: isolate; }
+.featured-banner > img { width: 100%; height: 100%; object-fit: cover; transition: transform .55s ease; }
+.featured-banner-overlay { position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(8, 18, 13, .06) 25%, rgba(8, 18, 13, .84) 100%); }
+.featured-banner-content { position: absolute; right: clamp(24px, 5vw, 64px); bottom: clamp(24px, 5vw, 58px); left: clamp(24px, 5vw, 64px); z-index: 2; display: grid; justify-items: start; }
+.featured-banner-label { margin-bottom: 10px; color: #dce9e2; font-size: .75rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.featured-banner-content strong { max-width: 760px; font-family: "Sora", sans-serif; font-size: clamp(2rem, 5vw, 4.35rem); line-height: 1.05; }
+.featured-banner-cta { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; padding-bottom: 4px; border-bottom: 1px solid rgba(255, 255, 255, .62); font-weight: 800; transition: color .2s ease, border-color .2s ease, gap .2s ease; }
+.featured-banner:hover > img { transform: scale(1.035); }
+.featured-banner:hover .featured-banner-cta { gap: 13px; color: var(--color-orange); border-color: var(--color-orange); }
+.featured-banner:focus-visible { outline: 3px solid color-mix(in srgb, var(--color-primary) 70%, white); outline-offset: 4px; }
 .process-section { display: grid; grid-template-columns: .85fr 1.15fr; gap: 8vw; align-items: start; border-top: 1px solid var(--color-border); }
 .process-list { margin: 0; padding: 0; list-style: none; }
 .process-list li { display: grid; grid-template-columns: 72px 1fr; gap: 20px; padding: 26px 0; border-bottom: 1px solid var(--color-border); }
@@ -1860,7 +1862,7 @@ body.route-transition-locked {
   .hero-note { right: 14px; bottom: 14px; left: 14px; min-width: 0; }
   .home-section { padding: 64px 0; }
   .editorial-heading { align-items: flex-start; flex-direction: column; margin-bottom: 30px; }
-  .featured-grid, .courts-grid { grid-template-columns: 1fr; }
+  .courts-grid { grid-template-columns: 1fr; }
   .rules-grid { grid-template-columns: 1fr; }
   .rule-card { min-height: 130px; }
   .padel-intro-image, .padel-intro-image img { min-height: 330px; }
@@ -1886,7 +1888,6 @@ body.route-transition-locked {
   .booking-confirm-actions { flex-direction: column-reverse; }
   .booking-confirm-actions button { width: 100%; }
   .reschedule-confirm-comparison { grid-template-columns: 1fr; }
-  .featured-image { aspect-ratio: 5 / 4; }
   .process-list li { grid-template-columns: 54px 1fr; }
   .home-cta, .home-cta-content { min-height: 430px; }
   .home-cta-content { padding: 30px; }
@@ -1956,51 +1957,6 @@ body.route-transition-locked {
 }
 
 /* Focused public-page polish */
-.featured-court {
-  display: block;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 20px;
-  background: var(--color-surface);
-  color: inherit;
-  cursor: pointer;
-  text-decoration: none;
-  transition: transform 180ms ease, border-color 180ms ease;
-}
-
-.featured-court:hover,
-.featured-court:focus-visible {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
-  outline: none;
-}
-
-.featured-court:focus-visible {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 24%, transparent);
-}
-
-.featured-image {
-  height: clamp(220px, 18vw, 245px);
-  aspect-ratio: auto;
-  border-radius: 0;
-}
-
-.featured-court > div:nth-child(2) {
-  padding: 18px 18px 8px;
-}
-
-.featured-details-link {
-  display: inline-flex;
-  margin: 4px 18px 18px;
-  color: var(--color-primary);
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.featured-details-link:hover {
-  color: var(--color-primary-hover);
-}
-
 .court-card-image {
   height: clamp(210px, 18vw, 230px);
   aspect-ratio: auto;
@@ -2192,14 +2148,15 @@ body.route-transition-locked {
 .footer-bottom button:hover { color: #56bc8a; }
 
 @media (max-width: 900px) {
-  .featured-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .court-information-layout { grid-template-columns: 1fr; align-items: start; }
   .court-information-image-wrap { height: min(430px, 58vw); }
 }
 
 @media (max-width: 700px) {
-  .featured-grid { grid-template-columns: 1fr; }
-  .featured-image { height: 230px; }
+  .featured-banner { height: 340px; border-radius: 16px; }
+  .featured-banner-content { right: 22px; bottom: 25px; left: 22px; }
+  .featured-banner-content strong { font-size: clamp(1.9rem, 10vw, 2.8rem); }
+  .featured-banner-cta { margin-top: 17px; }
   .court-card-image { height: 220px; }
   .court-information-image-wrap { height: clamp(245px, 68vw, 340px); border-radius: 20px; }
   .court-details-back { margin-bottom: 20px; }
