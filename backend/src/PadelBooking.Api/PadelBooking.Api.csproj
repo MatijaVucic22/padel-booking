@@ -18,12 +18,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="src\PadelBooking.Application\PadelBooking.Application.csproj" />
-    <ProjectReference Include="src\PadelBooking.Infrastructure\PadelBooking.Infrastructure.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="src\**\*.cs" />
+    <ProjectReference Include="..\PadelBooking.Application\PadelBooking.Application.csproj" />
+    <ProjectReference Include="..\PadelBooking.Infrastructure\PadelBooking.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
