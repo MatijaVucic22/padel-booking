@@ -15,12 +15,6 @@
   padding: 24px;
   opacity: 0;
   background-color: var(--color-cream);
-  background-image:
-    linear-gradient(rgba(10, 20, 15, .18), rgba(10, 20, 15, .18)),
-    url("./assets/images/page-loader-desktop.jpg");
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
   color: var(--color-text);
   transition: opacity 200ms ease-in-out;
 }
@@ -85,14 +79,6 @@
 @media (prefers-reduced-motion: reduce) {
   .route-transition-loader { transition-duration: 1ms; }
   .route-transition-spinner { animation-duration: 2s; }
-}
-
-@media (max-width: 768px) {
-  .route-transition-loader {
-    background-image:
-      linear-gradient(rgba(10, 20, 15, .18), rgba(10, 20, 15, .18)),
-      url("./assets/images/page-loader-mobile.jpg");
-  }
 }
 
 .navbar {
@@ -1799,13 +1785,14 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 :root[data-theme="dark"] .reservation-status-active,
 :root[data-theme="dark"] .booking-success,
 :root[data-theme="dark"] .success-message,
-:root[data-theme="dark"] .admin-success { background: #173c2a; color: #a9dfbd; }
+:root[data-theme="dark"] .admin-success { background: color-mix(in srgb, var(--color-green) 22%, var(--color-surface)); color: var(--color-text); }
 :root[data-theme="dark"] .reservation-status-cancelled,
 :root[data-theme="dark"] .booking-error,
 :root[data-theme="dark"] .error-message,
-:root[data-theme="dark"] .admin-error { background: #412522; color: #ffc0b5; }
-:root[data-theme="dark"] .reservation-status-completed { background: #2b3730; color: #c5d0c9; }
-:root[data-theme="dark"] .admin-action-message.admin-warning { background: #3a321d; color: #f1d58a; border-color: #75642c; }
+:root[data-theme="dark"] .admin-error { background: color-mix(in srgb, var(--color-danger) 20%, var(--color-surface)); color: #ffd2ca; }
+:root[data-theme="dark"] .reservation-status-completed { background: var(--color-surface-muted); color: var(--color-muted); }
+:root[data-theme="dark"] .admin-action-message.admin-warning { background: color-mix(in srgb, var(--color-orange) 18%, var(--color-surface)); color: #f2d8ca; border-color: color-mix(in srgb, var(--color-orange) 55%, var(--color-border)); }
+:root[data-theme="dark"] .app-footer { background: var(--color-surface); }
 
 @media (max-width: 1100px) {
   .home-hero { grid-template-columns: .9fr 1.1fr; min-height: auto; }
