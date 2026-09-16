@@ -33,10 +33,15 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
         using var login = await host.Client.PostAsJsonAsync("/api/auth/login", new { email, password = Password });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         using var loginJson = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
-        var token = loginJson.RootElement.GetProperty("token").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(token));
+        Assert.False(loginJson.RootElement.TryGetProperty("token", out _));
 
-        using var client = host.ClientFactoryWithToken(token!);
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var user = await db.Users.SingleAsync(candidate => candidate.Email == email);
+        var token = scope.ServiceProvider.GetRequiredService<IAccessTokenGenerator>()
+            .GenerateAccessToken(user);
+
+        using var client = host.ClientFactoryWithToken(token);
         using var me = await client.GetAsync("/api/auth/me");
         Assert.Equal(HttpStatusCode.OK, me.StatusCode);
         using var meJson = JsonDocument.Parse(await me.Content.ReadAsStringAsync());

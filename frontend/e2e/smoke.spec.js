@@ -28,6 +28,10 @@ test("Unauthenticated_User_Is_Redirected_From_Protected_Page", async ({ page }) 
 test.describe("isolated backend flows", () => {
   test("User_Can_Register_Login_And_See_Authenticated_UI", async ({ page }) => {
     await registerAndLogin(page);
+    expect(await page.evaluate(() => localStorage.getItem("token"))).toBeNull();
+    const authCookie = (await page.context().cookies()).find((cookie) => cookie.name === "PadelBooking.Auth");
+    expect(authCookie).toMatchObject({ httpOnly: true, sameSite: "Lax" });
+    await page.reload();
     await page.goto("/my-reservations");
     await expect(page.getByRole("heading", { name: "Moje rezervacije" })).toBeVisible();
     await expect(page.getByRole("tab", { name: /Predstojeće/ })).toBeVisible();

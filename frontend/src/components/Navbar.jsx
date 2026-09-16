@@ -30,8 +30,10 @@ function Navbar({ onLogout, onNavigate }) {
 
   const handleLogout = () => {
     onNavigate("/", () => {
-      onLogout();
-      closeMenu();
+      return onLogout().then((success) => {
+        if (success) closeMenu();
+        return success;
+      });
     });
   };
 
