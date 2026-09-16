@@ -1,10 +1,38 @@
 :root {
+  --bg-primary: #f1efe7;
+  --bg-secondary: #e7e5db;
+  --bg-elevated: #dedccf;
+  --surface: #faf8f1;
+  --surface-hover: #efede3;
+  --text-primary: #171a15;
+  --text-secondary: #41463d;
+  --text-muted: #62685e;
+  --border: rgba(23, 26, 21, 0.18);
+  --accent: #a8d927;
+  --accent-hover: #bde950;
+  --accent-text: #11140f;
+  --accent-ink: #49620d;
+  --danger: #af3035;
+  --success: #37671b;
+  --input-bg: #fffdf8;
+  --input-text: #171a15;
+  --photo-text: #f3f0e8;
+  --photo-accent: #c9ff3d;
+  --brand-bg: var(--bg-primary);
+  --brand-surface: var(--surface);
+  --brand-text: var(--text-primary);
+  --brand-muted: var(--text-muted);
+  --brand-accent: var(--accent);
+  --brand-accent-ink: var(--accent-ink);
+  --brand-accent-text: var(--accent-text);
+  --brand-line: var(--border);
   --color-forest: #17201b;
   --color-green: #245c46;
   --color-primary-hover: #1c4b39;
   --color-cream: #f5f3ec;
   --color-orange: #ff7547;
   --color-danger: #d94d4d;
+  --color-on-danger: #fff;
   --color-text: #17201b;
   --color-muted: #667068;
   --color-white: #fff;
@@ -26,12 +54,30 @@
 }
 
 :root[data-theme="dark"] {
+  --bg-primary: #10120f;
+  --bg-secondary: #181b16;
+  --bg-elevated: #282e25;
+  --surface: #1d211a;
+  --surface-hover: #272d24;
+  --text-primary: #f3f0e8;
+  --text-secondary: #c5c8be;
+  --text-muted: #abb1a5;
+  --border: rgba(243, 240, 232, 0.16);
+  --accent: #c9ff3d;
+  --accent-hover: #e0ff8a;
+  --accent-text: #10120f;
+  --accent-ink: #c9ff3d;
+  --danger: #f18b85;
+  --success: #b6e98e;
+  --input-bg: #272d24;
+  --input-text: #f3f0e8;
   --color-forest: #f3f1ea;
-  --color-green: #6f8f7c;
-  --color-primary-hover: #80a08c;
+  --color-green: #8bb99b;
+  --color-primary-hover: #9dcaac;
   --color-cream: #252a27;
   --color-orange: #c98262;
   --color-danger: #e45d5d;
+  --color-on-danger: #10120f;
   --color-text: #f3f1ea;
   --color-muted: #b8bdb9;
   --color-white: #2d332f;
@@ -40,7 +86,7 @@
   --color-surface-muted: #353c37;
   --color-input: #353c37;
   --color-primary-surface: #6f8f7c;
-  --color-on-primary: #f3f1ea;
+  --color-on-primary: #10120f;
   --color-nav: rgba(37, 42, 39, 0.96);
   --color-nav-text: #f3f1ea;
   --color-hover-soft: #353c37;
@@ -49,8 +95,9 @@
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scrollbar-gutter: stable; }
-body { margin: 0; min-width: 320px; background: var(--color-cream); color: var(--color-text); overflow-x: hidden; transition: background-color .2s ease, color .2s ease; }
+body { margin: 0; min-width: 320px; background: var(--bg-primary); color: var(--color-text); overflow-x: hidden; transition: background-color .2s ease, color .2s ease; }
 button, input, textarea { font: inherit; }
+input::placeholder, textarea::placeholder { color: var(--color-muted); opacity: 1; }
 button, a { -webkit-tap-highlight-color: transparent; }
 img { display: block; max-width: 100%; }
 h1, h2, h3 { font-family: "Sora", sans-serif; letter-spacing: -0.035em; }

@@ -376,7 +376,7 @@ function Book() {
       {hasInterval && (
         <section className="quick-book-results-section">
           <header className="quick-book-results-header">
-            <h2>Slobodni tereni</h2>
+            <div><span className="section-kicker">04 / TEREN</span><h2>Slobodni tereni</h2></div>
             {!loading && !error && <span>{courts.length} {courts.length === 1 ? "dostupan" : "dostupna"}</span>}
           </header>
 
