@@ -32,6 +32,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>()
 builder.Services.AddScoped<ICourtChangeNotifier, SignalRCourtChangeNotifier>();
 builder.Services.AddScoped<IReservationNotificationLogger, ReservationNotificationLogger>();
 builder.Services.AddHostedService<ReservationReminderBackgroundService>();
+builder.Services.AddHostedService<PaymentReconciliationBackgroundService>();
 builder.Services.AddSignalR();
 
 builder.Services.AddControllers(options =>

@@ -22,7 +22,8 @@ public sealed class GetMyReservations
     {
         var now = _bookingTime.Now;
         var reservations = await _reservations.GetForUserAsync(userId, cancellationToken);
-        return reservations.Select(reservation => new MyReservationItem(
+        return reservations.Where(reservation => reservation.Status != "PendingPayment")
+            .Select(reservation => new MyReservationItem(
             reservation.Id, reservation.CourtId, reservation.Court.Name,
             reservation.StartTime, reservation.EndTime, reservation.TotalPrice,
             reservation.Status != "Cancelled" && reservation.StartTime > now,

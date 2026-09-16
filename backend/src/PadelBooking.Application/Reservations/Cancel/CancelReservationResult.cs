@@ -5,6 +5,7 @@ public enum CancelReservationStatus
     Success,
     NotFound,
     AlreadyCancelled,
+    NotActive,
     Completed,
     Started
 }

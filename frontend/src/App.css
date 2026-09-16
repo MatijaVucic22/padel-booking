@@ -1577,6 +1577,11 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .booking-confirm-actions .cancellation-confirm-button:hover { border-color: color-mix(in srgb, var(--color-danger) 82%, #000); background: color-mix(in srgb, var(--color-danger) 82%, #000); }
 .booking-confirm-state { display: grid; justify-items: center; min-height: 260px; place-content: center; gap: 14px; text-align: center; }
 .booking-confirm-state p { margin: 0; color: var(--color-muted); }
+.payment-result-page { display: grid; place-items: center; min-height: 65vh; }
+.payment-result-card { display: grid; justify-items: center; gap: 18px; width: min(100%, 560px); padding: clamp(28px, 5vw, 48px); border: 1px solid var(--color-border); border-radius: 22px; background: var(--color-surface); text-align: center; }
+.payment-result-card h1 { margin: 0; color: var(--color-forest); }
+.payment-result-card p { margin: 0; color: var(--color-muted); }
+.payment-result-card .primary-button { display: inline-flex; align-items: center; justify-content: center; padding: 0 24px; text-decoration: none; }
 .booking-confirm-spinner { width: 52px; height: 52px; margin-bottom: 8px; border: 3px solid color-mix(in srgb, var(--color-green) 22%, var(--color-border)); border-top-color: var(--color-green); border-radius: 50%; animation: route-loader-spin .8s linear infinite; }
 .booking-confirm-spinner.cancellation-spinner { border-color: color-mix(in srgb, var(--color-danger) 20%, var(--color-border)); border-top-color: var(--color-danger); }
 .booking-confirm-check { display: grid; place-items: center; width: 58px; height: 58px; margin-bottom: 8px; border-radius: 50%; background: var(--color-green); color: #fff; font-size: 1.8rem; font-weight: 900; animation: booking-confirm-check-in 220ms ease both; }

@@ -8,7 +8,7 @@ import { longDateFormatter } from "../utils/dateFormatters";
 import DatePicker from "../components/DatePicker";
 import {
   toLegacyApiError,
-  useCreateReservationMutation,
+  useCreateCheckoutMutation,
   useGetCourtsQuery,
   useLazyGetAvailableCourtsQuery,
 } from "../services/padelApi";
@@ -59,10 +59,11 @@ function Book() {
     [activeCourts],
   );
   const [getAvailableCourts] = useLazyGetAvailableCourtsQuery();
-  const [createReservation] = useCreateReservationMutation();
+  const [createCheckout] = useCreateCheckoutMutation();
   const [initialSelection] = useState(readSavedSelection);
   const requestId = useRef(0);
   const modalTimer = useRef(null);
+  const bookingInFlight = useRef(false);
   const signalRRefreshTimer = useRef(null);
   const courtChangeRefreshTimer = useRef(null);
   const componentMounted = useRef(true);
@@ -267,7 +268,8 @@ function Book() {
   });
 
   const bookCourt = async () => {
-    if (!selectedCourt || modalPhase !== "confirm" || bookingCourtId !== null) return;
+    if (!selectedCourt || modalPhase !== "confirm" || bookingInFlight.current) return;
+    bookingInFlight.current = true;
 
     const startTime = `${date}T${String(startHour).padStart(2, "0")}:00:00`;
     const endTime = `${date}T${String(startHour + duration).padStart(2, "0")}:00:00`;
@@ -277,19 +279,15 @@ function Book() {
     setModalError("");
 
     try {
-      await createReservation({
+      const checkout = await createCheckout({
         courtId: selectedCourt.id,
         startTime,
         endTime,
       }).unwrap();
       await waitForMinimumLoading(loadingStartedAt);
       if (!componentMounted.current) return;
-
-      setModalPhase("success");
-      modalTimer.current = window.setTimeout(() => {
-        modalTimer.current = null;
-        navigate("/my-reservations");
-      }, 1200);
+      if (!checkout?.checkoutUrl) throw new Error("Stripe Checkout adresa nije dostupna.");
+      window.location.assign(checkout.checkoutUrl);
     } catch (requestError) {
       await waitForMinimumLoading(loadingStartedAt);
       if (!componentMounted.current) return;
@@ -298,10 +296,11 @@ function Book() {
       const errorResponse = toLegacyApiError(requestError);
       setModalError(errorResponse.response?.status === 409
         ? "Teren je u međuvremenu rezervisan. Rezultati su osveženi."
-        : errorResponse.response?.data?.message ?? (typeof errorResponse.response?.data === "string" ? errorResponse.response.data : "Rezervacija nije uspela."));
+        : errorResponse.response?.data?.message ?? (typeof errorResponse.response?.data === "string" ? errorResponse.response.data : "Plaćanje nije moguće pokrenuti."));
       setModalPhase("confirm");
       setReloadKey((key) => key + 1);
     } finally {
+      bookingInFlight.current = false;
       if (componentMounted.current) setBookingCourtId(null);
     }
   };
@@ -445,10 +444,12 @@ function Book() {
                   <div className="booking-confirm-total"><dt>Ukupna cena</dt><dd>{priceFormatter.format(selectedCourt.pricePerHour * duration)}</dd></div>
                 </dl>
 
+                <p>Test plaćanje — stvarni novac neće biti naplaćen. Bićeš preusmeren na Stripe Checkout.</p>
+
                 {modalError && <p className="booking-confirm-error" role="alert">{modalError}</p>}
                 <div className="booking-confirm-actions">
                   <button type="button" onClick={closeConfirmation}>Odustani</button>
-                  <button type="button" className="primary-button" onClick={bookCourt}>Rezerviši</button>
+                  <button type="button" className="primary-button" onClick={bookCourt}>Nastavi na plaćanje</button>
                 </div>
               </>
             )}
@@ -456,18 +457,11 @@ function Book() {
             {modalPhase === "loading" && (
               <div className="booking-confirm-state" role="status">
                 <span className="booking-confirm-spinner" aria-hidden="true" />
-                <h2 id="booking-confirm-title">Rezervacija u toku...</h2>
-                <p>Potvrđujemo tvoj termin.</p>
+                <h2 id="booking-confirm-title">Pokrećemo plaćanje...</h2>
+                <p>Pripremamo bezbednu Stripe Checkout stranicu.</p>
               </div>
             )}
 
-            {modalPhase === "success" && (
-              <div className="booking-confirm-state" role="status">
-                <span className="booking-confirm-check" aria-hidden="true">✓</span>
-                <h2 id="booking-confirm-title">Rezervacija uspešna!</h2>
-                <p>Termin je dodat u tvoje rezervacije.</p>
-              </div>
-            )}
           </section>
         </div>
       )}

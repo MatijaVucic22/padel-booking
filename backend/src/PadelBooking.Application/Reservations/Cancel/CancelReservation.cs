@@ -32,6 +32,8 @@ public sealed class CancelReservation
         if (reservation is null) return new(CancelReservationStatus.NotFound);
         if (reservation.Status == "Cancelled")
             return new(CancelReservationStatus.AlreadyCancelled);
+        if (reservation.Status != "Active")
+            return new(CancelReservationStatus.NotActive);
 
         var now = _bookingTime.Now;
         if (reservation.EndTime <= now) return new(CancelReservationStatus.Completed);

@@ -26,14 +26,14 @@ public sealed class GetAdminStatistics
         var now = _bookingTime.Now;
 
         return new(totalUsers, activeCourts, reservations.Count,
-            reservations.Count(item => item.Status != "Cancelled" && item.StartTime > now),
-            reservations.Count(item => item.Status != "Cancelled" &&
+            reservations.Count(item => item.Status == "Active" && item.StartTime > now),
+            reservations.Count(item => item.Status == "Active" &&
                 item.StartTime <= now && item.EndTime > now),
-            reservations.Count(item => item.Status != "Cancelled" && item.EndTime <= now),
+            reservations.Count(item => item.Status == "Active" && item.EndTime <= now),
             reservations.Count(item => item.Status == "Cancelled"),
-            reservations.Where(item => item.Status != "Cancelled" && item.EndTime <= now)
+            reservations.Where(item => item.Status == "Active" && item.EndTime <= now)
                 .Sum(item => item.TotalPrice),
-            reservations.Where(item => item.Status != "Cancelled" && item.StartTime > now)
+            reservations.Where(item => item.Status == "Active" && item.StartTime > now)
                 .Sum(item => item.TotalPrice));
     }
 }

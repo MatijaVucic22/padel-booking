@@ -16,6 +16,8 @@ import "./App.css";
 import MyReservations from "./pages/MyReservations";
 import AdminDashboard from "./pages/AdminDashboard";
 import Book from "./pages/Book";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentCancel from "./pages/PaymentCancel";
 
 function App() {
   const navigate = useNavigate();
@@ -261,6 +263,10 @@ function App() {
           <Route path="/courts" element={<Courts />} />
 
           <Route path="/book" element={<Book />} />
+
+          <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
+
+          <Route path="/payment/cancel" element={<PaymentCancel />} />
 
           <Route path="/courts/:id" element={<CourtDetails />} />
 

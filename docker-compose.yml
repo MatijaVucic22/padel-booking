@@ -37,6 +37,9 @@ services:
       Email__FromEmail: ${EMAIL_FROM_EMAIL:-}
       Email__FromName: ${EMAIL_FROM_NAME:-PadelBooking}
       Email__UseSsl: ${EMAIL_USE_SSL:-false}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_FRONTEND_URL: ${STRIPE_FRONTEND_URL}
     ports:
       - "5238:8080"
 

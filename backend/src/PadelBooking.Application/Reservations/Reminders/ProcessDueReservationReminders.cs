@@ -64,7 +64,7 @@ public sealed class ProcessDueReservationReminders
         var now = _bookingTime.Now;
 
         if (reservation is null ||
-            reservation.Status == "Cancelled" ||
+            reservation.Status != "Active" ||
             reservation.ReminderSentAtUtc is not null ||
             reservation.StartTime <= now ||
             reservation.StartTime > now.Add(ReminderWindow))
