@@ -45,7 +45,8 @@ function Navbar({ onLogout, onNavigate }) {
   return (
     <nav className="navbar">
       <Link to="/" className="logo" onClick={(event) => handleNavigation(event, "/")}>
-        PADEL<span>BOOKING</span>
+        <span className="logo-name">PADEL<span>BOOKING</span></span>
+        <small>NIŠ / SRBIJA</small>
       </Link>
 
       <button
@@ -67,7 +68,7 @@ function Navbar({ onLogout, onNavigate }) {
         <div className="nav-primary">
           <Link to="/" onClick={(event) => handleNavigation(event, "/")}>Početna</Link>
           <Link to="/courts" onClick={(event) => handleNavigation(event, "/courts")}>Tereni</Link>
-          <Link to="/book" onClick={(event) => handleNavigation(event, "/book")}>Rezerviši</Link>
+          <Link className="nav-book-link" to="/book" onClick={(event) => handleNavigation(event, "/book")}>Rezerviši <span aria-hidden="true">↗</span></Link>
 
           {user && <Link to="/my-reservations" onClick={(event) => handleNavigation(event, "/my-reservations")}>Moje rezervacije</Link>}
           {user?.role === "Admin" && <Link to="/admin" onClick={(event) => handleNavigation(event, "/admin")}>Admin</Link>}

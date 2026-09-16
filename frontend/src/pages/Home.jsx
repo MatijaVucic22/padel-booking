@@ -1,97 +1,86 @@
 import { Link } from "react-router-dom";
-import heroPadel from "../assets/images/hero-padel.jpg";
-import courtIndoor from "../assets/images/court-indoor.jpg";
-import courtNight from "../assets/images/court-night.jpg";
-import courtSunset from "../assets/images/court-sunset.jpg";
+import heroCourt from "../assets/brand/hero-court.jpg";
+import featuredCourt from "../assets/brand/featured-court.jpg";
+import padelDetail from "../assets/brand/padel-detail.jpg";
+import footerCourt from "../assets/brand/footer-court.jpg";
 import Reveal from "../components/Reveal";
 
-const padelRules = [
-  "Igra se uglavnom dva na dva",
-  "Servis je ispod visine struka i dijagonalno",
-  "Bodovanje je slično tenisu",
-  "Lopta sme jednom da odskoči",
-  "Staklo i zidovi mogu da se koriste nakon odskoka",
-  "Meč se najčešće igra na dva dobijena seta",
+const steps = [
+  { number: "01", title: "Izaberi teren", text: "Pronađi mesto za svoj sledeći meč." },
+  { number: "02", title: "Izaberi termin", text: "Odredi datum, vreme i trajanje igre." },
+  { number: "03", title: "Igraj", text: "Potvrdi rezervaciju i vidimo se na terenu." },
 ];
 
 function Home() {
   return (
     <div className="home-page">
-      <Reveal as="section" className="home-hero">
-        <div className="home-hero-copy">
-          <span className="section-kicker">Premium urban padel</span>
-          <h1>Rezerviši teren.<br />Igraj bez čekanja.</h1>
-          <p>Izaberi teren, pronađi slobodan termin i rezerviši za manje od minut.</p>
-          <div className="hero-actions">
-            <Link to="/book" className="primary-button">Rezerviši teren <span aria-hidden="true">→</span></Link>
-            <Link to="/courts" className="text-link">Pogledaj terene</Link>
-          </div>
+      <section className="home-hero" aria-labelledby="home-hero-title">
+        <img className="home-hero-image" src={heroCourt} alt="Padel teren pod večernjim nebom" />
+        <div className="home-hero-shade" aria-hidden="true" />
+        <div className="home-hero-inner">
+          <span className="home-index">NIŠ / SRBIJA <span aria-hidden="true">—</span> PADELBOOKING</span>
+          <h1 id="home-hero-title">PADEL.<br /><span>BEZ ČEKANJA.</span></h1>
+          <p>Rezerviši teren za nekoliko sekundi. Više vremena za igru, manje za dogovaranje.</p>
+          <Link to="/book" className="home-action">Rezerviši termin <span aria-hidden="true">↗</span></Link>
         </div>
-        <div className="home-hero-media">
-          <img src={heroPadel} alt="Igrači na padel terenima u večernjem svetlu" />
-          <div className="hero-note">
-            <span>Rezervacija u tri koraka</span>
-            <strong>Teren. Termin. Meč.</strong>
-          </div>
-        </div>
+        <div className="home-hero-foot" aria-hidden="true"><span>TEREN / TERMIN / MEČ</span><span>08:00 — 22:00</span></div>
+      </section>
+
+      <Reveal as="section" className="home-ball-stage" aria-labelledby="home-ball-stage-title">
+        <span className="home-ball-stage-label" aria-hidden="true">PADELBOOKING / IGRA POČINJE OVDE</span>
+        <span className="home-ball-stage-rule" aria-hidden="true" />
+        <span className="home-ball-track" aria-hidden="true"><span className="home-ball-stage-ball" /></span>
+        <h2 id="home-ball-stage-title">TVOJ TEREN. TVOJ TERMIN.</h2>
       </Reveal>
 
-      <Reveal as="section" className="home-section featured-section">
-        <header className="editorial-heading">
-          <div><span className="section-kicker">Naši tereni</span><h2>Pronađi teren za sledeći meč</h2></div>
+      <Reveal as="section" className="home-section home-featured" aria-labelledby="home-featured-title">
+        <header className="home-ball-heading">
+          <span className="home-section-index">01 / TEREN</span>
+          <h2 id="home-featured-title">Teren za svaki meč.</h2>
         </header>
-        <Link className="featured-banner" to="/courts" aria-label="Pogledaj sve aktivne terene">
-          <img src={courtNight} alt="Padel teren spreman za večernji meč" loading="lazy" />
-          <span className="featured-banner-overlay" aria-hidden="true" />
-          <span className="featured-banner-content">
-            <span className="featured-banner-label">Aktivni tereni</span>
-            <strong>Teren za svaki meč</strong>
-            <span className="featured-banner-cta">Pogledaj sve terene <span aria-hidden="true">→</span></span>
-          </span>
-        </Link>
+        <div className="home-featured-layout">
+          <div className="home-featured-image"><img src={featuredCourt} alt="Padel teren okružen staklenim zidovima" loading="lazy" /></div>
+          <div className="home-featured-copy">
+            <span className="home-small-rule" aria-hidden="true" />
+            <h3>Pravo mesto.<br />Pravi trenutak.</h3>
+            <p>Pregledaj aktivne terene i pronađi onaj na kome ćeš odigrati sledeći meč.</p>
+            <Link to="/courts" className="home-text-action">Pogledaj sve terene <span aria-hidden="true">↗</span></Link>
+          </div>
+        </div>
       </Reveal>
 
-      <Reveal as="section" className="home-section process-section" aria-labelledby="process-title">
-        <header><span className="section-kicker">Kako funkcioniše</span><h2 id="process-title">Od ideje do terena u tri koraka.</h2></header>
-        <ol className="process-list">
-          <li><strong>01</strong><div><h3>Izaberi datum i vreme</h3><p>Odredi termin i trajanje koje odgovara tvojoj ekipi.</p></div></li>
-          <li><strong>02</strong><div><h3>Pronađi slobodan teren</h3><p>Odmah vidi terene dostupne za ceo izabrani interval.</p></div></li>
-          <li><strong>03</strong><div><h3>Potvrdi rezervaciju</h3><p>Rezerviši u nekoliko klikova i spremi se za meč.</p></div></li>
+      <Reveal as="section" className="home-section home-editorial" aria-labelledby="home-editorial-title">
+        <div className="home-editorial-copy">
+          <span className="home-section-index">02 / IGRA</span>
+          <h2 id="home-editorial-title">NOVA IGRA.<br /><span>POZNAT OSEĆAJ.</span></h2>
+          <p>Padel spaja energiju tenisa i dinamiku skvoša. Igra se najčešće dva na dva, a staklo i zidovi ostaju deo poena nakon što lopta odskoči.</p>
+          <span className="home-editorial-note">Jedan teren. Bezbroj dobrih poena.</span>
+        </div>
+        <div className="home-editorial-image"><img src={padelDetail} alt="Padel reket i loptica na liniji terena" loading="lazy" /></div>
+      </Reveal>
+
+      <Reveal as="section" className="home-section home-process" aria-labelledby="home-process-title">
+        <div className="home-process-heading"><span className="home-section-index">03 / KAKO FUNKCIONIŠE</span><h2 id="home-process-title">OD IZBORA<br />DO PRVOG POENA.</h2></div>
+        <ol className="home-process-list">
+          {steps.map((step) => (
+            <li key={step.number}>
+              <span className="home-step-number">{step.number}</span>
+              <h3>{step.title}</h3>
+              <p>{step.text}</p>
+            </li>
+          ))}
         </ol>
       </Reveal>
 
-      <Reveal as="section" className="home-section padel-intro-section" aria-labelledby="padel-intro-title">
-        <div className="padel-intro-image">
-          <img src={courtIndoor} alt="Moderan zatvoreni padel teren" loading="lazy" />
-        </div>
-        <div className="padel-intro-copy">
-          <span className="section-kicker">Upoznaj padel</span>
-          <h2 id="padel-intro-title">Dinamična igra koja brzo osvaja teren.</h2>
-          <p>Padel je nastao u Meksiku 1969. godine i najčešće se igra dva na dva. Spaja elemente tenisa i skvoša, uz jednu posebnost: staklo i zidovi ostaju deo igre nakon što lopta odskoči.</p>
-          <Link to="/book" className="text-link">Pronađi slobodan termin <span aria-hidden="true">→</span></Link>
+      <Reveal as="section" className="home-section home-final" aria-labelledby="home-final-title">
+        <img src={footerCourt} alt="Padel tereni spremni za igru" loading="lazy" />
+        <div className="home-final-shade" aria-hidden="true" />
+        <div className="home-final-content">
+          <span className="home-section-index">04 / TVOJ SLEDEĆI MEČ</span>
+          <h2 id="home-final-title">VIDIMO SE<br />NA TERENU.</h2>
+          <Link to="/book" className="home-action">Rezerviši termin <span aria-hidden="true">↗</span></Link>
         </div>
       </Reveal>
-
-      <Reveal as="section" className="home-section rules-section" aria-labelledby="rules-title">
-        <header className="editorial-heading">
-          <div><span className="section-kicker">Osnovna pravila</span><h2 id="rules-title">Dovoljno jednostavno za prvi meč.</h2></div>
-          <p>Najvažnije smernice koje treba da znaš pre izlaska na teren.</p>
-        </header>
-        <div className="rules-grid">
-          {padelRules.map((rule, index) => (
-            <Reveal as="article" className="rule-card" delay={index * 70} key={rule}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <p>{rule}</p>
-            </Reveal>
-          ))}
-        </div>
-      </Reveal>
-
-      <Reveal as="section" className="home-section home-cta">
-        <img src={courtSunset} alt="Padel teren uz more u vreme zalaska sunca" loading="lazy" />
-        <div className="home-cta-content"><span className="section-kicker">Vreme je za igru</span><h2>Spreman za sledeći meč?</h2><Link to="/book" className="primary-button">Rezerviši termin <span aria-hidden="true">→</span></Link></div>
-      </Reveal>
-
     </div>
   );
 }

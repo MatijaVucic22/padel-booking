@@ -70,7 +70,10 @@ function Courts() {
     <section className="page courts-page">
       <Reveal as="header" className="courts-header">
         <div><span className="section-kicker">Naša ponuda</span><h1>Padel tereni</h1></div>
-        <p>Upoznaj svaki teren, ambijent i lokaciju, pa pronađi termin koji ti odgovara.</p>
+        <div className="courts-intro">
+          <p>Upoznaj svaki teren, ambijent i lokaciju, pa pronađi termin koji ti odgovara.</p>
+          <Link to="/book" className="courts-book-link">Rezerviši termin <span aria-hidden="true">↗</span></Link>
+        </div>
       </Reveal>
 
       {courts.length === 0 ? (
