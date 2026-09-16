@@ -23,3 +23,8 @@ padel_booking_old.sql
 
 # Runtime uploads
 backend/wwwroot/uploads/
+
+# Benchmark generated output
+benchmarks/benchmark-summary.html
+benchmarks/history/
+benchmarks/logs/

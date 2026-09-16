@@ -10,6 +10,7 @@ namespace PadelBooking.Application.Reservations.Reschedule;
 public sealed class RescheduleReservation
 {
     private readonly IReservationRepository _reservations;
+    private readonly IPaymentRepository _payments;
     private readonly ICourtRepository _courts;
     private readonly IBlockedPeriodRepository _blockedPeriods;
     private readonly IUnitOfWork _unitOfWork;
@@ -20,12 +21,13 @@ public sealed class RescheduleReservation
     private readonly IReservationNotificationLogger _logger;
 
     public RescheduleReservation(IReservationRepository reservations,
+        IPaymentRepository payments,
         ICourtRepository courts, IBlockedPeriodRepository blockedPeriods,
         IUnitOfWork unitOfWork, ICourtAdvisoryLockService courtLock,
         IBookingTimeService bookingTime, IEmailService email,
         ICourtChangeNotifier notifier, IReservationNotificationLogger logger)
     {
-        _reservations = reservations; _courts = courts;
+        _reservations = reservations; _payments = payments; _courts = courts;
         _blockedPeriods = blockedPeriods; _unitOfWork = unitOfWork;
         _courtLock = courtLock; _bookingTime = bookingTime; _email = email;
         _notifier = notifier; _logger = logger;
@@ -77,12 +79,18 @@ public sealed class RescheduleReservation
                     command.StartTime, command.EndTime, cancellationToken))
                 return new(RescheduleReservationStatus.Blocked);
 
+            var newTotalPrice = court.PricePerHour *
+                (decimal)(command.EndTime - command.StartTime).TotalHours;
+            var payment = await _payments.GetByReservationIdAsync(reservation.Id, cancellationToken);
+            if (payment?.Status == PadelBooking.Domain.Entities.PaymentStatus.Paid &&
+                payment.Amount != newTotalPrice)
+                return new(RescheduleReservationStatus.PaymentAdjustmentRequired);
+
             oldStartTime = reservation.StartTime;
             oldEndTime = reservation.EndTime;
             reservation.StartTime = command.StartTime;
             reservation.EndTime = command.EndTime;
-            reservation.TotalPrice = court.PricePerHour *
-                (decimal)(command.EndTime - command.StartTime).TotalHours;
+            reservation.TotalPrice = newTotalPrice;
             reservation.ReminderSentAtUtc = null;
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 

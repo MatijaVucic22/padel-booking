@@ -5,6 +5,7 @@ using PadelBooking.Application.Abstractions.Authentication;
 using PadelBooking.Application.Abstractions.Concurrency;
 using PadelBooking.Application.Abstractions.Notifications;
 using PadelBooking.Application.Abstractions.Persistence;
+using PadelBooking.Application.Abstractions.Payments;
 using PadelBooking.Application.Abstractions.Storage;
 using PadelBooking.Application.Abstractions.Time;
 using PadelBooking.Infrastructure.Authentication;
@@ -14,6 +15,7 @@ using PadelBooking.Infrastructure.Persistence;
 using PadelBooking.Infrastructure.Persistence.Repositories;
 using PadelBooking.Infrastructure.Storage;
 using PadelBooking.Infrastructure.Time;
+using PadelBooking.Infrastructure.Payments;
 
 namespace PadelBooking.Infrastructure;
 
@@ -45,6 +47,14 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICourtRepository, CourtRepository>();
         services.AddScoped<IReservationRepository, ReservationRepository>();
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.Configure<StripePaymentOptions>(options =>
+        {
+            options.SecretKey = configuration["STRIPE_SECRET_KEY"] ?? string.Empty;
+            options.WebhookSecret = configuration["STRIPE_WEBHOOK_SECRET"] ?? string.Empty;
+            options.FrontendBaseUrl = configuration["STRIPE_FRONTEND_URL"] ?? string.Empty;
+        });
+        services.AddScoped<IPaymentGateway, StripePaymentGateway>();
         services.AddScoped<IBlockedPeriodRepository, BlockedPeriodRepository>();
         services.AddScoped<IAdminReadRepository, AdminReadRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();

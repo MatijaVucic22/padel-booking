@@ -9,6 +9,7 @@ public enum RescheduleReservationStatus
     SameSlot,
     Occupied,
     Blocked,
+    PaymentAdjustmentRequired,
     LockTimeout
 }
 

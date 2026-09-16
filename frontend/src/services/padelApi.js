@@ -71,6 +71,18 @@ export const padelApi = createApi({
       }),
       invalidatesTags: ["Reservations", "Availability"],
     }),
+    createCheckout: builder.mutation({
+      query: (reservation) => ({
+        url: "/payments/checkout",
+        method: "POST",
+        body: reservation,
+      }),
+      invalidatesTags: ["Availability"],
+    }),
+    getCheckoutStatus: builder.query({
+      query: (sessionId) => `/payments/session/${encodeURIComponent(sessionId)}/status`,
+      providesTags: ["Reservations"],
+    }),
     cancelReservation: builder.mutation({
       query: (id) => ({
         url: `/reservations/${id}`,
@@ -156,6 +168,8 @@ export const {
   useGetMyReservationsQuery,
   useLazyGetReservationAvailabilityQuery,
   useCreateReservationMutation,
+  useCreateCheckoutMutation,
+  useGetCheckoutStatusQuery,
   useCancelReservationMutation,
   useRescheduleReservationMutation,
   useLazyGetAdminUsersQuery,

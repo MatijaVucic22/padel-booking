@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using PadelBooking.Api.DTOs;
 using PadelBooking.Application.Reservations.Availability;
 using PadelBooking.Application.Reservations.Cancel;
-using PadelBooking.Application.Reservations.Create;
 using PadelBooking.Application.Reservations.MyReservations;
 using PadelBooking.Application.Reservations.Reschedule;
 
@@ -15,18 +14,15 @@ namespace PadelBooking.Api.Controllers;
 [Authorize]
 public class ReservationsController : ControllerBase
 {
-    private readonly CreateReservation _createReservation;
     private readonly GetMyReservations _getMyReservations;
     private readonly CancelReservation _cancelReservation;
     private readonly RescheduleReservation _rescheduleReservation;
     private readonly GetReservationAvailability _getAvailability;
 
-    public ReservationsController(CreateReservation createReservation,
-        GetMyReservations getMyReservations, CancelReservation cancelReservation,
+    public ReservationsController(GetMyReservations getMyReservations, CancelReservation cancelReservation,
         RescheduleReservation rescheduleReservation,
         GetReservationAvailability getAvailability)
     {
-        _createReservation = createReservation;
         _getMyReservations = getMyReservations;
         _cancelReservation = cancelReservation;
         _rescheduleReservation = rescheduleReservation;
@@ -34,38 +30,13 @@ public class ReservationsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateReservation(CreateReservationRequest request)
+    public IActionResult CreateReservation(CreateReservationRequest request)
     {
-        if (!TryGetUserId(out var userId)) return Unauthorized();
-        var result = await _createReservation.ExecuteAsync(
-            new CreateReservationCommand(userId, request.CourtId,
-                request.StartTime, request.EndTime),
-            HttpContext.RequestAborted);
-
-        return result.Status switch
+        // Direct creation would bypass Checkout. Clients must use the payment endpoint.
+        return StatusCode(StatusCodes.Status402PaymentRequired, new
         {
-            CreateReservationStatus.Unauthorized => Unauthorized(),
-            CreateReservationStatus.CourtNotFound => NotFound(
-                "Teren nije pronađen ili više nije aktivan."),
-            CreateReservationStatus.Occupied => Conflict("Izabrani termin je već zauzet."),
-            CreateReservationStatus.Blocked => Conflict(
-                "Izabrani termin je blokiran zbog održavanja."),
-            CreateReservationStatus.LockTimeout => LockTimeout(),
-            _ => Ok(new
-            {
-                message = "Rezervacija uspešno kreirana.",
-                reservation = new
-                {
-                    result.Reservation!.Id,
-                    result.Reservation.CourtId,
-                    Name = result.Reservation.CourtName,
-                    result.Reservation.StartTime,
-                    result.Reservation.EndTime,
-                    result.Reservation.TotalPrice,
-                    result.Reservation.Status
-                }
-            })
-        };
+            message = "Za rezervaciju je potrebno test plaćanje. Koristite /api/payments/checkout."
+        });
     }
 
     [HttpGet("my")]
@@ -100,6 +71,8 @@ public class ReservationsController : ControllerBase
                 "Izabrani termin je već zauzet."),
             RescheduleReservationStatus.Blocked => Conflict(
                 "Izabrani termin je blokiran zbog održavanja."),
+            RescheduleReservationStatus.PaymentAdjustmentRequired => Conflict(
+                "Promena cene plaćene rezervacije trenutno nije dostupna."),
             RescheduleReservationStatus.LockTimeout => LockTimeout(),
             _ => Ok(new
             {
@@ -120,6 +93,8 @@ public class ReservationsController : ControllerBase
             CancelReservationStatus.NotFound => NotFound("Rezervacija nije pronađena."),
             CancelReservationStatus.AlreadyCancelled => Conflict(
                 "Rezervacija je već otkazana."),
+            CancelReservationStatus.NotActive => Conflict(
+                "Rezervacija još nije potvrđena plaćanjem."),
             CancelReservationStatus.Completed => Conflict(
                 "Završenu rezervaciju nije moguće otkazati."),
             CancelReservationStatus.Started => Conflict(

@@ -19,6 +19,7 @@ using PadelBooking.Application.Reservations.Create;
 using PadelBooking.Application.Reservations.MyReservations;
 using PadelBooking.Application.Reservations.Reminders;
 using PadelBooking.Application.Reservations.Reschedule;
+using PadelBooking.Application.Payments;
 
 namespace PadelBooking.Application;
 
@@ -47,6 +48,10 @@ public static class DependencyInjection
         services.AddScoped<GetAdminCalendar>();
         services.AddScoped<CreateBlockedPeriod>();
         services.AddScoped<DeleteBlockedPeriod>();
+        services.AddScoped<StartCheckout>();
+        services.AddScoped<ProcessCheckoutEvent>();
+        services.AddScoped<GetPaymentStatus>();
+        services.AddScoped<ReconcileExpiredCheckouts>();
         return services;
     }
 }

@@ -18,6 +18,8 @@ namespace PadelBooking.Infrastructure.Persistence
 
         public DbSet<BlockedPeriod> BlockedPeriods { get; set; }
 
+        public DbSet<Payment> Payments { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -66,6 +68,22 @@ namespace PadelBooking.Infrastructure.Persistence
                 entity.HasOne(period => period.Court)
                     .WithMany()
                     .HasForeignKey(period => period.CourtId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Payment>(entity =>
+            {
+                entity.Property(payment => payment.Amount).HasPrecision(18, 2);
+                entity.Property(payment => payment.Currency).HasMaxLength(3);
+                entity.Property(payment => payment.Provider).HasMaxLength(30);
+                entity.Property(payment => payment.Status).HasConversion<string>().HasMaxLength(20);
+                entity.Property(payment => payment.ExternalSessionId).HasMaxLength(255);
+                entity.Property(payment => payment.ExternalPaymentIntentId).HasMaxLength(255);
+                entity.HasIndex(payment => payment.ReservationId).IsUnique();
+                entity.HasIndex(payment => payment.ExternalSessionId).IsUnique();
+                entity.HasOne(payment => payment.Reservation)
+                    .WithOne()
+                    .HasForeignKey<Payment>(payment => payment.ReservationId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }

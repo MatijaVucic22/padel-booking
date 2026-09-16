@@ -79,7 +79,7 @@ public sealed class ReservationRepository : IReservationRepository
         _context.Reservations.AnyAsync(
             reservation =>
                 reservation.CourtId == courtId &&
-                reservation.Status == "Active" &&
+                (reservation.Status == "Active" || reservation.Status == "PendingPayment") &&
                 reservation.StartTime > now,
             cancellationToken);
 
@@ -107,7 +107,7 @@ public sealed class ReservationRepository : IReservationRepository
         await _context.Reservations
             .AsNoTracking()
             .Where(reservation =>
-                reservation.Status != "Cancelled" &&
+                reservation.Status == "Active" &&
                 reservation.StartTime > now &&
                 reservation.StartTime <= reminderCutoff &&
                 reservation.ReminderSentAtUtc == null)
