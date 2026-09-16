@@ -7,6 +7,10 @@ $project = "padelbooking-e2e-$([Guid]::NewGuid().ToString('N').Substring(0, 8))"
 $viteProcess = $null
 $composeStarted = $false
 $exitCode = 1
+$isWindowsHost = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
+    [System.Runtime.InteropServices.OSPlatform]::Windows)
+$npmCommand = if ($isWindowsHost) { "npm.cmd" } else { "npm" }
+$npxCommand = if ($isWindowsHost) { "npx.cmd" } else { "npx" }
 
 function Assert-ExitCode([string]$step) {
     if ($LASTEXITCODE -ne 0) { throw "$step nije uspeo (exit code $LASTEXITCODE)." }
@@ -62,9 +66,14 @@ try {
     }
 
     $env:VITE_API_URL = $env:PADELBOOKING_E2E_API_URL
-    $viteProcess = Start-Process -FilePath (Get-Command node).Source `
-        -ArgumentList @("node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "5189", "--strictPort") `
-        -WorkingDirectory $frontendRoot -WindowStyle Hidden -PassThru
+    $viteArguments = @{
+        FilePath = (Get-Command node).Source
+        ArgumentList = @("node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "5189", "--strictPort")
+        WorkingDirectory = $frontendRoot
+        PassThru = $true
+    }
+    if ($isWindowsHost) { $viteArguments.WindowStyle = "Hidden" }
+    $viteProcess = Start-Process @viteArguments
     Wait-ForHttp "http://localhost:5189" 30
 
     $browserPath = Join-Path $env:PLAYWRIGHT_BROWSERS_PATH "chromium_headless_shell-*"
@@ -72,7 +81,7 @@ try {
         Push-Location $frontendRoot
         try {
             Write-Host "Instaliram Playwright Chromium..."
-            & npx.cmd playwright install chromium
+            & $npxCommand playwright install chromium
             Assert-ExitCode "Chromium instalacija"
         } finally {
             Pop-Location
@@ -81,7 +90,7 @@ try {
 
     Push-Location $frontendRoot
     try {
-        & npm.cmd run test:e2e
+        & $npmCommand run test:e2e
         Assert-ExitCode "Playwright testovi"
     } finally {
         Pop-Location

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "test:e2e": "playwright test",
-    "test:e2e:isolated": "powershell -NoProfile -ExecutionPolicy Bypass -File ./e2e/run-isolated.ps1",
+    "test:e2e:isolated": "node ./e2e/run-isolated.mjs",
     "test:e2e:ui": "playwright test --ui",
     "lint": "eslint .",
     "preview": "vite preview"
