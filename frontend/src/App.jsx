@@ -23,10 +23,8 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
-  const { token, user } = useSelector((state) => state.auth);
-  const [sessionLoading, setSessionLoading] = useState(() =>
-    Boolean(token),
-  );
+  const { user } = useSelector((state) => state.auth);
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [routeLoaderMounted, setRouteLoaderMounted] = useState(false);
   const [routeLoaderActive, setRouteLoaderActive] = useState(false);
   const previousPathname = useRef(location.pathname);
@@ -89,9 +87,18 @@ function App() {
       setRouteLoaderActive(true);
     });
 
-    routeNavigationTimer.current = window.setTimeout(() => {
+    routeNavigationTimer.current = window.setTimeout(async () => {
       routeNavigationTimer.current = null;
-      flushSync(() => beforeNavigation());
+      let beforeNavigationResult;
+      flushSync(() => { beforeNavigationResult = beforeNavigation(); });
+      const canNavigate = await beforeNavigationResult;
+      if (canNavigate === false) {
+        setRouteLoaderActive(false);
+        setRouteLoaderMounted(false);
+        restoreBodyScroll();
+        routeTransitionInProgress.current = false;
+        return;
+      }
       navigate(destination, navigationOptions);
     }, 200);
   };
@@ -191,24 +198,30 @@ function App() {
     routeTransitionInProgress.current = false;
   }, []);
 
-  const handleLogin = (loggedInUser, loggedInToken, destination) => {
+  const handleLogin = (loggedInUser, destination) => {
     handleRouteNavigation(
       destination,
-      () => dispatch(setCredentials({ token: loggedInToken, user: loggedInUser })),
+      () => dispatch(setCredentials({ user: loggedInUser })),
       { replace: true },
     );
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-
-    dispatch(clearAuth());
+  const handleLogout = async () => {
+    try {
+      await api.post("/auth/logout");
+      dispatch(clearAuth());
+      return true;
+    } catch {
+      window.alert("Odjava nije uspela. Pokušajte ponovo.");
+      return false;
+    }
   };
 
   useEffect(() => {
     const handleUnauthorized = () => {
+      if (!user) return;
       dispatch(clearAuth());
+      api.post("/auth/logout").catch(() => {});
       setSessionLoading(false);
       navigate("/login", {
         replace: true,
@@ -221,22 +234,23 @@ function App() {
     return () => {
       window.removeEventListener("auth:unauthorized", handleUnauthorized);
     };
-  }, [location.hash, location.pathname, location.search, navigate]);
+  }, [location.hash, location.pathname, location.search, navigate, user]);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    localStorage.removeItem("token");
     localStorage.removeItem("user");
-
-    if (!token) return undefined;
 
     let cancelled = false;
 
     api.get("/auth/me")
       .then((response) => {
-        if (!cancelled) dispatch(setCredentials({ token, user: response.data }));
+        if (!cancelled) dispatch(setCredentials({ user: response.data }));
       })
-      .catch(() => {
-        if (!cancelled) dispatch(clearAuth());
+      .catch((error) => {
+        if (!cancelled) {
+          dispatch(clearAuth());
+          if (error.response?.status === 401) api.post("/auth/logout").catch(() => {});
+        }
       })
       .finally(() => {
         if (!cancelled) setSessionLoading(false);

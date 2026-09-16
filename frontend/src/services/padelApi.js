@@ -3,19 +3,13 @@ import { apiBaseUrl } from "../api/api";
 
 const fetchPadelBaseQuery = fetchBaseQuery({
     baseUrl: apiBaseUrl,
-    prepareHeaders: (headers, { getState }) => {
-      const token = getState().auth.token;
-      if (token) headers.set("authorization", `Bearer ${token}`);
-      return headers;
-    },
+    credentials: "include",
   });
 
 const baseQueryWithSessionHandling = async (args, api, extraOptions) => {
   const result = await fetchPadelBaseQuery(args, api, extraOptions);
 
-  if (result.error?.status === 401 && api.getState().auth.token) {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  if (result.error?.status === 401 && api.getState().auth.isAuthenticated) {
     window.dispatchEvent(new Event("auth:unauthorized"));
   }
 

@@ -1,8 +1,10 @@
 using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using PadelBooking.Api.DTOs;
+using PadelBooking.Api.Authentication;
 using PadelBooking.Application.Authentication.GetCurrentUser;
 using PadelBooking.Application.Authentication.Login;
 using PadelBooking.Application.Authentication.Register;
@@ -16,15 +18,18 @@ namespace PadelBooking.Api.Controllers
         private readonly RegisterUser _registerUser;
         private readonly LoginUser _loginUser;
         private readonly GetCurrentUser _getCurrentUser;
+        private readonly IHostEnvironment _environment;
 
         public AuthController(
             RegisterUser registerUser,
             LoginUser loginUser,
-            GetCurrentUser getCurrentUser)
+            GetCurrentUser getCurrentUser,
+            IHostEnvironment environment)
         {
             _registerUser = registerUser;
             _loginUser = loginUser;
             _getCurrentUser = getCurrentUser;
+            _environment = environment;
         }
 
         [HttpPost("register")]
@@ -72,10 +77,15 @@ namespace PadelBooking.Api.Controllers
             }
 
             var user = result.User!;
+            var token = result.Token!;
+            var expires = new JwtSecurityTokenHandler().ReadJwtToken(token).ValidTo;
+            Response.Cookies.Append(
+                BrowserAuthCookie.Name,
+                token,
+                BrowserAuthCookie.Options(_environment, new DateTimeOffset(expires)));
             return Ok(new
             {
                 message = "Prijava uspešna.",
-                token = result.Token,
                 user = new
                 {
                     user.Id,
@@ -85,6 +95,13 @@ namespace PadelBooking.Api.Controllers
                     user.Role
                 }
             });
+        }
+
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            Response.Cookies.Delete(BrowserAuthCookie.Name, BrowserAuthCookie.Options(_environment));
+            return Ok(new { message = "Odjava uspešna." });
         }
 
         [Authorize]
@@ -104,7 +121,7 @@ namespace PadelBooking.Api.Controllers
 
             if (user == null)
             {
-                return NotFound("Korisnik nije pronađen.");
+                return Unauthorized();
             }
 
             return Ok(new

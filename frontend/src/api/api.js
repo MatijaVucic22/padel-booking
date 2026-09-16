@@ -5,6 +5,7 @@ const backendBaseUrl = apiBaseUrl.replace(/\/api\/?$/, "");
 
 const api = axios.create({
   baseURL: apiBaseUrl,
+  withCredentials: true,
 });
 
 export const courtAvailabilityHubUrl = `${backendBaseUrl}/hubs/court-availability`;
@@ -16,26 +17,14 @@ export function getBackendAssetUrl(relativeUrl) {
   return `${backendBaseUrl}${relativeUrl.startsWith("/") ? "" : "/"}${relativeUrl}`;
 }
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  return config;
-});
-
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const hadToken = Boolean(localStorage.getItem("token"));
     const requestUrl = error.config?.url?.split("?")[0].replace(/\/+$/, "") ?? "";
-    const isLoginRequest = requestUrl.endsWith("/auth/login");
+    const isAuthRequest = ["/auth/login", "/auth/me", "/auth/logout"]
+      .some((path) => requestUrl.endsWith(path));
 
-    if (error.response?.status === 401 && hadToken && !isLoginRequest) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+    if (error.response?.status === 401 && !isAuthRequest) {
       window.dispatchEvent(new Event("auth:unauthorized"));
     }
 
