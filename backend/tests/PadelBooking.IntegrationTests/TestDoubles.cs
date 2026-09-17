@@ -11,10 +11,15 @@ public sealed class TestPaymentGateway : IPaymentGateway
         long AmountMinor, string Currency, string State);
 
     private readonly ConcurrentDictionary<string, FakeSession> _sessions = new();
+    private int _failNextCheckout;
+
+    public void FailNextCheckout() => Interlocked.Exchange(ref _failNextCheckout, 1);
 
     public Task<CheckoutSession> CreateCheckoutAsync(CheckoutRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (Interlocked.Exchange(ref _failNextCheckout, 0) == 1)
+            throw new InvalidOperationException("Simulated checkout provider failure.");
         var id = $"cs_test_integration_{Guid.NewGuid():N}";
         _sessions[id] = new FakeSession(id, request.CustomerEmail,
             request.CheckoutReference, request.AmountMinor, request.Currency, "open");
