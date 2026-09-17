@@ -4,4 +4,7 @@ public sealed record RescheduleReservationCommand(
     int Id,
     int UserId,
     DateTime StartTime,
-    DateTime EndTime);
+    DateTime EndTime,
+    bool AcknowledgeNoRefund = false,
+    decimal? ExpectedNewPrice = null,
+    decimal? ExpectedTopUpAmount = null);

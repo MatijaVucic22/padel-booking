@@ -4,7 +4,7 @@ using PadelBooking.Domain.Entities;
 
 namespace PadelBooking.Application.Payments;
 
-public sealed record PaymentStatusResult(int ReservationId, string Status, bool Confirmed);
+public sealed record PaymentStatusResult(int ReservationId, string Status, bool Confirmed, string Purpose);
 
 public sealed class GetPaymentStatus(
     IPaymentRepository payments,
@@ -37,6 +37,7 @@ public sealed class GetPaymentStatus(
         }
 
         return new PaymentStatusResult(payment.ReservationId, payment.Status.ToString(),
-            payment.Status == PaymentStatus.Paid && payment.Reservation.Status == "Active");
+            payment.Status == PaymentStatus.Paid && payment.Reservation.Status == "Active",
+            payment.Purpose.ToString());
     }
 }

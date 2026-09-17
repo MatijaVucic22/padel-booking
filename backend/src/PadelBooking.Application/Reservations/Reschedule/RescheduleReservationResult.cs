@@ -9,9 +9,21 @@ public enum RescheduleReservationStatus
     SameSlot,
     Occupied,
     Blocked,
-    PaymentAdjustmentRequired,
+    PendingTopUp,
+    ConfirmationRequired,
+    QuoteChanged,
+    CheckoutRequired,
+    ProviderUnavailable,
     LockTimeout
 }
+
+public sealed record RescheduleQuote(
+    decimal CurrentPrice,
+    decimal NewPrice,
+    decimal PaidCredit,
+    decimal TopUpAmount,
+    decimal NonRefundedDifference,
+    bool RequiresNoRefundConfirmation);
 
 public sealed record RescheduledReservation(
     int Id,
@@ -23,4 +35,6 @@ public sealed record RescheduledReservation(
 
 public sealed record RescheduleReservationResult(
     RescheduleReservationStatus Status,
-    RescheduledReservation? Reservation = null);
+    RescheduledReservation? Reservation = null,
+    RescheduleQuote? Quote = null,
+    string? CheckoutUrl = null);

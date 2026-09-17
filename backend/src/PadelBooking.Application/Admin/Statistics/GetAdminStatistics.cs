@@ -23,6 +23,7 @@ public sealed class GetAdminStatistics
         var activeCourts = await _repository.CountActiveCourtsAsync(cancellationToken);
         var reservations = await _repository.ListReservationStatisticsAsync(
             cancellationToken);
+        var realizedRevenue = await _repository.SumPaidPaymentsAsync(cancellationToken);
         var now = _bookingTime.Now;
 
         return new(totalUsers, activeCourts, reservations.Count,
@@ -31,8 +32,7 @@ public sealed class GetAdminStatistics
                 item.StartTime <= now && item.EndTime > now),
             reservations.Count(item => item.Status == "Active" && item.EndTime <= now),
             reservations.Count(item => item.Status == "Cancelled"),
-            reservations.Where(item => item.Status == "Active" && item.EndTime <= now)
-                .Sum(item => item.TotalPrice),
+            realizedRevenue,
             reservations.Where(item => item.Status == "Active" && item.StartTime > now)
                 .Sum(item => item.TotalPrice));
     }

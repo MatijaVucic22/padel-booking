@@ -54,9 +54,26 @@ public class ReservationsController : ControllerBase
         if (!TryGetUserId(out var userId)) return Unauthorized();
         var result = await _rescheduleReservation.ExecuteAsync(
             new RescheduleReservationCommand(id, userId,
-                request.StartTime, request.EndTime),
-            HttpContext.RequestAborted);
+                request.StartTime, request.EndTime, request.AcknowledgeNoRefund,
+                request.ExpectedNewPrice, request.ExpectedTopUpAmount),
+            cancellationToken: HttpContext.RequestAborted);
 
+        return RescheduleResponse(result);
+    }
+
+    [HttpPost("{id}/reschedule/quote")]
+    public async Task<IActionResult> QuoteReschedule(int id, RescheduleReservationRequest request)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+        var result = await _rescheduleReservation.ExecuteAsync(
+            new RescheduleReservationCommand(id, userId, request.StartTime, request.EndTime),
+            previewOnly: true, cancellationToken: HttpContext.RequestAborted);
+        return result.Status == RescheduleReservationStatus.Success
+            ? Ok(result.Quote) : RescheduleResponse(result);
+    }
+
+    private IActionResult RescheduleResponse(RescheduleReservationResult result)
+    {
         return result.Status switch
         {
             RescheduleReservationStatus.NotFound => NotFound(
@@ -71,13 +88,34 @@ public class ReservationsController : ControllerBase
                 "Izabrani termin je već zauzet."),
             RescheduleReservationStatus.Blocked => Conflict(
                 "Izabrani termin je blokiran zbog održavanja."),
-            RescheduleReservationStatus.PaymentAdjustmentRequired => Conflict(
-                "Promena cene plaćene rezervacije trenutno nije dostupna."),
+            RescheduleReservationStatus.PendingTopUp => Conflict(
+                "Promena termina već čeka potvrdu doplate."),
+            RescheduleReservationStatus.ConfirmationRequired => BadRequest(new
+            {
+                message = "Potvrdite da razlika u ceni neće biti refundirana.",
+                quote = result.Quote
+            }),
+            RescheduleReservationStatus.QuoteChanged => Conflict(new
+            {
+                message = "Cena ili stanje uplate su promenjeni. Proverite novi iznos i potvrdite ponovo.",
+                quote = result.Quote
+            }),
+            RescheduleReservationStatus.ProviderUnavailable => StatusCode(503, new
+            {
+                message = "Plaćanje trenutno nije dostupno. Pokušajte ponovo."
+            }),
+            RescheduleReservationStatus.CheckoutRequired => Ok(new
+            {
+                message = "Doplata je potrebna za novi termin.",
+                checkoutUrl = result.CheckoutUrl,
+                quote = result.Quote
+            }),
             RescheduleReservationStatus.LockTimeout => LockTimeout(),
             _ => Ok(new
             {
                 message = "Termin rezervacije je uspešno promenjen.",
-                reservation = result.Reservation
+                reservation = result.Reservation,
+                quote = result.Quote
             })
         };
     }
@@ -99,6 +137,9 @@ public class ReservationsController : ControllerBase
                 "Završenu rezervaciju nije moguće otkazati."),
             CancelReservationStatus.Started => Conflict(
                 "Rezervaciju koja je već počela nije moguće otkazati."),
+            CancelReservationStatus.PendingTopUp => Conflict(
+                "Otkazivanje nije moguće dok se obrađuje doplata za promenu termina."),
+            CancelReservationStatus.LockTimeout => LockTimeout(),
             _ => Ok(new { message = "Rezervacija uspešno otkazana." })
         };
     }

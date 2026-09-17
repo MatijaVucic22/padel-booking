@@ -7,6 +7,7 @@ import {
   useGetMyReservationsQuery,
   useLazyGetReservationAvailabilityQuery,
   useRescheduleReservationMutation,
+  useGetRescheduleQuoteMutation,
 } from "../services/padelApi";
 import {
   hasValidationErrors,
@@ -123,6 +124,7 @@ function MyReservations() {
   const [getReservationAvailability] = useLazyGetReservationAvailabilityQuery();
   const [cancelReservationRequest] = useCancelReservationMutation();
   const [rescheduleReservationRequest] = useRescheduleReservationMutation();
+  const [getRescheduleQuote] = useGetRescheduleQuoteMutation();
   const cancellationTimer = useRef(null);
   const rescheduleTimer = useRef(null);
   const componentMounted = useRef(true);
@@ -141,6 +143,8 @@ function MyReservations() {
   const [rescheduleAvailabilityKey, setRescheduleAvailabilityKey] = useState(0);
   const [rescheduleConfirmationPhase, setRescheduleConfirmationPhase] = useState(null);
   const [rescheduleConfirmationError, setRescheduleConfirmationError] = useState("");
+  const [rescheduleQuote, setRescheduleQuote] = useState(null);
+  const [noRefundAcknowledged, setNoRefundAcknowledged] = useState(false);
   const [activeTab, setActiveTab] = useState("upcoming");
   const [belgradeNow, setBelgradeNow] = useState(getBelgradeWallClockValue);
   const [cancellationReservation, setCancellationReservation] = useState(null);
@@ -236,9 +240,6 @@ function MyReservations() {
   const originalRescheduleDuration = rescheduling
     ? (toWallClockValue(rescheduling.endTime) - toWallClockValue(rescheduling.startTime)) / 3_600_000
     : 0;
-  const rescheduleHourlyPrice = rescheduling && originalRescheduleDuration
-    ? rescheduling.totalPrice / originalRescheduleDuration
-    : null;
   const selectedRescheduleDuration = selectedRescheduleSlot
     ? (toWallClockValue(selectedRescheduleSlot.endTime) -
       toWallClockValue(selectedRescheduleSlot.startTime)) / 3_600_000
@@ -372,6 +373,8 @@ function MyReservations() {
     );
     setRescheduleConfirmationPhase(null);
     setRescheduleConfirmationError("");
+    setRescheduleQuote(null);
+    setNoRefundAcknowledged(false);
     setRescheduleError("");
     setRescheduleFieldErrors({});
     setRescheduleConfirmationPhase(null);
@@ -389,6 +392,7 @@ function MyReservations() {
     setSelectedRescheduleSlot(null);
     setRescheduleError("");
     setRescheduleFieldErrors({});
+    setRescheduleQuote(null);
   };
 
   const changeRescheduleDate = (event) => {
@@ -397,6 +401,7 @@ function MyReservations() {
     setSelectedRescheduleSlot(null);
     setRescheduleError("");
     setRescheduleFieldErrors({});
+    setRescheduleQuote(null);
   };
 
   const selectRescheduleDuration = (duration) => {
@@ -404,12 +409,38 @@ function MyReservations() {
     setSelectedRescheduleSlot(null);
     setRescheduleError("");
     setRescheduleFieldErrors({});
+    setRescheduleQuote(null);
   };
 
-  const openRescheduleConfirmation = () => {
-    if (!selectedRescheduleSlot || rescheduleSaving) return;
+  const openRescheduleConfirmation = async () => {
+    if (!rescheduling || !selectedRescheduleSlot || rescheduleSaving) return;
     setRescheduleConfirmationError("");
-    setRescheduleConfirmationPhase("confirm");
+    setRescheduleSaving(true);
+    setRescheduleQuote(null);
+    setNoRefundAcknowledged(false);
+    setRescheduleConfirmationPhase("loading");
+    try {
+      const quote = await getRescheduleQuote({
+        id: rescheduling.id,
+        startTime: selectedRescheduleSlot.startTime,
+        endTime: selectedRescheduleSlot.endTime,
+      }).unwrap();
+      if (!componentMounted.current) return;
+      setRescheduleQuote(quote);
+      setRescheduleConfirmationPhase("confirm");
+    } catch (requestError) {
+      if (!componentMounted.current) return;
+      const errorResponse = toLegacyApiError(requestError);
+      setRescheduleError(
+        typeof errorResponse.response?.data === "string"
+          ? errorResponse.response.data
+          : errorResponse.response?.data?.message ?? "Cenu novog termina trenutno nije moguće proveriti.",
+      );
+      setRescheduleConfirmationPhase(null);
+      if (errorResponse.response?.status === 409) setRescheduleAvailabilityKey((key) => key + 1);
+    } finally {
+      if (componentMounted.current) setRescheduleSaving(false);
+    }
   };
 
   const closeRescheduleConfirmation = () => {
@@ -426,7 +457,9 @@ function MyReservations() {
   });
 
   const submitReschedule = async () => {
-    if (!rescheduling || !selectedRescheduleSlot || rescheduleSaving || rescheduleConfirmationPhase !== "confirm") return;
+    if (!rescheduling || !selectedRescheduleSlot || !rescheduleQuote || rescheduleSaving ||
+        rescheduleConfirmationPhase !== "confirm" ||
+        (rescheduleQuote.requiresNoRefundConfirmation && !noRefundAcknowledged)) return;
 
     const loadingStartedAt = Date.now();
     setRescheduleSaving(true);
@@ -440,7 +473,15 @@ function MyReservations() {
           id: rescheduling.id,
           startTime: selectedRescheduleSlot.startTime,
           endTime: selectedRescheduleSlot.endTime,
+          acknowledgeNoRefund: noRefundAcknowledged,
+          expectedNewPrice: rescheduleQuote.newPrice,
+          expectedTopUpAmount: rescheduleQuote.topUpAmount,
         }).unwrap();
+
+      if (response?.checkoutUrl) {
+        window.location.assign(response.checkoutUrl);
+        return;
+      }
 
       await waitForRescheduleLoading(loadingStartedAt);
       if (!componentMounted.current) return;
@@ -478,6 +519,7 @@ function MyReservations() {
 
       if (errorResponse.response?.status === 409) {
         setRescheduleAvailabilityKey((key) => key + 1);
+        if (errorResponse.response?.data?.quote) setRescheduleQuote(errorResponse.response.data.quote);
       }
       setRescheduleConfirmationPhase("confirm");
     } finally {
@@ -771,6 +813,8 @@ function MyReservations() {
                       disabled={rescheduleSaving}
                       onClick={() => {
                         setSelectedRescheduleSlot(slot);
+                        setRescheduleQuote(null);
+                        setNoRefundAcknowledged(false);
                         setRescheduleError("");
                         setRescheduleFieldErrors({});
                       }}
@@ -832,14 +876,38 @@ function MyReservations() {
                     <p>{dateFormatter.format(new Date(selectedRescheduleSlot.startTime))}</p>
                     <p>{timeFormatter.format(new Date(selectedRescheduleSlot.startTime))}–{timeFormatter.format(new Date(selectedRescheduleSlot.endTime))}</p>
                     <small>{selectedRescheduleDuration} {selectedRescheduleDuration === 1 ? "sat" : "sata"}</small>
-                    {rescheduleHourlyPrice != null && <b>{priceFormatter.format(rescheduleHourlyPrice * selectedRescheduleDuration)}</b>}
+                    {rescheduleQuote && <b>{priceFormatter.format(rescheduleQuote.newPrice)}</b>}
                   </section>
                 </div>
+
+                {rescheduleQuote && (
+                  <dl className="booking-confirm-details reschedule-financial-details">
+                    <div><dt>Trenutna cena</dt><dd>{priceFormatter.format(rescheduleQuote.currentPrice)}</dd></div>
+                    <div><dt>Već plaćeno</dt><dd>{priceFormatter.format(rescheduleQuote.paidCredit)}</dd></div>
+                    <div><dt>Nova cena</dt><dd>{priceFormatter.format(rescheduleQuote.newPrice)}</dd></div>
+                    {rescheduleQuote.topUpAmount > 0 && (
+                      <div><dt>Doplata preko Stripe-a</dt><dd>{priceFormatter.format(rescheduleQuote.topUpAmount)}</dd></div>
+                    )}
+                    {rescheduleQuote.nonRefundedDifference > 0 && (
+                      <p>Razlika od {priceFormatter.format(rescheduleQuote.nonRefundedDifference)} neće biti automatski refundirana. Uplaćeni iznos ostaje kredit za buduću promenu termina.</p>
+                    )}
+                    {rescheduleQuote.requiresNoRefundConfirmation && (
+                      <label>
+                        <input type="checkbox" checked={noRefundAcknowledged}
+                          onChange={(event) => setNoRefundAcknowledged(event.target.checked)} />
+                        Razumem da se razlika ne refundira.
+                      </label>
+                    )}
+                  </dl>
+                )}
 
                 {rescheduleConfirmationError && <p className="booking-confirm-error" role="alert">{rescheduleConfirmationError}</p>}
                 <div className="booking-confirm-actions">
                   <button type="button" onClick={closeRescheduleConfirmation}>Nazad</button>
-                  <button type="button" className="primary-button" onClick={submitReschedule}>Potvrdi izmenu</button>
+                  <button type="button" className="primary-button" onClick={submitReschedule}
+                    disabled={!rescheduleQuote || (rescheduleQuote.requiresNoRefundConfirmation && !noRefundAcknowledged)}>
+                    {rescheduleQuote?.topUpAmount > 0 ? "Nastavi na plaćanje" : "Potvrdi izmenu"}
+                  </button>
                 </div>
               </>
             )}
@@ -847,8 +915,8 @@ function MyReservations() {
             {rescheduleConfirmationPhase === "loading" && (
               <div className="booking-confirm-state" role="status">
                 <span className="booking-confirm-spinner" aria-hidden="true" />
-                <h2 id="reschedule-confirm-title">Menjamo termin...</h2>
-                <p>Potvrđujemo novi termin.</p>
+                <h2 id="reschedule-confirm-title">{rescheduleQuote ? "Menjamo termin..." : "Proveravamo cenu..."}</h2>
+                <p>{rescheduleQuote ? "Potvrđujemo novi termin." : "Računamo cenu i dostupnost."}</p>
               </div>
             )}
 

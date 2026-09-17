@@ -50,7 +50,13 @@ public sealed class CourtRepository : ICourtRepository
                 !_context.BlockedPeriods.Any(period =>
                     period.CourtId == court.Id &&
                     startTime < period.EndTime &&
-                    endTime > period.StartTime))
+                    endTime > period.StartTime) &&
+                !_context.Payments.Any(payment =>
+                    payment.Reservation.CourtId == court.Id &&
+                    payment.Purpose == PaymentPurpose.RescheduleTopUp &&
+                    payment.Status == PaymentStatus.Pending &&
+                    payment.TargetStartTime < endTime &&
+                    payment.TargetEndTime > startTime))
             .OrderBy(court => court.Name)
             .ToListAsync(cancellationToken);
 

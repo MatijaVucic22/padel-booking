@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Application.Admin.Models;
+using PadelBooking.Domain.Entities;
 
 namespace PadelBooking.Infrastructure.Persistence.Repositories;
 
@@ -36,6 +37,10 @@ public sealed class AdminReadRepository : IAdminReadRepository
     public Task<int> CountActiveCourtsAsync(
         CancellationToken cancellationToken = default) =>
         _context.Courts.CountAsync(court => court.IsActive, cancellationToken);
+
+    public Task<decimal> SumPaidPaymentsAsync(CancellationToken cancellationToken = default) =>
+        _context.Payments.Where(payment => payment.Status == PaymentStatus.Paid)
+            .SumAsync(payment => payment.Amount, cancellationToken);
 
     public async Task<IReadOnlyList<AdminReservationStatistic>>
         ListReservationStatisticsAsync(CancellationToken cancellationToken = default) =>

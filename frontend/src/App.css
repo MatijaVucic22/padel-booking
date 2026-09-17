@@ -1619,6 +1619,10 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .reschedule-confirm-comparison p { margin: 0; color: var(--color-text); }
 .reschedule-confirm-comparison small { color: var(--color-muted); }
 .reschedule-confirm-comparison b { margin-top: 5px; color: var(--color-green); font-family: "Sora", sans-serif; }
+.reschedule-financial-details { margin-top: 16px; }
+.reschedule-financial-details > p, .reschedule-financial-details > label { grid-column: 1 / -1; color: var(--color-text); }
+.reschedule-financial-details > label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.reschedule-financial-details input { width: 18px; height: 18px; flex: none; accent-color: var(--color-green); }
 .reschedule-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--color-border); }
 .reschedule-modal-actions button { min-height: 46px; padding: 0 18px; border: 1px solid var(--color-border); border-radius: 9px; background: transparent; color: var(--color-text); font-weight: 700; }
 .reschedule-modal-actions .primary-button { border-color: var(--color-green); background: var(--color-green); color: var(--color-on-primary); }

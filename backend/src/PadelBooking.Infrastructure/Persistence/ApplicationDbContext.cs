@@ -77,13 +77,17 @@ namespace PadelBooking.Infrastructure.Persistence
                 entity.Property(payment => payment.Currency).HasMaxLength(3);
                 entity.Property(payment => payment.Provider).HasMaxLength(30);
                 entity.Property(payment => payment.Status).HasConversion<string>().HasMaxLength(20);
+                entity.Property(payment => payment.Purpose).HasConversion<string>().HasMaxLength(30);
+                entity.Property(payment => payment.TargetTotalPrice).HasPrecision(18, 2);
                 entity.Property(payment => payment.ExternalSessionId).HasMaxLength(255);
                 entity.Property(payment => payment.ExternalPaymentIntentId).HasMaxLength(255);
-                entity.HasIndex(payment => payment.ReservationId).IsUnique();
+                entity.HasIndex(payment => payment.ReservationId);
                 entity.HasIndex(payment => payment.ExternalSessionId).IsUnique();
+                entity.HasIndex(payment => new { payment.Purpose, payment.Status,
+                    payment.TargetStartTime, payment.TargetEndTime });
                 entity.HasOne(payment => payment.Reservation)
-                    .WithOne()
-                    .HasForeignKey<Payment>(payment => payment.ReservationId)
+                    .WithMany()
+                    .HasForeignKey(payment => payment.ReservationId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }
