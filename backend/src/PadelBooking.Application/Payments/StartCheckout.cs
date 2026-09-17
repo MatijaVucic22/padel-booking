@@ -40,6 +40,9 @@ public sealed class StartCheckout(
             if (court is null) return new(StartCheckoutStatus.CourtNotFound);
             if (await reservations.HasOverlapAsync(courtId, startTime, endTime, null, cancellationToken))
                 return new(StartCheckoutStatus.Occupied);
+            if (await payments.HasPendingTargetOverlapAsync(courtId, startTime, endTime,
+                    cancellationToken: cancellationToken))
+                return new(StartCheckoutStatus.Occupied);
             if (await blockedPeriods.HasOverlapAsync(courtId, startTime, endTime, cancellationToken))
                 return new(StartCheckoutStatus.Blocked);
 
@@ -80,6 +83,7 @@ public sealed class StartCheckout(
                 Amount = amount,
                 Currency = "RSD",
                 Status = PaymentStatus.Pending,
+                Purpose = PaymentPurpose.InitialBooking,
                 Provider = "Stripe",
                 ExternalSessionId = session.Id,
                 CreatedAtUtc = bookingTime.UtcNow,

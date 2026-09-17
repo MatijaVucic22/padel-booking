@@ -8,15 +8,17 @@ public sealed class GetReservationAvailability
     private readonly ICourtRepository _courts;
     private readonly IReservationRepository _reservations;
     private readonly IBlockedPeriodRepository _blockedPeriods;
+    private readonly IPaymentRepository _payments;
     private readonly IBookingTimeService _bookingTime;
 
     public GetReservationAvailability(ICourtRepository courts,
         IReservationRepository reservations,
         IBlockedPeriodRepository blockedPeriods,
+        IPaymentRepository payments,
         IBookingTimeService bookingTime)
     {
         _courts = courts; _reservations = reservations;
-        _blockedPeriods = blockedPeriods; _bookingTime = bookingTime;
+        _blockedPeriods = blockedPeriods; _payments = payments; _bookingTime = bookingTime;
     }
 
     public async Task<ReservationAvailability?> ExecuteAsync(
@@ -43,6 +45,8 @@ public sealed class GetReservationAvailability
             courtId, dayStart, dayEnd, excludedReservationId, cancellationToken);
         var blockedPeriods = await _blockedPeriods.ListOverlappingAsync(
             courtId, dayStart, dayEnd, cancellationToken);
+        var pendingTargets = await _payments.ListPendingTargetIntervalsAsync(
+            courtId, dayStart, dayEnd, cancellationToken);
         var slots = new List<AvailableReservationSlot>();
         var now = _bookingTime.Now;
 
@@ -54,7 +58,9 @@ public sealed class GetReservationAvailability
                 startTime < item.EndTime && endTime > item.StartTime);
             var blocked = blockedPeriods.Any(item =>
                 startTime < item.EndTime && endTime > item.StartTime);
-            if (!occupied && !blocked && startTime > now)
+            var held = pendingTargets.Any(item =>
+                startTime < item.EndTime && endTime > item.StartTime);
+            if (!occupied && !blocked && !held && startTime > now)
                 slots.Add(new(startTime, endTime));
         }
 

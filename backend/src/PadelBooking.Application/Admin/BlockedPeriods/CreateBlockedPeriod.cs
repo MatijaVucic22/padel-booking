@@ -11,6 +11,7 @@ public sealed class CreateBlockedPeriod
     private readonly ICourtRepository _courts;
     private readonly IReservationRepository _reservations;
     private readonly IBlockedPeriodRepository _blockedPeriods;
+    private readonly IPaymentRepository _payments;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICourtAdvisoryLockService _courtLock;
     private readonly IBookingTimeService _bookingTime;
@@ -18,11 +19,12 @@ public sealed class CreateBlockedPeriod
 
     public CreateBlockedPeriod(ICourtRepository courts,
         IReservationRepository reservations, IBlockedPeriodRepository blockedPeriods,
+        IPaymentRepository payments,
         IUnitOfWork unitOfWork, ICourtAdvisoryLockService courtLock,
         IBookingTimeService bookingTime, ICourtChangeNotifier notifier)
     {
         _courts = courts; _reservations = reservations;
-        _blockedPeriods = blockedPeriods; _unitOfWork = unitOfWork;
+        _blockedPeriods = blockedPeriods; _payments = payments; _unitOfWork = unitOfWork;
         _courtLock = courtLock; _bookingTime = bookingTime; _notifier = notifier;
     }
 
@@ -45,6 +47,9 @@ public sealed class CreateBlockedPeriod
 
             if (await _reservations.HasOverlapAsync(command.CourtId,
                     command.StartTime, command.EndTime, null, cancellationToken))
+                return new(CreateBlockedPeriodStatus.ReservationOverlap);
+            if (await _payments.HasPendingTargetOverlapAsync(command.CourtId,
+                    command.StartTime, command.EndTime, cancellationToken: cancellationToken))
                 return new(CreateBlockedPeriodStatus.ReservationOverlap);
             if (await _blockedPeriods.HasOverlapAsync(command.CourtId,
                     command.StartTime, command.EndTime, cancellationToken))

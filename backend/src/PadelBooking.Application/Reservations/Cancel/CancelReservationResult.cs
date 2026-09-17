@@ -7,7 +7,9 @@ public enum CancelReservationStatus
     AlreadyCancelled,
     NotActive,
     Completed,
-    Started
+    Started,
+    PendingTopUp,
+    LockTimeout
 }
 
 public sealed record CancelReservationResult(CancelReservationStatus Status);

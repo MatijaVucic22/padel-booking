@@ -1,5 +1,6 @@
 using PadelBooking.Application.Abstractions.Concurrency;
 using PadelBooking.Application.Abstractions.Notifications;
+using PadelBooking.Application.Abstractions.Payments;
 using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Application.Abstractions.Time;
 using PadelBooking.Application.Notifications;
@@ -7,120 +8,151 @@ using PadelBooking.Domain.Entities;
 
 namespace PadelBooking.Application.Reservations.Reschedule;
 
-public sealed class RescheduleReservation
+public sealed class RescheduleReservation(
+    IReservationRepository reservations,
+    IPaymentRepository payments,
+    ICourtRepository courts,
+    IBlockedPeriodRepository blockedPeriods,
+    IUnitOfWork unitOfWork,
+    ICourtAdvisoryLockService courtLock,
+    IBookingTimeService bookingTime,
+    IPaymentGateway gateway,
+    IEmailService email,
+    ICourtChangeNotifier notifier,
+    IReservationNotificationLogger logger)
 {
-    private readonly IReservationRepository _reservations;
-    private readonly IPaymentRepository _payments;
-    private readonly ICourtRepository _courts;
-    private readonly IBlockedPeriodRepository _blockedPeriods;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly ICourtAdvisoryLockService _courtLock;
-    private readonly IBookingTimeService _bookingTime;
-    private readonly IEmailService _email;
-    private readonly ICourtChangeNotifier _notifier;
-    private readonly IReservationNotificationLogger _logger;
-
-    public RescheduleReservation(IReservationRepository reservations,
-        IPaymentRepository payments,
-        ICourtRepository courts, IBlockedPeriodRepository blockedPeriods,
-        IUnitOfWork unitOfWork, ICourtAdvisoryLockService courtLock,
-        IBookingTimeService bookingTime, IEmailService email,
-        ICourtChangeNotifier notifier, IReservationNotificationLogger logger)
-    {
-        _reservations = reservations; _payments = payments; _courts = courts;
-        _blockedPeriods = blockedPeriods; _unitOfWork = unitOfWork;
-        _courtLock = courtLock; _bookingTime = bookingTime; _email = email;
-        _notifier = notifier; _logger = logger;
-    }
-
     public async Task<RescheduleReservationResult> ExecuteAsync(
         RescheduleReservationCommand command,
+        bool previewOnly = false,
         CancellationToken cancellationToken = default)
     {
-        var courtId = await _reservations.GetCourtIdForUserAsync(
+        var courtId = await reservations.GetCourtIdForUserAsync(
             command.Id, command.UserId, cancellationToken);
         if (courtId is null) return new(RescheduleReservationStatus.NotFound);
 
-        var acquiredLock = await _courtLock.TryAcquireAsync(
-            courtId.Value, cancellationToken);
+        var acquiredLock = await courtLock.TryAcquireAsync(courtId.Value, cancellationToken);
         if (acquiredLock is null) return new(RescheduleReservationStatus.LockTimeout);
 
-        DateTime oldStartTime;
-        DateTime oldEndTime;
-        Reservation reservation;
-        ReservationRescheduledEmail emailMessage;
+        Reservation? reservation = null;
+        ReservationRescheduledEmail? emailMessage = null;
+        RescheduleQuote? quote = null;
+        string? checkoutUrl = null;
+        DateTime oldStartTime = default;
 
         await using (acquiredLock)
         {
-            var lockedReservation = await _reservations.GetByIdForUserAsync(
+            reservation = await reservations.GetByIdForUserAsync(
                 command.Id, command.UserId, cancellationToken);
-            if (lockedReservation is null)
-                return new(RescheduleReservationStatus.NotFound);
-            reservation = lockedReservation;
-
-            if (reservation.Status != "Active" ||
-                reservation.StartTime <= _bookingTime.Now)
+            if (reservation is null) return new(RescheduleReservationStatus.NotFound);
+            if (reservation.Status != "Active" || reservation.StartTime <= bookingTime.Now)
                 return new(RescheduleReservationStatus.NotActiveFuture);
 
-            var court = await _courts.GetActiveByIdAsync(
-                reservation.CourtId, cancellationToken);
+            var court = await courts.GetActiveByIdAsync(reservation.CourtId, cancellationToken);
             if (court is null) return new(RescheduleReservationStatus.CourtNotFound);
-
-            if (reservation.StartTime == command.StartTime &&
-                reservation.EndTime == command.EndTime)
+            if (reservation.StartTime == command.StartTime && reservation.EndTime == command.EndTime)
                 return new(RescheduleReservationStatus.SameSlot);
-
-            if (await _reservations.HasOverlapAsync(reservation.CourtId,
-                    command.StartTime, command.EndTime, reservation.Id,
-                    cancellationToken))
+            if (await payments.HasPendingTopUpAsync(reservation.Id, cancellationToken))
+                return new(RescheduleReservationStatus.PendingTopUp);
+            if (await reservations.HasOverlapAsync(reservation.CourtId, command.StartTime,
+                    command.EndTime, reservation.Id, cancellationToken) ||
+                await payments.HasPendingTargetOverlapAsync(reservation.CourtId,
+                    command.StartTime, command.EndTime, cancellationToken: cancellationToken))
                 return new(RescheduleReservationStatus.Occupied);
-
-            if (await _blockedPeriods.HasOverlapAsync(reservation.CourtId,
+            if (await blockedPeriods.HasOverlapAsync(reservation.CourtId,
                     command.StartTime, command.EndTime, cancellationToken))
                 return new(RescheduleReservationStatus.Blocked);
 
-            var newTotalPrice = court.PricePerHour *
-                (decimal)(command.EndTime - command.StartTime).TotalHours;
-            var payment = await _payments.GetByReservationIdAsync(reservation.Id, cancellationToken);
-            if (payment?.Status == PadelBooking.Domain.Entities.PaymentStatus.Paid &&
-                payment.Amount != newTotalPrice)
-                return new(RescheduleReservationStatus.PaymentAdjustmentRequired);
+            var newPrice = Math.Round(court.PricePerHour *
+                (decimal)(command.EndTime - command.StartTime).TotalHours, 2);
+            var paidCredit = await payments.GetPaidCreditAsync(reservation.Id, cancellationToken);
+            var topUp = Math.Max(0m, newPrice - paidCredit);
+            quote = new(reservation.TotalPrice, newPrice, paidCredit, topUp,
+                Math.Max(0m, paidCredit - newPrice), newPrice < reservation.TotalPrice);
+            if (previewOnly) return new(RescheduleReservationStatus.Success, Quote: quote);
+            if (command.ExpectedNewPrice != newPrice || command.ExpectedTopUpAmount != topUp)
+                return new(RescheduleReservationStatus.QuoteChanged, Quote: quote);
+            if (quote.RequiresNoRefundConfirmation && !command.AcknowledgeNoRefund)
+                return new(RescheduleReservationStatus.ConfirmationRequired, Quote: quote);
 
-            oldStartTime = reservation.StartTime;
-            oldEndTime = reservation.EndTime;
-            reservation.StartTime = command.StartTime;
-            reservation.EndTime = command.EndTime;
-            reservation.TotalPrice = newTotalPrice;
-            reservation.ReminderSentAtUtc = null;
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (topUp > 0m)
+            {
+                CheckoutSession session;
+                try
+                {
+                    session = await gateway.CreateCheckoutAsync(new CheckoutRequest(
+                        Guid.NewGuid().ToString("N"), court.Name, reservation.User.Email,
+                        checked((long)(topUp * 100m)), "RSD"), cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+                catch { return new(RescheduleReservationStatus.ProviderUnavailable); }
 
-            emailMessage = new ReservationRescheduledEmail(
-                reservation.User.Email, reservation.User.FirstName, court.Name,
-                oldStartTime, oldEndTime, reservation.StartTime,
-                reservation.EndTime, reservation.TotalPrice, reservation.Id);
+                if (string.IsNullOrWhiteSpace(session.Url))
+                    return new(RescheduleReservationStatus.ProviderUnavailable);
+
+                payments.Add(new Payment
+                {
+                    ReservationId = reservation.Id,
+                    Amount = topUp,
+                    Currency = "RSD",
+                    Purpose = PaymentPurpose.RescheduleTopUp,
+                    Status = PaymentStatus.Pending,
+                    Provider = "Stripe",
+                    ExternalSessionId = session.Id,
+                    CreatedAtUtc = bookingTime.UtcNow,
+                    SessionExpiresAtUtc = session.ExpiresAtUtc,
+                    TargetStartTime = command.StartTime,
+                    TargetEndTime = command.EndTime,
+                    TargetTotalPrice = newPrice
+                });
+                try { await unitOfWork.SaveChangesAsync(cancellationToken); }
+                catch
+                {
+                    try { await gateway.ExpireSessionAsync(session.Id, CancellationToken.None); }
+                    catch { /* Preserve the persistence error. */ }
+                    throw;
+                }
+                checkoutUrl = session.Url;
+            }
+            else
+            {
+                oldStartTime = reservation.StartTime;
+                var oldEndTime = reservation.EndTime;
+                reservation.StartTime = command.StartTime;
+                reservation.EndTime = command.EndTime;
+                reservation.TotalPrice = newPrice;
+                reservation.ReminderSentAtUtc = null;
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+                emailMessage = new ReservationRescheduledEmail(
+                    reservation.User.Email, reservation.User.FirstName, court.Name,
+                    oldStartTime, oldEndTime, reservation.StartTime,
+                    reservation.EndTime, reservation.TotalPrice, reservation.Id);
+            }
         }
 
-        await _notifier.NotifyAvailabilityChangedAsync(
-            reservation.CourtId, oldStartTime, cancellationToken);
-        if (oldStartTime.Date != reservation.StartTime.Date)
+        if (checkoutUrl is not null)
         {
-            await _notifier.NotifyAvailabilityChangedAsync(
-                reservation.CourtId, reservation.StartTime, cancellationToken);
+            try { await notifier.NotifyAvailabilityChangedAsync(courtId.Value, command.StartTime, cancellationToken); }
+            catch { /* The persisted hold remains authoritative. */ }
+            return new(RescheduleReservationStatus.CheckoutRequired, Quote: quote, CheckoutUrl: checkoutUrl);
         }
 
         try
         {
-            await _email.SendReservationRescheduledAsync(emailMessage, cancellationToken);
+            await notifier.NotifyAvailabilityChangedAsync(courtId.Value, oldStartTime, cancellationToken);
+            if (oldStartTime.Date != command.StartTime.Date)
+                await notifier.NotifyAvailabilityChangedAsync(courtId.Value, command.StartTime, cancellationToken);
         }
+        catch { /* The persisted reservation remains authoritative. */ }
+
+        try { await email.SendReservationRescheduledAsync(emailMessage!, cancellationToken); }
         catch (Exception exception)
         {
-            _logger.LogEmailFailure(
-                exception, reservation.Id, "reschedule confirmation", warning: true);
+            logger.LogEmailFailure(exception, reservation!.Id, "reschedule confirmation", warning: true);
         }
 
         return new(RescheduleReservationStatus.Success,
-            new RescheduledReservation(reservation.Id, reservation.CourtId,
+            new RescheduledReservation(reservation!.Id, reservation.CourtId,
                 reservation.StartTime, reservation.EndTime,
-                reservation.TotalPrice, reservation.Status));
+                reservation.TotalPrice, reservation.Status), quote);
     }
 }

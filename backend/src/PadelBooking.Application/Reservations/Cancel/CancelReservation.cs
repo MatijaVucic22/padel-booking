@@ -1,4 +1,5 @@
 using PadelBooking.Application.Abstractions.Notifications;
+using PadelBooking.Application.Abstractions.Concurrency;
 using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Application.Abstractions.Time;
 using PadelBooking.Application.Notifications;
@@ -9,17 +10,21 @@ public sealed class CancelReservation
 {
     private readonly IReservationRepository _reservations;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IPaymentRepository _payments;
+    private readonly ICourtAdvisoryLockService _courtLock;
     private readonly IBookingTimeService _bookingTime;
     private readonly IEmailService _email;
     private readonly ICourtChangeNotifier _notifier;
     private readonly IReservationNotificationLogger _logger;
 
     public CancelReservation(IReservationRepository reservations,
-        IUnitOfWork unitOfWork, IBookingTimeService bookingTime,
+        IUnitOfWork unitOfWork, IPaymentRepository payments,
+        ICourtAdvisoryLockService courtLock, IBookingTimeService bookingTime,
         IEmailService email, ICourtChangeNotifier notifier,
         IReservationNotificationLogger logger)
     {
         _reservations = reservations; _unitOfWork = unitOfWork;
+        _payments = payments; _courtLock = courtLock;
         _bookingTime = bookingTime; _email = email;
         _notifier = notifier; _logger = logger;
     }
@@ -27,20 +32,29 @@ public sealed class CancelReservation
     public async Task<CancelReservationResult> ExecuteAsync(
         int id, int userId, CancellationToken cancellationToken = default)
     {
-        var reservation = await _reservations.GetByIdForUserAsync(
-            id, userId, cancellationToken);
-        if (reservation is null) return new(CancelReservationStatus.NotFound);
-        if (reservation.Status == "Cancelled")
-            return new(CancelReservationStatus.AlreadyCancelled);
-        if (reservation.Status != "Active")
-            return new(CancelReservationStatus.NotActive);
+        var courtId = await _reservations.GetCourtIdForUserAsync(id, userId, cancellationToken);
+        if (courtId is null) return new(CancelReservationStatus.NotFound);
+        var acquiredLock = await _courtLock.TryAcquireAsync(courtId.Value, cancellationToken);
+        if (acquiredLock is null) return new(CancelReservationStatus.LockTimeout);
 
-        var now = _bookingTime.Now;
-        if (reservation.EndTime <= now) return new(CancelReservationStatus.Completed);
-        if (reservation.StartTime <= now) return new(CancelReservationStatus.Started);
+        PadelBooking.Domain.Entities.Reservation reservation;
+        await using (acquiredLock)
+        {
+            var current = await _reservations.GetByIdForUserAsync(id, userId, cancellationToken);
+            if (current is null) return new(CancelReservationStatus.NotFound);
+            reservation = current;
+            if (reservation.Status == "Cancelled") return new(CancelReservationStatus.AlreadyCancelled);
+            if (reservation.Status != "Active") return new(CancelReservationStatus.NotActive);
+            if (await _payments.HasPendingTopUpAsync(id, cancellationToken))
+                return new(CancelReservationStatus.PendingTopUp);
 
-        reservation.Status = "Cancelled";
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            var now = _bookingTime.Now;
+            if (reservation.EndTime <= now) return new(CancelReservationStatus.Completed);
+            if (reservation.StartTime <= now) return new(CancelReservationStatus.Started);
+
+            reservation.Status = "Cancelled";
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
         await _notifier.NotifyAvailabilityChangedAsync(
             reservation.CourtId, reservation.StartTime, cancellationToken);
 

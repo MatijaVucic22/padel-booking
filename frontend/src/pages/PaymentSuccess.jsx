@@ -47,8 +47,10 @@ function PaymentSuccess() {
         {confirmed ? (
           <>
             <span className="booking-confirm-check" aria-hidden="true">✓</span>
-            <h1>Rezervacija je potvrđena!</h1>
-            <p>Uplata je potvrđena i termin je dodat u tvoje rezervacije.</p>
+            <h1>{data?.purpose === "RescheduleTopUp" ? "Termin je uspešno promenjen!" : "Rezervacija je potvrđena!"}</h1>
+            <p>{data?.purpose === "RescheduleTopUp"
+              ? "Doplata je potvrđena i novi termin je dodat u tvoje rezervacije."
+              : "Uplata je potvrđena i termin je dodat u tvoje rezervacije."}</p>
             <Link className="primary-button" to="/my-reservations">Moje rezervacije</Link>
           </>
         ) : noLongerActive ? (

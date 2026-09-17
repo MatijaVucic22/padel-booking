@@ -215,6 +215,190 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    public async Task SamePriceReschedule_DoesNotCreateTopUp()
+    {
+        var courtId = await SeedCourtAsync();
+        using var user = await AuthenticatedClientAsync();
+        var (start, end) = Slot(10);
+        var (id, session) = await CreateCheckoutAsync(user, courtId, start, end);
+        await PayAsync(user, session);
+        var newStart = start.AddHours(2);
+        var quote = await QuoteAsync(user, id, newStart, newStart.AddHours(1));
+        Assert.Equal(2000m, quote.NewPrice);
+        Assert.Equal(2000m, quote.PaidCredit);
+        Assert.Equal(0m, quote.TopUpAmount);
+
+        using var changed = await RescheduleAsync(user, id, newStart, newStart.AddHours(1), quote);
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(newStart, (await db.Reservations.AsNoTracking().SingleAsync(item => item.Id == id)).StartTime);
+        Assert.Equal(1, await db.Payments.CountAsync(item => item.ReservationId == id));
+    }
+
+    [Fact]
+    public async Task CheaperReschedule_PreservesPaidCredit_AndLaterChangeUsesIt()
+    {
+        var courtId = await SeedCourtAsync();
+        using var user = await AuthenticatedClientAsync();
+        var (start, _) = Slot(10);
+        var (id, session) = await CreateCheckoutAsync(user, courtId, start, start.AddHours(2));
+        await PayAsync(user, session);
+        using var admin = await AuthenticatedClientAsync(admin: true);
+        using var revenueBeforeResponse = await admin.GetAsync("/api/admin/stats");
+        Assert.Equal(HttpStatusCode.OK, revenueBeforeResponse.StatusCode);
+        using var revenueBefore = JsonDocument.Parse(await revenueBeforeResponse.Content.ReadAsStringAsync());
+        var realizedBefore = revenueBefore.RootElement.GetProperty("realizedRevenue").GetDecimal();
+
+        var shorterStart = start.AddHours(3);
+        var cheaper = await QuoteAsync(user, id, shorterStart, shorterStart.AddHours(1));
+        Assert.Equal(4000m, cheaper.PaidCredit);
+        Assert.Equal(2000m, cheaper.NewPrice);
+        Assert.Equal(2000m, cheaper.NonRefundedDifference);
+        Assert.True(cheaper.RequiresNoRefundConfirmation);
+        using var rejected = await RescheduleAsync(user, id, shorterStart,
+            shorterStart.AddHours(1), cheaper, acknowledge: false);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        using var accepted = await RescheduleAsync(user, id, shorterStart,
+            shorterStart.AddHours(1), cheaper, acknowledge: true);
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+
+        var laterStart = start.AddHours(5);
+        var later = await QuoteAsync(user, id, laterStart, laterStart.AddHours(2));
+        Assert.Equal(4000m, later.PaidCredit);
+        Assert.Equal(4000m, later.NewPrice);
+        Assert.Equal(0m, later.TopUpAmount);
+        using var laterChange = await RescheduleAsync(user, id, laterStart,
+            laterStart.AddHours(2), later);
+        Assert.Equal(HttpStatusCode.OK, laterChange.StatusCode);
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(4000m, (await db.Reservations.AsNoTracking().SingleAsync(item => item.Id == id)).TotalPrice);
+        Assert.Equal(4000m, await db.Payments.Where(item => item.ReservationId == id &&
+            item.Status == PaymentStatus.Paid).SumAsync(item => item.Amount));
+        Assert.Equal(1, await db.Payments.CountAsync(item => item.ReservationId == id));
+        using var revenueAfterResponse = await admin.GetAsync("/api/admin/stats");
+        Assert.Equal(HttpStatusCode.OK, revenueAfterResponse.StatusCode);
+        using var revenueAfter = JsonDocument.Parse(await revenueAfterResponse.Content.ReadAsStringAsync());
+        Assert.Equal(realizedBefore, revenueAfter.RootElement.GetProperty("realizedRevenue").GetDecimal());
+    }
+
+    [Fact]
+    public async Task LongerReschedule_CreatesOnlyDifferenceAndHoldsTargetWithoutChangingOriginal()
+    {
+        var courtId = await SeedCourtAsync();
+        using var user = await AuthenticatedClientAsync();
+        var (start, end) = Slot(10);
+        var (id, session) = await CreateCheckoutAsync(user, courtId, start, end);
+        await PayAsync(user, session);
+        var target = start.AddHours(2);
+        var quote = await QuoteAsync(user, id, target, target.AddHours(2));
+        Assert.Equal(4000m, quote.NewPrice);
+        Assert.Equal(2000m, quote.PaidCredit);
+        Assert.Equal(2000m, quote.TopUpAmount);
+        using var response = await RescheduleAsync(user, id, target, target.AddHours(2), quote);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.False(string.IsNullOrWhiteSpace(body.RootElement.GetProperty("checkoutUrl").GetString()));
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var original = await db.Reservations.AsNoTracking().SingleAsync(item => item.Id == id);
+        Assert.Equal(start, original.StartTime);
+        Assert.Equal(end, original.EndTime);
+        Assert.Equal(2000m, original.TotalPrice);
+        var topUp = await db.Payments.AsNoTracking().SingleAsync(item => item.ReservationId == id &&
+            item.Purpose == PaymentPurpose.RescheduleTopUp);
+        Assert.Equal(PaymentStatus.Pending, topUp.Status);
+        Assert.Equal(2000m, topUp.Amount);
+        Assert.Equal(target, topUp.TargetStartTime);
+        using var cancelWhilePending = await user.DeleteAsync($"/api/reservations/{id}");
+        Assert.Equal(HttpStatusCode.Conflict, cancelWhilePending.StatusCode);
+        using var competing = await CheckoutAsync(user, courtId, target, target.AddHours(1));
+        Assert.Equal(HttpStatusCode.Conflict, competing.StatusCode);
+    }
+
+    [Fact]
+    public async Task PaidTopUp_AppliesOnceAndKeepsBothSuccessfulPayments()
+    {
+        var courtId = await SeedCourtAsync();
+        using var user = await AuthenticatedClientAsync();
+        var (start, end) = Slot(10);
+        var (id, session) = await CreateCheckoutAsync(user, courtId, start, end);
+        await PayAsync(user, session);
+        var target = start.AddHours(2);
+        var quote = await QuoteAsync(user, id, target, target.AddHours(2));
+        using var checkout = await RescheduleAsync(user, id, target, target.AddHours(2), quote);
+        var topUpSession = SessionIdFromResponse(await checkout.Content.ReadAsStringAsync());
+        host.Gateway.SetPaid(topUpSession);
+        using var status = await user.GetAsync($"/api/payments/session/{topUpSession}/status");
+        Assert.Equal(HttpStatusCode.OK, status.StatusCode);
+        using var duplicate = await WebhookAsync(topUpSession);
+        Assert.Equal(HttpStatusCode.OK, duplicate.StatusCode);
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var changed = await db.Reservations.AsNoTracking().SingleAsync(item => item.Id == id);
+        Assert.Equal(target, changed.StartTime);
+        Assert.Equal(target.AddHours(2), changed.EndTime);
+        Assert.Equal(4000m, changed.TotalPrice);
+        Assert.Equal(2, await db.Payments.CountAsync(item => item.ReservationId == id &&
+            item.Status == PaymentStatus.Paid));
+        Assert.Equal(4000m, await db.Payments.Where(item => item.ReservationId == id &&
+            item.Status == PaymentStatus.Paid).SumAsync(item => item.Amount));
+    }
+
+    [Fact]
+    public async Task ExpiredTopUp_ReleasesTargetAndLeavesOriginalUntouched()
+    {
+        var courtId = await SeedCourtAsync();
+        using var user = await AuthenticatedClientAsync();
+        var (start, end) = Slot(10);
+        var (id, session) = await CreateCheckoutAsync(user, courtId, start, end);
+        await PayAsync(user, session);
+        var target = start.AddHours(2);
+        var quote = await QuoteAsync(user, id, target, target.AddHours(2));
+        using var checkout = await RescheduleAsync(user, id, target, target.AddHours(2), quote);
+        var topUpSession = SessionIdFromResponse(await checkout.Content.ReadAsStringAsync());
+        await host.Gateway.ExpireSessionAsync(topUpSession);
+        using var status = await user.GetAsync($"/api/payments/session/{topUpSession}/status");
+        Assert.Equal(HttpStatusCode.OK, status.StatusCode);
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var original = await db.Reservations.AsNoTracking().SingleAsync(item => item.Id == id);
+        Assert.Equal(start, original.StartTime);
+        Assert.Equal(end, original.EndTime);
+        Assert.Equal("Active", original.Status);
+        Assert.Equal(PaymentStatus.Cancelled, (await db.Payments.AsNoTracking()
+            .SingleAsync(item => item.ExternalSessionId == topUpSession)).Status);
+        using var availableAgain = await CheckoutAsync(user, courtId, target, target.AddHours(1));
+        Assert.Equal(HttpStatusCode.OK, availableAgain.StatusCode);
+    }
+
+    [Fact]
+    public async Task ClientCannotChooseTopUpPrice()
+    {
+        var courtId = await SeedCourtAsync();
+        using var user = await AuthenticatedClientAsync();
+        var (start, end) = Slot(10);
+        var (id, session) = await CreateCheckoutAsync(user, courtId, start, end);
+        await PayAsync(user, session);
+        var target = start.AddHours(2);
+        var quote = await QuoteAsync(user, id, target, target.AddHours(2));
+        using var tampered = await user.PutAsJsonAsync($"/api/reservations/{id}/reschedule", new
+        {
+            startTime = Local(target), endTime = Local(target.AddHours(2)),
+            expectedNewPrice = quote.NewPrice, expectedTopUpAmount = 1m,
+            acknowledgeNoRefund = false
+        });
+        Assert.Equal(HttpStatusCode.Conflict, tampered.StatusCode);
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await db.Payments.CountAsync(item => item.ReservationId == id));
+    }
+
+    [Fact]
     public async Task DirectReservationPost_CannotBypassPayment()
     {
         var courtId = await SeedCourtAsync();
@@ -228,6 +412,50 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
         await using var scope = host.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.False(await db.Reservations.AnyAsync(reservation => reservation.CourtId == courtId));
+    }
+
+    private sealed record QuoteValues(decimal CurrentPrice, decimal NewPrice, decimal PaidCredit,
+        decimal TopUpAmount, decimal NonRefundedDifference, bool RequiresNoRefundConfirmation);
+
+    private async Task<QuoteValues> QuoteAsync(HttpClient client, int id, DateTime start, DateTime end)
+    {
+        using var response = await client.PostAsJsonAsync($"/api/reservations/{id}/reschedule/quote", new
+        {
+            startTime = Local(start), endTime = Local(end)
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var quote = json.RootElement;
+        return new(quote.GetProperty("currentPrice").GetDecimal(),
+            quote.GetProperty("newPrice").GetDecimal(),
+            quote.GetProperty("paidCredit").GetDecimal(),
+            quote.GetProperty("topUpAmount").GetDecimal(),
+            quote.GetProperty("nonRefundedDifference").GetDecimal(),
+            quote.GetProperty("requiresNoRefundConfirmation").GetBoolean());
+    }
+
+    private static Task<HttpResponseMessage> RescheduleAsync(HttpClient client, int id,
+        DateTime start, DateTime end, QuoteValues quote, bool acknowledge = false) =>
+        client.PutAsJsonAsync($"/api/reservations/{id}/reschedule", new
+        {
+            startTime = Local(start), endTime = Local(end),
+            expectedNewPrice = quote.NewPrice,
+            expectedTopUpAmount = quote.TopUpAmount,
+            acknowledgeNoRefund = acknowledge
+        });
+
+    private async Task PayAsync(HttpClient client, string sessionId)
+    {
+        host.Gateway.SetPaid(sessionId);
+        using var status = await client.GetAsync($"/api/payments/session/{sessionId}/status");
+        Assert.Equal(HttpStatusCode.OK, status.StatusCode);
+    }
+
+    private static string SessionIdFromResponse(string responseBody)
+    {
+        using var json = JsonDocument.Parse(responseBody);
+        return new Uri(json.RootElement.GetProperty("checkoutUrl").GetString()!)
+            .Segments.Last().Trim('/');
     }
 
     private async Task<int> SeedCourtAsync()

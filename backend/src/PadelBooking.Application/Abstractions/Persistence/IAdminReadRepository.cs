@@ -14,6 +14,8 @@ public interface IAdminReadRepository
 
     Task<int> CountActiveCourtsAsync(CancellationToken cancellationToken = default);
 
+    Task<decimal> SumPaidPaymentsAsync(CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<AdminReservationStatistic>> ListReservationStatisticsAsync(
         CancellationToken cancellationToken = default);
 

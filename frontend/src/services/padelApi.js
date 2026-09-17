@@ -98,6 +98,13 @@ export const padelApi = createApi({
       }),
       invalidatesTags: ["Reservations", "Availability"],
     }),
+    getRescheduleQuote: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `/reservations/${id}/reschedule/quote`,
+        method: "POST",
+        body,
+      }),
+    }),
     getAdminUsers: builder.query({
       query: () => "/admin/users",
       providesTags: ["AdminUsers"],
@@ -172,6 +179,7 @@ export const {
   useGetCheckoutStatusQuery,
   useCancelReservationMutation,
   useRescheduleReservationMutation,
+  useGetRescheduleQuoteMutation,
   useLazyGetAdminUsersQuery,
   useLazyGetAdminReservationsQuery,
   useLazyGetAdminStatsQuery,
