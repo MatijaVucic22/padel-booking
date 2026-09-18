@@ -37,8 +37,10 @@ function PaymentSuccess() {
   };
 
   const confirmed = data?.confirmed === true;
+  const requiresResolution = data?.status === "Paid" &&
+    data?.fulfillmentStatus === "RequiresResolution";
   const failed = data?.status === "Failed" || data?.status === "Cancelled";
-  const noLongerActive = data?.status === "Paid" && !confirmed;
+  const noLongerActive = data?.status === "Paid" && !confirmed && !requiresResolution;
 
   return (
     <section className="page payment-result-page">
@@ -51,6 +53,14 @@ function PaymentSuccess() {
             <p>{data?.purpose === "RescheduleTopUp"
               ? "Doplata je potvrđena i novi termin je dodat u tvoje rezervacije."
               : "Uplata je potvrđena i termin je dodat u tvoje rezervacije."}</p>
+            <Link className="primary-button" to="/my-reservations">Moje rezervacije</Link>
+          </>
+        ) : requiresResolution ? (
+          <>
+            <h1>Plaćanje zahteva proveru</h1>
+            <p>Plaćanje je evidentirano, ali {data?.purpose === "RescheduleTopUp"
+              ? "promena termina" : "rezervacija"} nije mogla automatski da bude završena. Potrebna je provera.</p>
+            <p>Novac nije automatski refundiran. Obrati se podršci i sačuvaj broj rezervacije #{data.reservationId}.</p>
             <Link className="primary-button" to="/my-reservations">Moje rezervacije</Link>
           </>
         ) : noLongerActive ? (

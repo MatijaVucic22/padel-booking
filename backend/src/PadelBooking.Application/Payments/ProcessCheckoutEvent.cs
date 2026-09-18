@@ -17,6 +17,7 @@ public sealed class ProcessCheckoutEvent(
     IBookingTimeService bookingTime,
     IEmailService email,
     IReservationNotificationLogger notificationLogger,
+    IPaymentResolutionLogger resolutionLogger,
     ICourtChangeNotifier notifier)
 {
     public async Task ExecuteAsync(CheckoutEvent checkoutEvent, CancellationToken cancellationToken = default)
@@ -35,6 +36,7 @@ public sealed class ProcessCheckoutEvent(
 
         ReservationConfirmationEmail? confirmation = null;
         ReservationRescheduledEmail? rescheduleConfirmation = null;
+        (int PaymentId, int ReservationId, PaymentPurpose Purpose, string ReasonCode)? resolution = null;
         int courtId;
         DateTime oldStartTime;
         DateTime oldEndTime;
@@ -59,53 +61,101 @@ public sealed class ProcessCheckoutEvent(
                     !string.Equals(checkoutEvent.Currency, payment.Currency, StringComparison.OrdinalIgnoreCase))
                     return;
 
+                string? reasonCode = null;
                 if (payment.Purpose == PaymentPurpose.RescheduleTopUp)
                 {
-                    if (reservation.Status != "Active" || !reservation.Court.IsActive ||
-                        payment.TargetStartTime is null || payment.TargetEndTime is null ||
-                        payment.TargetTotalPrice is null ||
-                        await reservations.HasOverlapAsync(courtId, payment.TargetStartTime.Value,
-                            payment.TargetEndTime.Value, reservation.Id, cancellationToken) ||
+                    if (reservation.Status != "Active" || reservation.StartTime <= bookingTime.Now)
+                        reasonCode = "ORIGINAL_NOT_FUTURE_ACTIVE";
+                    else if (!reservation.Court.IsActive)
+                        reasonCode = "COURT_INACTIVE";
+                    else if (payment.TargetStartTime is null || payment.TargetEndTime is null ||
+                        payment.TargetTotalPrice is null)
+                        reasonCode = "TARGET_MISSING";
+                    else if (payment.TargetStartTime.Value <= bookingTime.Now)
+                        reasonCode = "TARGET_STARTED";
+                    else if (await reservations.HasOverlapAsync(courtId, payment.TargetStartTime.Value,
+                        payment.TargetEndTime.Value, reservation.Id, cancellationToken) ||
                         await payments.HasPendingTargetOverlapAsync(courtId, payment.TargetStartTime.Value,
-                            payment.TargetEndTime.Value, payment.Id, cancellationToken) ||
-                        await blockedPeriods.HasOverlapAsync(courtId, payment.TargetStartTime.Value,
-                            payment.TargetEndTime.Value, cancellationToken))
-                        throw new InvalidOperationException("Plaćena promena termina ne može bezbedno da se primeni.");
+                            payment.TargetEndTime.Value, payment.Id, cancellationToken))
+                        reasonCode = "TARGET_OCCUPIED";
+                    else if (await blockedPeriods.HasOverlapAsync(courtId, payment.TargetStartTime.Value,
+                        payment.TargetEndTime.Value, cancellationToken))
+                        reasonCode = "TARGET_BLOCKED";
 
-                    reservation.StartTime = payment.TargetStartTime.Value;
-                    reservation.EndTime = payment.TargetEndTime.Value;
-                    reservation.TotalPrice = payment.TargetTotalPrice.Value;
-                    reservation.ReminderSentAtUtc = null;
-                    rescheduleConfirmation = new ReservationRescheduledEmail(
-                        reservation.User.Email, reservation.User.FirstName,
-                        reservation.Court.Name, oldStartTime, oldEndTime,
-                        reservation.StartTime, reservation.EndTime,
-                        reservation.TotalPrice, reservation.Id);
+                    if (reasonCode is null)
+                    {
+                        reservation.StartTime = payment.TargetStartTime!.Value;
+                        reservation.EndTime = payment.TargetEndTime!.Value;
+                        reservation.TotalPrice = payment.TargetTotalPrice!.Value;
+                        reservation.ReminderSentAtUtc = null;
+                        rescheduleConfirmation = new ReservationRescheduledEmail(
+                            reservation.User.Email, reservation.User.FirstName,
+                            reservation.Court.Name, oldStartTime, oldEndTime,
+                            reservation.StartTime, reservation.EndTime,
+                            reservation.TotalPrice, reservation.Id);
+                    }
                 }
                 else
                 {
-                    reservation.Status = "Active";
-                    confirmation = new ReservationConfirmationEmail(
-                        reservation.User.Email, reservation.User.FirstName,
-                        reservation.Court.Name, reservation.Court.Location,
-                        reservation.StartTime, reservation.EndTime,
-                        reservation.TotalPrice, reservation.Id);
+                    if (reservation.Status != "PendingPayment")
+                        reasonCode = "RESERVATION_NOT_PENDING";
+                    else if (reservation.StartTime <= bookingTime.Now)
+                        reasonCode = "BOOKING_STARTED";
+                    else if (!reservation.Court.IsActive)
+                        reasonCode = "COURT_INACTIVE";
+                    else if (await reservations.HasOverlapAsync(courtId, reservation.StartTime,
+                        reservation.EndTime, reservation.Id, cancellationToken))
+                        reasonCode = "BOOKING_OCCUPIED";
+                    else if (await blockedPeriods.HasOverlapAsync(courtId, reservation.StartTime,
+                        reservation.EndTime, cancellationToken))
+                        reasonCode = "BOOKING_BLOCKED";
+
+                    if (reasonCode is null)
+                    {
+                        reservation.Status = "Active";
+                        confirmation = new ReservationConfirmationEmail(
+                            reservation.User.Email, reservation.User.FirstName,
+                            reservation.Court.Name, reservation.Court.Location,
+                            reservation.StartTime, reservation.EndTime,
+                            reservation.TotalPrice, reservation.Id);
+                    }
+                    else if (reservation.Status == "PendingPayment")
+                    {
+                        // A paid, unfulfilled booking must not retain its provisional slot.
+                        reservation.Status = "Cancelled";
+                    }
                 }
 
                 payment.Status = PaymentStatus.Paid;
+                payment.FulfillmentStatus = reasonCode is null
+                    ? PaymentFulfillmentStatus.Applied : PaymentFulfillmentStatus.RequiresResolution;
+                payment.ResolutionReasonCode = reasonCode;
                 payment.ExternalSessionId = checkoutEvent.SessionId;
                 payment.ExternalPaymentIntentId = checkoutEvent.PaymentIntentId;
+                if (reasonCode is not null)
+                    resolution = (payment.Id, reservation.Id, payment.Purpose, reasonCode);
             }
             else
             {
                 payment.Status = checkoutEvent.Type == "checkout.session.expired"
                     ? PaymentStatus.Cancelled : PaymentStatus.Failed;
+                payment.FulfillmentStatus = PaymentFulfillmentStatus.NotApplicable;
                 if (payment.Purpose == PaymentPurpose.InitialBooking)
                     reservation.Status = "Cancelled";
             }
 
             payment.UpdatedAtUtc = bookingTime.UtcNow;
             await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        if (resolution is { } unresolved)
+        {
+            try
+            {
+                resolutionLogger.LogRequiresResolution(unresolved.PaymentId, unresolved.ReservationId,
+                    unresolved.Purpose, unresolved.ReasonCode);
+            }
+            catch { /* A logging failure cannot undo a persisted provider payment. */ }
         }
 
         try
