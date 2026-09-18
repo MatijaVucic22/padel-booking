@@ -286,7 +286,7 @@ function Book() {
       }).unwrap();
       await waitForMinimumLoading(loadingStartedAt);
       if (!componentMounted.current) return;
-      if (!checkout?.checkoutUrl) throw new Error("Stripe Checkout adresa nije dostupna.");
+      if (!checkout?.checkoutUrl) throw new Error("Stranica za plaćanje nije dostupna.");
       window.location.assign(checkout.checkoutUrl);
     } catch (requestError) {
       await waitForMinimumLoading(loadingStartedAt);
@@ -444,7 +444,7 @@ function Book() {
                   <div className="booking-confirm-total"><dt>Ukupna cena</dt><dd>{priceFormatter.format(selectedCourt.pricePerHour * duration)}</dd></div>
                 </dl>
 
-                <p>Test plaćanje — stvarni novac neće biti naplaćen. Bićeš preusmeren na Stripe Checkout.</p>
+                <p>Test plaćanje — stvarni novac neće biti naplaćen. Bićeš preusmeren na stranicu za plaćanje karticom.</p>
 
                 {modalError && <p className="booking-confirm-error" role="alert">{modalError}</p>}
                 <div className="booking-confirm-actions">
@@ -458,7 +458,7 @@ function Book() {
               <div className="booking-confirm-state" role="status">
                 <span className="booking-confirm-spinner" aria-hidden="true" />
                 <h2 id="booking-confirm-title">Pokrećemo plaćanje...</h2>
-                <p>Pripremamo bezbednu Stripe Checkout stranicu.</p>
+                <p>Pripremamo bezbednu stranicu za plaćanje.</p>
               </div>
             )}
 

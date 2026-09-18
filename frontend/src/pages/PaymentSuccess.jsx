@@ -45,7 +45,7 @@ function PaymentSuccess() {
   return (
     <section className="page payment-result-page">
       <div className="payment-result-card" role="status">
-        <span className="section-kicker">Stripe test plaćanje</span>
+        <span className="section-kicker">Potvrda plaćanja</span>
         {confirmed ? (
           <>
             <span className="booking-confirm-check" aria-hidden="true">✓</span>
@@ -77,8 +77,8 @@ function PaymentSuccess() {
           </>
         ) : !sessionId ? (
           <>
-            <h1>Nedostaje Checkout sesija</h1>
-            <p>Status plaćanja nije moguće proveriti bez Stripe sesije.</p>
+            <h1>Nedostaju podaci o plaćanju</h1>
+            <p>Bez podataka o plaćanju ne možemo proveriti status.</p>
             <Link className="primary-button" to="/book">Nazad na rezervaciju</Link>
           </>
         ) : timedOut ? (
@@ -93,7 +93,7 @@ function PaymentSuccess() {
             <h1>Proveravamo plaćanje...</h1>
             <p>{error && !isLoading
               ? "Trenutno ne možemo da proverimo status. Pokušaj ponovo."
-              : "Čekamo potvrdu od Stripe-a. Ne zatvaraj ovu stranicu."}</p>
+              : "Čekamo potvrdu uplate. Ne zatvaraj ovu stranicu."}</p>
             {error && <button type="button" onClick={retry}>Pokušaj ponovo</button>}
           </>
         )}

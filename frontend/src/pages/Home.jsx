@@ -18,7 +18,7 @@ function Home() {
         <img className="home-hero-image" src={heroCourt} alt="Padel teren pod večernjim nebom" />
         <div className="home-hero-shade" aria-hidden="true" />
         <div className="home-hero-inner">
-          <span className="home-index">NIŠ / SRBIJA <span aria-hidden="true">—</span> PADELBOOKING</span>
+          <span className="home-index">REZERVACIJA PADEL TERENA</span>
           <h1 id="home-hero-title">PADEL.<br /><span>BEZ ČEKANJA.</span></h1>
           <p>Rezerviši teren za nekoliko sekundi. Više vremena za igru, manje za dogovaranje.</p>
           <Link to="/book" className="home-action">Rezerviši termin <span aria-hidden="true">↗</span></Link>
