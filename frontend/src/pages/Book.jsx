@@ -340,7 +340,7 @@ function Book() {
                   <span>{group.label}</span>
                   <div className="quick-book-hours">
                     {group.hours.map((hour) => (
-                      <button type="button" className={startHour === hour ? "selected" : ""} disabled={hour + duration > 22 || isPastStartTime(date, hour, belgradeNow)} key={hour} onClick={() => { setStartHour(hour); setSelectionError(""); }}>
+                      <button type="button" className={startHour === hour ? "selected" : ""} aria-pressed={startHour === hour} disabled={hour + duration > 22 || isPastStartTime(date, hour, belgradeNow)} key={hour} onClick={() => { setStartHour(hour); setSelectionError(""); }}>
                         {String(hour).padStart(2, "0")}:00
                       </button>
                     ))}
@@ -354,7 +354,7 @@ function Book() {
             <legend>Trajanje</legend>
             <div className="quick-book-durations">
               {durations.map((value) => (
-                <button type="button" className={duration === value ? "selected" : ""} key={value} onClick={() => selectDuration(value)}>
+                <button type="button" className={duration === value ? "selected" : ""} aria-pressed={duration === value} key={value} onClick={() => selectDuration(value)}>
                   <strong>{value}</strong><span>{value === 1 ? "sat" : "sata"}</span>
                 </button>
               ))}
