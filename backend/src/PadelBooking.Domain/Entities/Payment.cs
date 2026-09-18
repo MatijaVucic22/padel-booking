@@ -7,6 +7,8 @@ public sealed class Payment
     public decimal Amount { get; set; }
     public string Currency { get; set; } = "RSD";
     public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
+    public PaymentFulfillmentStatus FulfillmentStatus { get; set; } = PaymentFulfillmentStatus.Pending;
+    public string? ResolutionReasonCode { get; set; }
     public PaymentPurpose Purpose { get; set; } = PaymentPurpose.InitialBooking;
     public string Provider { get; set; } = "Stripe";
     public string? ExternalSessionId { get; set; }

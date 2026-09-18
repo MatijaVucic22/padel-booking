@@ -77,6 +77,8 @@ namespace PadelBooking.Infrastructure.Persistence
                 entity.Property(payment => payment.Currency).HasMaxLength(3);
                 entity.Property(payment => payment.Provider).HasMaxLength(30);
                 entity.Property(payment => payment.Status).HasConversion<string>().HasMaxLength(20);
+                entity.Property(payment => payment.FulfillmentStatus).HasConversion<string>().HasMaxLength(30);
+                entity.Property(payment => payment.ResolutionReasonCode).HasMaxLength(64);
                 entity.Property(payment => payment.Purpose).HasConversion<string>().HasMaxLength(30);
                 entity.Property(payment => payment.TargetTotalPrice).HasPrecision(18, 2);
                 entity.Property(payment => payment.ExternalSessionId).HasMaxLength(255);
