@@ -18,6 +18,28 @@ public sealed class PaymentRepository(ApplicationDbContext context) : IPaymentRe
             payment.Purpose == PaymentPurpose.RescheduleTopUp &&
             payment.Status == PaymentStatus.Pending, cancellationToken);
 
+    // Session expiry alone cannot release a hold: Stripe may have accepted payment before
+    // its webhook arrives. Reconciliation changes Pending to a terminal financial status.
+    private IQueryable<Payment> LivePendingHolds(int courtId, DateTime nowLocal) =>
+        context.Payments.Where(payment => payment.Reservation.CourtId == courtId &&
+            payment.Status == PaymentStatus.Pending &&
+            ((payment.Purpose == PaymentPurpose.InitialBooking &&
+                payment.Reservation.Status == "PendingPayment" && payment.Reservation.StartTime > nowLocal) ||
+             (payment.Purpose == PaymentPurpose.RescheduleTopUp &&
+                payment.TargetStartTime > nowLocal && payment.TargetEndTime != null)));
+
+    public Task<bool> HasLivePendingHoldForCourtAsync(int courtId, DateTime nowLocal,
+        CancellationToken cancellationToken = default) =>
+        LivePendingHolds(courtId, nowLocal).AnyAsync(cancellationToken);
+
+    public Task<bool> HasLivePendingHoldOverlapAsync(int courtId, DateTime startTime, DateTime endTime,
+        DateTime nowLocal, CancellationToken cancellationToken = default) =>
+        LivePendingHolds(courtId, nowLocal).AnyAsync(payment =>
+            (payment.Purpose == PaymentPurpose.InitialBooking &&
+                payment.Reservation.StartTime < endTime && payment.Reservation.EndTime > startTime) ||
+            (payment.Purpose == PaymentPurpose.RescheduleTopUp &&
+                payment.TargetStartTime < endTime && payment.TargetEndTime > startTime), cancellationToken);
+
     public Task<bool> HasPendingTargetOverlapAsync(int courtId, DateTime startTime, DateTime endTime,
         int? excludedPaymentId = null, CancellationToken cancellationToken = default) =>
         context.Payments.AnyAsync(payment => payment.Reservation.CourtId == courtId &&

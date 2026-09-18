@@ -5,4 +5,6 @@ public interface IBookingTimeService
     DateTime Now { get; }
 
     DateTime UtcNow { get; }
+
+    DateTime ToUtc(DateTime localBookingTime);
 }

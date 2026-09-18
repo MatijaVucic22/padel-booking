@@ -5,6 +5,7 @@ public enum DeactivateCourtStatus
     Success,
     NotFound,
     HasFutureReservations,
+    HasPendingPayment,
     LockTimeout
 }
 

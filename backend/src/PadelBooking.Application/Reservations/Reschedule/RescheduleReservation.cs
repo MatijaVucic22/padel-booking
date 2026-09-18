@@ -4,6 +4,7 @@ using PadelBooking.Application.Abstractions.Payments;
 using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Application.Abstractions.Time;
 using PadelBooking.Application.Notifications;
+using PadelBooking.Application.Payments;
 using PadelBooking.Domain.Entities;
 
 namespace PadelBooking.Application.Reservations.Reschedule;
@@ -76,12 +77,20 @@ public sealed class RescheduleReservation(
 
             if (topUp > 0m)
             {
+                var expiresAtUtc = CheckoutExpirationPolicy.GetExpirationUtc(command.StartTime, bookingTime);
+                if (expiresAtUtc is null)
+                    return new(RescheduleReservationStatus.CheckoutWindowClosed);
+
                 CheckoutSession session;
                 try
                 {
                     session = await gateway.CreateCheckoutAsync(new CheckoutRequest(
                         Guid.NewGuid().ToString("N"), court.Name, reservation.User.Email,
-                        checked((long)(topUp * 100m)), "RSD"), cancellationToken);
+                        checked((long)(topUp * 100m)), "RSD", expiresAtUtc.Value), cancellationToken);
+                }
+                catch (CheckoutWindowClosedException)
+                {
+                    return new(RescheduleReservationStatus.CheckoutWindowClosed);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
                 catch { return new(RescheduleReservationStatus.ProviderUnavailable); }

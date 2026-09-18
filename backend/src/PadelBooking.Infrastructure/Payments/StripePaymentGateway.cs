@@ -2,6 +2,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using PadelBooking.Application.Abstractions.Payments;
+using PadelBooking.Application.Abstractions.Time;
+using PadelBooking.Application.Payments;
 using Stripe;
 using Stripe.Checkout;
 
@@ -12,11 +14,14 @@ public sealed class StripePaymentGateway : IPaymentGateway
     private readonly StripePaymentOptions _options;
     private readonly ILogger<StripePaymentGateway> _logger;
     private readonly Lazy<StripeClient> _client;
+    private readonly IBookingTimeService _bookingTime;
 
-    public StripePaymentGateway(IOptions<StripePaymentOptions> options, ILogger<StripePaymentGateway> logger)
+    public StripePaymentGateway(IOptions<StripePaymentOptions> options, ILogger<StripePaymentGateway> logger,
+        IBookingTimeService bookingTime)
     {
         _options = options.Value;
         _logger = logger;
+        _bookingTime = bookingTime;
         _client = new Lazy<StripeClient>(() =>
         {
             if (!_options.SecretKey.StartsWith("sk_test_", StringComparison.Ordinal))
@@ -28,6 +33,9 @@ public sealed class StripePaymentGateway : IPaymentGateway
     public async Task<CheckoutSession> CreateCheckoutAsync(
         CheckoutRequest request, CancellationToken cancellationToken = default)
     {
+        if (!CheckoutExpirationPolicy.CanCreateSession(request.ExpiresAtUtc, _bookingTime.UtcNow))
+            throw new CheckoutWindowClosedException();
+
         var frontendUrl = GetFrontendUrl();
         var reference = request.CheckoutReference;
         var session = await Service().CreateAsync(new SessionCreateOptions
@@ -36,7 +44,7 @@ public sealed class StripePaymentGateway : IPaymentGateway
             PaymentMethodTypes = ["card"],
             CustomerEmail = request.CustomerEmail,
             ClientReferenceId = reference,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(35),
+            ExpiresAt = request.ExpiresAtUtc,
             SuccessUrl = $"{frontendUrl}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
             CancelUrl = $"{frontendUrl}/payment/cancel",
             Metadata = new Dictionary<string, string> { ["checkoutReference"] = reference },

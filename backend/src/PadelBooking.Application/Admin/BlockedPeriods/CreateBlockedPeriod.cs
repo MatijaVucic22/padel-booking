@@ -45,11 +45,11 @@ public sealed class CreateBlockedPeriod
             if (court is null) return new(CreateBlockedPeriodStatus.CourtNotFound);
             courtName = court.Name;
 
+            if (await _payments.HasLivePendingHoldOverlapAsync(command.CourtId,
+                    command.StartTime, command.EndTime, _bookingTime.Now, cancellationToken))
+                return new(CreateBlockedPeriodStatus.PaymentHoldOverlap);
             if (await _reservations.HasOverlapAsync(command.CourtId,
                     command.StartTime, command.EndTime, null, cancellationToken))
-                return new(CreateBlockedPeriodStatus.ReservationOverlap);
-            if (await _payments.HasPendingTargetOverlapAsync(command.CourtId,
-                    command.StartTime, command.EndTime, cancellationToken: cancellationToken))
                 return new(CreateBlockedPeriodStatus.ReservationOverlap);
             if (await _blockedPeriods.HasOverlapAsync(command.CourtId,
                     command.StartTime, command.EndTime, cancellationToken))
