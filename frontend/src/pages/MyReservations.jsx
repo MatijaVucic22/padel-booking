@@ -855,7 +855,7 @@ function MyReservations() {
 
       {rescheduling && selectedRescheduleSlot && rescheduleConfirmationPhase && (
         <div className="booking-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeRescheduleConfirmation(); }}>
-          <section className="booking-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="reschedule-confirm-title">
+          <section className="booking-confirm-modal reschedule-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="reschedule-confirm-title">
             {rescheduleConfirmationPhase === "confirm" && (
               <>
                 <header className="booking-confirm-heading">
@@ -864,13 +864,14 @@ function MyReservations() {
                 </header>
 
                 <div className="reschedule-confirm-comparison">
-                  <section>
+                  <section className="reschedule-comparison-current">
                     <span className="reservation-label">Stari termin</span>
-                    <strong>{dateFormatter.format(new Date(rescheduling.startTime))}</strong>
+                    <strong>{rescheduling.courtName}</strong>
+                    <p>{dateFormatter.format(new Date(rescheduling.startTime))}</p>
                     <p>{timeFormatter.format(new Date(rescheduling.startTime))}–{timeFormatter.format(new Date(rescheduling.endTime))}</p>
                     <small>{originalRescheduleDuration} {originalRescheduleDuration === 1 ? "sat" : "sata"}</small>
                   </section>
-                  <section>
+                  <section className="reschedule-comparison-new">
                     <span className="reservation-label">Novi termin</span>
                     <strong>{rescheduling.courtName}</strong>
                     <p>{dateFormatter.format(new Date(selectedRescheduleSlot.startTime))}</p>
@@ -882,11 +883,11 @@ function MyReservations() {
 
                 {rescheduleQuote && (
                   <dl className="booking-confirm-details reschedule-financial-details">
-                    <div><dt>Trenutna cena</dt><dd>{priceFormatter.format(rescheduleQuote.currentPrice)}</dd></div>
-                    <div><dt>Već plaćeno</dt><dd>{priceFormatter.format(rescheduleQuote.paidCredit)}</dd></div>
-                    <div><dt>Nova cena</dt><dd>{priceFormatter.format(rescheduleQuote.newPrice)}</dd></div>
+                    <div className="reschedule-price-current"><dt>Trenutna cena</dt><dd>{priceFormatter.format(rescheduleQuote.currentPrice)}</dd></div>
+                    <div className="reschedule-price-new"><dt>Nova cena</dt><dd>{priceFormatter.format(rescheduleQuote.newPrice)}</dd></div>
+                    <div className="reschedule-price-paid"><dt>Već plaćeno</dt><dd>{priceFormatter.format(rescheduleQuote.paidCredit)}</dd></div>
                     {rescheduleQuote.topUpAmount > 0 && (
-                      <div><dt>Doplata karticom</dt><dd>{priceFormatter.format(rescheduleQuote.topUpAmount)}</dd></div>
+                      <div className="reschedule-price-result"><dt>Doplata karticom</dt><dd>{priceFormatter.format(rescheduleQuote.topUpAmount)}</dd></div>
                     )}
                     {rescheduleQuote.nonRefundedDifference > 0 && (
                       <p>Razlika od {priceFormatter.format(rescheduleQuote.nonRefundedDifference)} neće biti automatski refundirana. Uplaćeni iznos ostaje kredit za buduću promenu termina.</p>
