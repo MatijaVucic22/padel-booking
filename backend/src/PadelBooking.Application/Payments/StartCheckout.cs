@@ -7,7 +7,7 @@ using PadelBooking.Domain.Entities;
 
 namespace PadelBooking.Application.Payments;
 
-public enum StartCheckoutStatus { Success, Unauthorized, CourtNotFound, Occupied, Blocked, LockTimeout, ProviderUnavailable }
+public enum StartCheckoutStatus { Success, Unauthorized, CourtNotFound, Occupied, Blocked, CheckoutWindowClosed, LockTimeout, ProviderUnavailable }
 public sealed record StartCheckoutResult(StartCheckoutStatus Status, int? ReservationId = null, string? Url = null);
 
 public sealed class StartCheckout(
@@ -49,6 +49,8 @@ public sealed class StartCheckout(
             var durationHours = (decimal)(endTime - startTime).TotalHours;
             var amount = Math.Round(court.PricePerHour * durationHours, 2);
             var amountMinor = checked((long)(amount * 100m));
+            var expiresAtUtc = CheckoutExpirationPolicy.GetExpirationUtc(startTime, bookingTime);
+            if (expiresAtUtc is null) return new(StartCheckoutStatus.CheckoutWindowClosed);
             reservation = new Reservation
             {
                 UserId = userId,
@@ -62,8 +64,13 @@ public sealed class StartCheckout(
             try
             {
                 session = await gateway.CreateCheckoutAsync(
-                    new CheckoutRequest(Guid.NewGuid().ToString("N"), court.Name, user.Email, amountMinor, "RSD"),
+                    new CheckoutRequest(Guid.NewGuid().ToString("N"), court.Name, user.Email, amountMinor, "RSD",
+                        expiresAtUtc.Value),
                     cancellationToken);
+            }
+            catch (CheckoutWindowClosedException)
+            {
+                return new(StartCheckoutStatus.CheckoutWindowClosed);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

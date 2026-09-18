@@ -9,6 +9,7 @@ public sealed class DeactivateCourt
 {
     private readonly ICourtRepository _courts;
     private readonly IReservationRepository _reservations;
+    private readonly IPaymentRepository _payments;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICourtAdvisoryLockService _courtLock;
     private readonly IBookingTimeService _bookingTime;
@@ -17,6 +18,7 @@ public sealed class DeactivateCourt
     public DeactivateCourt(
         ICourtRepository courts,
         IReservationRepository reservations,
+        IPaymentRepository payments,
         IUnitOfWork unitOfWork,
         ICourtAdvisoryLockService courtLock,
         IBookingTimeService bookingTime,
@@ -24,6 +26,7 @@ public sealed class DeactivateCourt
     {
         _courts = courts;
         _reservations = reservations;
+        _payments = payments;
         _unitOfWork = unitOfWork;
         _courtLock = courtLock;
         _bookingTime = bookingTime;
@@ -47,6 +50,9 @@ public sealed class DeactivateCourt
             {
                 return new(DeactivateCourtStatus.NotFound);
             }
+
+            if (await _payments.HasLivePendingHoldForCourtAsync(id, _bookingTime.Now, cancellationToken))
+                return new(DeactivateCourtStatus.HasPendingPayment);
 
             if (await _reservations.HasFutureActiveReservationsAsync(
                     id,

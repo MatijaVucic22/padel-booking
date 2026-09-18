@@ -90,6 +90,10 @@ public class ReservationsController : ControllerBase
                 "Izabrani termin je blokiran zbog održavanja."),
             RescheduleReservationStatus.PendingTopUp => Conflict(
                 "Promena termina već čeka potvrdu doplate."),
+            RescheduleReservationStatus.CheckoutWindowClosed => BadRequest(new
+            {
+                message = "Za doplatu izaberite termin koji počinje za najmanje 34 minuta."
+            }),
             RescheduleReservationStatus.ConfirmationRequired => BadRequest(new
             {
                 message = "Potvrdite da razlika u ceni neće biti refundirana.",

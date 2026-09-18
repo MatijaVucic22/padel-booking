@@ -5,7 +5,8 @@ public sealed record CheckoutRequest(
     string CourtName,
     string CustomerEmail,
     long AmountMinor,
-    string Currency);
+    string Currency,
+    DateTime ExpiresAtUtc);
 
 public sealed record CheckoutSession(
     string Id,

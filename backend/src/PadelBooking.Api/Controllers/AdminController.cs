@@ -82,6 +82,8 @@ public class AdminController : ControllerBase
                 "Teren nije pronađen ili više nije aktivan."),
             CreateBlockedPeriodStatus.ReservationOverlap => Conflict(
                 "Blokirani period se preklapa sa postojećom rezervacijom."),
+            CreateBlockedPeriodStatus.PaymentHoldOverlap => Conflict(
+                "Blokiranje nije moguće dok traje plaćanje za ovaj termin."),
             CreateBlockedPeriodStatus.BlockedPeriodOverlap => Conflict(
                 "Izabrani period je već blokiran."),
             CreateBlockedPeriodStatus.LockTimeout => LockTimeout(),

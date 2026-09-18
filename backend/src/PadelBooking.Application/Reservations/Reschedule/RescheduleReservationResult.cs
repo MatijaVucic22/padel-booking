@@ -13,6 +13,7 @@ public enum RescheduleReservationStatus
     ConfirmationRequired,
     QuoteChanged,
     CheckoutRequired,
+    CheckoutWindowClosed,
     ProviderUnavailable,
     LockTimeout
 }

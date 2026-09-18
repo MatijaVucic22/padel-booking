@@ -94,6 +94,8 @@ public class CourtsController : ControllerBase
             DeactivateCourtStatus.NotFound => NotFound("Teren nije pronađen."),
             DeactivateCourtStatus.HasFutureReservations => Conflict(
                 "Teren nije moguće deaktivirati dok postoje aktivne buduće rezervacije."),
+            DeactivateCourtStatus.HasPendingPayment => Conflict(
+                "Teren nije moguće deaktivirati dok traje plaćanje rezervacije ili doplate."),
             DeactivateCourtStatus.LockTimeout => LockTimeout(),
             _ => Ok(new { message = "Teren je uspešno deaktiviran." })
         };

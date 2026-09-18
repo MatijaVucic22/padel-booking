@@ -34,6 +34,10 @@ public sealed class PaymentsController(
             StartCheckoutStatus.CourtNotFound => NotFound("Teren nije pronađen ili više nije aktivan."),
             StartCheckoutStatus.Occupied => Conflict("Izabrani termin je već zauzet."),
             StartCheckoutStatus.Blocked => Conflict("Izabrani termin je blokiran zbog održavanja."),
+            StartCheckoutStatus.CheckoutWindowClosed => BadRequest(new
+            {
+                message = "Za online plaćanje izaberite termin koji počinje za najmanje 34 minuta."
+            }),
             StartCheckoutStatus.LockTimeout => LockTimeout(),
             StartCheckoutStatus.ProviderUnavailable => StatusCode(503, new
             {

@@ -20,6 +20,9 @@ namespace PadelBooking.Infrastructure.Time
 
         public DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
 
+        public DateTime ToUtc(DateTime localBookingTime) => TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(localBookingTime, DateTimeKind.Unspecified), _businessTimeZone);
+
         private static TimeZoneInfo GetBusinessTimeZone()
         {
             try

@@ -7,6 +7,10 @@ public interface IPaymentRepository
     void Add(Payment payment);
     Task<decimal> GetPaidCreditAsync(int reservationId, CancellationToken cancellationToken = default);
     Task<bool> HasPendingTopUpAsync(int reservationId, CancellationToken cancellationToken = default);
+    Task<bool> HasLivePendingHoldForCourtAsync(int courtId, DateTime nowLocal,
+        CancellationToken cancellationToken = default);
+    Task<bool> HasLivePendingHoldOverlapAsync(int courtId, DateTime startTime, DateTime endTime,
+        DateTime nowLocal, CancellationToken cancellationToken = default);
     Task<bool> HasPendingTargetOverlapAsync(int courtId, DateTime startTime, DateTime endTime,
         int? excludedPaymentId = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<(DateTime StartTime, DateTime EndTime)>> ListPendingTargetIntervalsAsync(
