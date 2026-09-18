@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PadelBooking.Api.DTOs;
+using PadelBooking.Api.Errors;
 using PadelBooking.Application.Admin.BlockedPeriods;
 using PadelBooking.Application.Admin.Calendar;
 using PadelBooking.Application.Admin.Reservations;
@@ -47,13 +48,9 @@ public class AdminController : ControllerBase
         if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var calendarDate))
         {
-            return BadRequest(new
+            return ApiProblem.Validation(HttpContext, new Dictionary<string, string[]>
             {
-                message = "Podaci nisu ispravni.",
-                errors = new
-                {
-                    date = new[] { "Datum mora biti u formatu yyyy-MM-dd." }
-                }
+                ["date"] = ["Datum mora biti u formatu yyyy-MM-dd."]
             });
         }
 
@@ -78,13 +75,13 @@ public class AdminController : ControllerBase
             HttpContext.RequestAborted);
         return result.Status switch
         {
-            CreateBlockedPeriodStatus.CourtNotFound => NotFound(
+            CreateBlockedPeriodStatus.CourtNotFound => this.ApiError(404, ApiErrorCodes.CourtInactive,
                 "Teren nije pronađen ili više nije aktivan."),
-            CreateBlockedPeriodStatus.ReservationOverlap => Conflict(
+            CreateBlockedPeriodStatus.ReservationOverlap => this.ApiError(409, ApiErrorCodes.SlotUnavailable,
                 "Blokirani period se preklapa sa postojećom rezervacijom."),
-            CreateBlockedPeriodStatus.PaymentHoldOverlap => Conflict(
+            CreateBlockedPeriodStatus.PaymentHoldOverlap => this.ApiError(409, ApiErrorCodes.ActivePaymentHold,
                 "Blokiranje nije moguće dok traje plaćanje za ovaj termin."),
-            CreateBlockedPeriodStatus.BlockedPeriodOverlap => Conflict(
+            CreateBlockedPeriodStatus.BlockedPeriodOverlap => this.ApiError(409, ApiErrorCodes.SlotUnavailable,
                 "Izabrani period je već blokiran."),
             CreateBlockedPeriodStatus.LockTimeout => LockTimeout(),
             _ => Ok(new
@@ -102,7 +99,7 @@ public class AdminController : ControllerBase
             id, HttpContext.RequestAborted);
         return result.Status switch
         {
-            DeleteBlockedPeriodStatus.NotFound => NotFound(
+            DeleteBlockedPeriodStatus.NotFound => this.ApiError(404, ApiErrorCodes.NotFound,
                 "Blokirani period nije pronađen."),
             DeleteBlockedPeriodStatus.LockTimeout => LockTimeout(),
             _ => Ok(new { message = "Termin je uspešno odblokiran." })
@@ -116,10 +113,7 @@ public class AdminController : ControllerBase
     private IActionResult LockTimeout()
     {
         Response.Headers.RetryAfter = "1";
-        return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-        {
-            code = "COURT_LOCK_TIMEOUT",
-            message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
-        });
+        return this.ApiError(503, ApiErrorCodes.CourtLockTimeout,
+            "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo.");
     }
 }

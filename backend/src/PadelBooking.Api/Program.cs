@@ -5,6 +5,7 @@ using System.Text;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using PadelBooking.Api.Validation;
+using PadelBooking.Api.Errors;
 using PadelBooking.Api.Validators;
 using PadelBooking.Api.Services;
 using PadelBooking.Api.Hubs;
@@ -37,6 +38,34 @@ builder.Services.AddScoped<IPaymentResolutionLogger, PaymentResolutionLogger>();
 builder.Services.AddHostedService<ReservationReminderBackgroundService>();
 builder.Services.AddHostedService<PaymentReconciliationBackgroundService>();
 builder.Services.AddSignalR();
+builder.Services.AddTransient<IProblemDetailsWriter, ApiProblemDetailsWriter>();
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        var status = context.ProblemDetails.Status ?? context.HttpContext.Response.StatusCode;
+        var code = status switch
+        {
+            StatusCodes.Status400BadRequest => ApiErrorCodes.Validation,
+            StatusCodes.Status401Unauthorized => ApiErrorCodes.Unauthorized,
+            StatusCodes.Status403Forbidden => ApiErrorCodes.Forbidden,
+            StatusCodes.Status404NotFound => ApiErrorCodes.NotFound,
+            StatusCodes.Status429TooManyRequests => ApiErrorCodes.RateLimited,
+            _ => status >= 500 ? ApiErrorCodes.Internal : ApiErrorCodes.RequestFailed
+        };
+        var detail = status == StatusCodes.Status500InternalServerError
+            ? "Došlo je do neočekivane greške. Pokušajte ponovo."
+            : status switch
+            {
+                401 => "Prijava je potrebna.",
+                403 => "Pristup nije dozvoljen.",
+                404 => "Traženi resurs nije pronađen.",
+                429 => "Previše zahteva. Pokušajte ponovo kasnije.",
+                _ => "Zahtev nije moguće obraditi."
+            };
+        ApiProblem.Populate(context.ProblemDetails, context.HttpContext, status, code, detail);
+    };
+});
 
 builder.Services.AddControllers(options =>
 {
@@ -58,11 +87,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
                     .ToArray()
             );
 
-        return new BadRequestObjectResult(new
-        {
-            message = "Podaci nisu ispravni.",
-            errors
-        });
+        return ApiProblem.Validation(context.HttpContext, errors);
     };
 });
 
@@ -164,10 +189,11 @@ builder.Services.AddRateLimiter(options =>
 
     options.OnRejected = async (context, cancellationToken) =>
     {
-        await context.HttpContext.Response.WriteAsJsonAsync(new
-        {
-            message = "Previše pokušaja prijave. Pokušajte ponovo za minut."
-        }, cancellationToken);
+        await Results.Json(
+            ((ObjectResult)ApiProblem.Result(context.HttpContext, 429, ApiErrorCodes.RateLimited,
+                "Previše pokušaja prijave. Pokušajte ponovo za minut.")).Value,
+            contentType: "application/problem+json", statusCode: 429)
+            .ExecuteAsync(context.HttpContext);
     };
 });
 
@@ -179,6 +205,8 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
@@ -203,8 +231,11 @@ app.Use(async (context, next) =>
             (!allowedFrontendOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase) &&
              !string.Equals(origin, serverOrigin, StringComparison.OrdinalIgnoreCase)))
         {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsJsonAsync(new { message = "Zahtev nije dozvoljen sa ovog izvora." });
+            await Results.Json(
+                ((ObjectResult)ApiProblem.Result(context, 403, ApiErrorCodes.Forbidden,
+                    "Zahtev nije dozvoljen sa ovog izvora.")).Value,
+                contentType: "application/problem+json", statusCode: 403)
+                .ExecuteAsync(context);
             return;
         }
     }

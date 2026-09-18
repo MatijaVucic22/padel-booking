@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using PadelBooking.Application.Abstractions.Notifications;
 using PadelBooking.Application.Abstractions.Payments;
+using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Application.Notifications;
+using PadelBooking.Domain.Entities;
 
 namespace PadelBooking.IntegrationTests;
 
@@ -99,4 +101,16 @@ internal sealed class TestNotificationLogger : IReservationNotificationLogger
 {
     public void LogEmailFailure(Exception exception, int reservationId,
         string notificationType, bool warning = false) { }
+}
+
+internal sealed class ThrowingCourtRepository : ICourtRepository
+{
+    private static Exception Failure() => new InvalidOperationException("sensitive-db-password-marker");
+
+    public Task<Court?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => throw Failure();
+    public Task<Court?> GetActiveByIdAsync(int id, CancellationToken cancellationToken = default) => throw Failure();
+    public Task<IReadOnlyList<Court>> ListActiveAsync(CancellationToken cancellationToken = default) => throw Failure();
+    public Task<IReadOnlyList<Court>> ListAvailableAsync(DateTime startTime, DateTime endTime,
+        CancellationToken cancellationToken = default) => throw Failure();
+    public void Add(Court court) => throw Failure();
 }

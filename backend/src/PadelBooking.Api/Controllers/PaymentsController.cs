@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PadelBooking.Api.DTOs;
+using PadelBooking.Api.Errors;
 using PadelBooking.Application.Abstractions.Payments;
 using PadelBooking.Application.Payments;
 
@@ -31,18 +32,17 @@ public sealed class PaymentsController(
         return result.Status switch
         {
             StartCheckoutStatus.Unauthorized => Unauthorized(),
-            StartCheckoutStatus.CourtNotFound => NotFound("Teren nije pronađen ili više nije aktivan."),
-            StartCheckoutStatus.Occupied => Conflict("Izabrani termin je već zauzet."),
-            StartCheckoutStatus.Blocked => Conflict("Izabrani termin je blokiran zbog održavanja."),
-            StartCheckoutStatus.CheckoutWindowClosed => BadRequest(new
-            {
-                message = "Za online plaćanje izaberite termin koji počinje za najmanje 34 minuta."
-            }),
+            StartCheckoutStatus.CourtNotFound => this.ApiError(404, ApiErrorCodes.CourtInactive,
+                "Teren nije pronađen ili više nije aktivan."),
+            StartCheckoutStatus.Occupied => this.ApiError(409, ApiErrorCodes.SlotUnavailable,
+                "Izabrani termin je već zauzet."),
+            StartCheckoutStatus.Blocked => this.ApiError(409, ApiErrorCodes.SlotUnavailable,
+                "Izabrani termin je blokiran zbog održavanja."),
+            StartCheckoutStatus.CheckoutWindowClosed => this.ApiError(400, ApiErrorCodes.CheckoutTooClose,
+                "Za online plaćanje izaberite termin koji počinje za najmanje 34 minuta."),
             StartCheckoutStatus.LockTimeout => LockTimeout(),
-            StartCheckoutStatus.ProviderUnavailable => StatusCode(503, new
-            {
-                message = "Plaćanje trenutno nije dostupno. Pokušajte ponovo."
-            }),
+            StartCheckoutStatus.ProviderUnavailable => this.ApiError(503, ApiErrorCodes.ProviderUnavailable,
+                "Plaćanje trenutno nije dostupno. Pokušajte ponovo."),
             _ => Ok(new { reservationId = result.ReservationId, checkoutUrl = result.Url })
         };
     }
@@ -56,14 +56,15 @@ public sealed class PaymentsController(
         {
             var status = await getPaymentStatus.ExecuteAsync(
                 sessionId, userId, HttpContext.RequestAborted);
-            return status is null ? NotFound("Plaćanje nije pronađeno.") : Ok(status);
+            return status is null ? this.ApiError(404, ApiErrorCodes.NotFound, "Plaćanje nije pronađeno.") : Ok(status);
         }
         catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested) { throw; }
         catch (Exception exception)
         {
             logger.LogWarning("Provera Stripe sesije nije uspela. SessionId={SessionId}, ErrorType={ErrorType}.",
                 sessionId, exception.GetType().Name);
-            return StatusCode(503, new { message = "Provera plaćanja trenutno nije dostupna. Pokušajte ponovo." });
+            return this.ApiError(503, ApiErrorCodes.ProviderUnavailable,
+                "Provera plaćanja trenutno nije dostupna. Pokušajte ponovo.");
         }
     }
 
@@ -80,7 +81,7 @@ public sealed class PaymentsController(
         }
         catch (InvalidPaymentWebhookException)
         {
-            return BadRequest(new { message = "Stripe webhook potpis nije ispravan." });
+            return this.ApiError(400, ApiErrorCodes.InvalidWebhook, "Stripe webhook potpis nije ispravan.");
         }
 
         logger.LogInformation("Stripe webhook primljen. EventType={EventType}, SessionId={SessionId}, PaymentStatus={PaymentStatus}.",
@@ -94,7 +95,8 @@ public sealed class PaymentsController(
         catch (Exception exception)
         {
             logger.LogError(exception, "Obrada Stripe webhook-a nije uspela.");
-            return StatusCode(503);
+            return this.ApiError(503, ApiErrorCodes.ProviderUnavailable,
+                "Obrada plaćanja trenutno nije dostupna. Pokušajte ponovo.");
         }
     }
 
@@ -104,10 +106,7 @@ public sealed class PaymentsController(
     private IActionResult LockTimeout()
     {
         Response.Headers.RetryAfter = "1";
-        return StatusCode(503, new
-        {
-            code = "COURT_LOCK_TIMEOUT",
-            message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
-        });
+        return this.ApiError(503, ApiErrorCodes.CourtLockTimeout,
+            "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo.");
     }
 }

@@ -1,3 +1,11 @@
+export function normalizeApiErrorData(data) {
+  if (data && typeof data === "object" && !Array.isArray(data) &&
+      typeof data.detail === "string" && !data.message) {
+    return { ...data, message: data.detail };
+  }
+  return data;
+}
+
 export function parseValidationErrors(error) {
   const responseErrors = error?.response?.data?.errors;
 

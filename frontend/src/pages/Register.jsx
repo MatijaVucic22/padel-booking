@@ -69,7 +69,7 @@ function Register() {
         setError(
           typeof error.response.data === "string"
             ? error.response.data
-            : "Registracija nije uspela."
+            : error.response.data?.message ?? "Registracija nije uspela."
         );
       } else {
         setError("Nije moguće povezati se sa serverom.");

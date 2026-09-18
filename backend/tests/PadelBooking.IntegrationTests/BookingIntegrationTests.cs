@@ -53,6 +53,150 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     {
         using var response = await host.Client.GetAsync("/api/reservations/my");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        using var json = await AssertProblemAsync(response, "UNAUTHORIZED");
+        Assert.Equal(401, json.RootElement.GetProperty("status").GetInt32());
+    }
+
+    [Theory]
+    [InlineData("text/html")]
+    [InlineData("application/xml")]
+    public async Task ProtectedEndpoint_WithRestrictiveAccept_ReturnsProblemDetails(string accept)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/reservations/my");
+        request.Headers.Accept.ParseAdd(accept);
+        using var response = await host.Client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        using var json = await AssertProblemAsync(response, "UNAUTHORIZED");
+        Assert.Equal(401, json.RootElement.GetProperty("status").GetInt32());
+    }
+
+    [Fact]
+    public async Task AdminEndpoint_AsUser_ReturnsForbiddenProblemDetails()
+    {
+        using var user = await AuthenticatedClientAsync();
+        using var response = await user.GetAsync("/api/admin/users");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var json = await AssertProblemAsync(response, "FORBIDDEN");
+        Assert.Equal(403, json.RootElement.GetProperty("status").GetInt32());
+    }
+
+    [Fact]
+    public async Task AdminEndpoint_AsUser_WithHtmlAccept_ReturnsForbiddenProblemDetails()
+    {
+        using var user = await AuthenticatedClientAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/admin/users");
+        request.Headers.Accept.ParseAdd("text/html");
+        using var response = await user.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var json = await AssertProblemAsync(response, "FORBIDDEN");
+        Assert.Equal(403, json.RootElement.GetProperty("status").GetInt32());
+    }
+
+    [Fact]
+    public async Task ValidationFailure_ReturnsProblemDetailsWithFieldErrors()
+    {
+        using var response = await host.Client.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "A", lastName = "Igrac", email = "invalid", password = Password
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var json = await AssertProblemAsync(response, "VALIDATION_ERROR");
+        Assert.True(json.RootElement.GetProperty("errors").TryGetProperty("firstName", out _));
+        Assert.True(json.RootElement.GetProperty("errors").TryGetProperty("email", out _));
+    }
+
+    [Fact]
+    public async Task OccupiedCheckout_ReturnsConflictProblemDetails()
+    {
+        var courtId = await SeedCourtAsync();
+        var (start, end) = Slot(10);
+        using var user = await AuthenticatedClientAsync();
+        using var first = await CheckoutAsync(user, courtId, start, end);
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        using var second = await CheckoutAsync(user, courtId, start, end);
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        using var json = await AssertProblemAsync(second, "SLOT_UNAVAILABLE");
+        Assert.Equal(409, json.RootElement.GetProperty("status").GetInt32());
+    }
+
+    [Fact]
+    public async Task MissingCourt_ReturnsNotFoundProblemDetails()
+    {
+        using var response = await host.Client.GetAsync("/api/courts/2147483647");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        using var json = await AssertProblemAsync(response, "NOT_FOUND");
+        Assert.Equal(404, json.RootElement.GetProperty("status").GetInt32());
+    }
+
+    [Fact]
+    public async Task MissingApiRoute_WithHtmlAccept_ReturnsProblemDetails()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/does-not-exist");
+        request.Headers.Accept.ParseAdd("text/html");
+        using var response = await host.Client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        using var json = await AssertProblemAsync(response, "NOT_FOUND");
+        Assert.Equal(404, json.RootElement.GetProperty("status").GetInt32());
+    }
+
+    [Fact]
+    public async Task UnexpectedException_ReturnsSafeProblemDetails()
+    {
+        using var factory = host.CreateFactoryWithCourtFailure();
+        using var client = factory.CreateClient();
+        using var response = await client.GetAsync("/api/courts");
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        using var json = await AssertProblemAsync(response, "INTERNAL_ERROR");
+        Assert.Equal("Došlo je do neočekivane greške. Pokušajte ponovo.",
+            json.RootElement.GetProperty("detail").GetString());
+        Assert.DoesNotContain("sensitive-db-password-marker", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task UnexpectedException_WithHtmlAccept_ReturnsSafeProblemDetails()
+    {
+        using var factory = host.CreateFactoryWithCourtFailure();
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/courts");
+        request.Headers.Accept.ParseAdd("text/html");
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        using var json = await AssertProblemAsync(response, "INTERNAL_ERROR");
+        Assert.Equal(500, json.RootElement.GetProperty("status").GetInt32());
+        Assert.DoesNotContain("sensitive-db-password-marker", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task LoginRateLimit_ReturnsProblemDetails()
+    {
+        using var factory = host.CreateIsolatedFactory();
+        using var client = factory.CreateClient();
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            using var rejectedLogin = await client.PostAsJsonAsync("/api/auth/login", new
+            {
+                email = UniqueEmail(), password = Password
+            });
+            Assert.Equal(HttpStatusCode.Unauthorized, rejectedLogin.StatusCode);
+        }
+
+        using var limited = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email = UniqueEmail(), password = Password
+        });
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        using var json = await AssertProblemAsync(limited, "RATE_LIMITED");
+    }
+
+    private static async Task<JsonDocument> AssertProblemAsync(HttpResponseMessage response, string code)
+    {
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(code, json.RootElement.GetProperty("code").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(json.RootElement.GetProperty("traceId").GetString()));
+        Assert.Equal($"https://httpstatuses.com/{(int)response.StatusCode}",
+            json.RootElement.GetProperty("type").GetString());
+        return json;
     }
 
     [Fact]
@@ -671,6 +815,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
             courtId, startTime = Local(start), endTime = Local(end)
         });
         Assert.Equal(HttpStatusCode.PaymentRequired, response.StatusCode);
+        using var problem = await AssertProblemAsync(response, "PAYMENT_REQUIRED");
         await using var scope = host.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.False(await db.Reservations.AnyAsync(reservation => reservation.CourtId == courtId));
