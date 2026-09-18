@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using PadelBooking.Api.Errors;
 
 namespace PadelBooking.Api.Validation
 {
@@ -58,11 +59,8 @@ namespace PadelBooking.Api.Validation
 
             if (failures.Count > 0)
             {
-                context.Result = new BadRequestObjectResult(new
-                {
-                    message = "Podaci nisu ispravni.",
-                    errors = failures
-                });
+                context.Result = ApiProblem.Validation(context.HttpContext,
+                    failures.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray()));
                 return;
             }
 

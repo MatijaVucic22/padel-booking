@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PadelBooking.Api.DTOs;
+using PadelBooking.Api.Errors;
 using PadelBooking.Application.Abstractions.Storage;
 using PadelBooking.Application.Courts.CreateCourt;
 using PadelBooking.Application.Courts.DeactivateCourt;
@@ -45,7 +46,7 @@ public class CourtsController : ControllerBase
     public async Task<IActionResult> GetCourt(int id)
     {
         var court = await _getCourt.ExecuteAsync(id, HttpContext.RequestAborted);
-        return court is null ? NotFound("Teren nije pronađen.") : Ok(court);
+        return court is null ? this.ApiError(404, ApiErrorCodes.NotFound, "Teren nije pronađen.") : Ok(court);
     }
 
     [HttpGet("available")]
@@ -81,7 +82,7 @@ public class CourtsController : ControllerBase
             new UpdateCourtCommand(id, request.Name, request.Location,
                 request.Description, request.PricePerHour),
             HttpContext.RequestAborted);
-        return court is null ? NotFound("Teren nije pronađen.") : Ok(court);
+        return court is null ? this.ApiError(404, ApiErrorCodes.NotFound, "Teren nije pronađen.") : Ok(court);
     }
 
     [Authorize(Roles = "Admin")]
@@ -91,10 +92,10 @@ public class CourtsController : ControllerBase
         var result = await _deactivateCourt.ExecuteAsync(id, HttpContext.RequestAborted);
         return result.Status switch
         {
-            DeactivateCourtStatus.NotFound => NotFound("Teren nije pronađen."),
-            DeactivateCourtStatus.HasFutureReservations => Conflict(
+            DeactivateCourtStatus.NotFound => this.ApiError(404, ApiErrorCodes.NotFound, "Teren nije pronađen."),
+            DeactivateCourtStatus.HasFutureReservations => this.ApiError(409, ApiErrorCodes.Conflict,
                 "Teren nije moguće deaktivirati dok postoje aktivne buduće rezervacije."),
-            DeactivateCourtStatus.HasPendingPayment => Conflict(
+            DeactivateCourtStatus.HasPendingPayment => this.ApiError(409, ApiErrorCodes.ActivePaymentHold,
                 "Teren nije moguće deaktivirati dok traje plaćanje rezervacije ili doplate."),
             DeactivateCourtStatus.LockTimeout => LockTimeout(),
             _ => Ok(new { message = "Teren je uspešno deaktiviran." })
@@ -104,10 +105,7 @@ public class CourtsController : ControllerBase
     private IActionResult LockTimeout()
     {
         Response.Headers.RetryAfter = "1";
-        return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-        {
-            code = "COURT_LOCK_TIMEOUT",
-            message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
-        });
+        return this.ApiError(503, ApiErrorCodes.CourtLockTimeout,
+            "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo.");
     }
 }

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PadelBooking.Api.DTOs;
+using PadelBooking.Api.Errors;
 using PadelBooking.Application.Reservations.Availability;
 using PadelBooking.Application.Reservations.Cancel;
 using PadelBooking.Application.Reservations.MyReservations;
@@ -33,10 +34,8 @@ public class ReservationsController : ControllerBase
     public IActionResult CreateReservation(CreateReservationRequest request)
     {
         // Direct creation would bypass Checkout. Clients must use the payment endpoint.
-        return StatusCode(StatusCodes.Status402PaymentRequired, new
-        {
-            message = "Za rezervaciju je potrebno test plaćanje. Koristite /api/payments/checkout."
-        });
+        return this.ApiError(402, ApiErrorCodes.PaymentRequired,
+            "Za rezervaciju je potrebno test plaćanje. Koristite /api/payments/checkout.");
     }
 
     [HttpGet("my")]
@@ -76,38 +75,28 @@ public class ReservationsController : ControllerBase
     {
         return result.Status switch
         {
-            RescheduleReservationStatus.NotFound => NotFound(
+            RescheduleReservationStatus.NotFound => this.ApiError(404, ApiErrorCodes.NotFound,
                 "Rezervacija nije pronađena."),
-            RescheduleReservationStatus.NotActiveFuture => Conflict(
+            RescheduleReservationStatus.NotActiveFuture => this.ApiError(409, ApiErrorCodes.RescheduleNotAllowed,
                 "Samo aktivnu buduću rezervaciju je moguće promeniti."),
-            RescheduleReservationStatus.CourtNotFound => NotFound(
+            RescheduleReservationStatus.CourtNotFound => this.ApiError(404, ApiErrorCodes.CourtInactive,
                 "Teren nije pronađen ili više nije aktivan."),
-            RescheduleReservationStatus.SameSlot => Conflict(
+            RescheduleReservationStatus.SameSlot => this.ApiError(409, ApiErrorCodes.RescheduleNotAllowed,
                 "Izaberi termin različit od trenutnog."),
-            RescheduleReservationStatus.Occupied => Conflict(
+            RescheduleReservationStatus.Occupied => this.ApiError(409, ApiErrorCodes.SlotUnavailable,
                 "Izabrani termin je već zauzet."),
-            RescheduleReservationStatus.Blocked => Conflict(
+            RescheduleReservationStatus.Blocked => this.ApiError(409, ApiErrorCodes.SlotUnavailable,
                 "Izabrani termin je blokiran zbog održavanja."),
-            RescheduleReservationStatus.PendingTopUp => Conflict(
+            RescheduleReservationStatus.PendingTopUp => this.ApiError(409, ApiErrorCodes.PaymentPending,
                 "Promena termina već čeka potvrdu doplate."),
-            RescheduleReservationStatus.CheckoutWindowClosed => BadRequest(new
-            {
-                message = "Za doplatu izaberite termin koji počinje za najmanje 34 minuta."
-            }),
-            RescheduleReservationStatus.ConfirmationRequired => BadRequest(new
-            {
-                message = "Potvrdite da razlika u ceni neće biti refundirana.",
-                quote = result.Quote
-            }),
-            RescheduleReservationStatus.QuoteChanged => Conflict(new
-            {
-                message = "Cena ili stanje uplate su promenjeni. Proverite novi iznos i potvrdite ponovo.",
-                quote = result.Quote
-            }),
-            RescheduleReservationStatus.ProviderUnavailable => StatusCode(503, new
-            {
-                message = "Plaćanje trenutno nije dostupno. Pokušajte ponovo."
-            }),
+            RescheduleReservationStatus.CheckoutWindowClosed => this.ApiError(400, ApiErrorCodes.CheckoutTooClose,
+                "Za doplatu izaberite termin koji počinje za najmanje 34 minuta."),
+            RescheduleReservationStatus.ConfirmationRequired => this.ApiError(400, ApiErrorCodes.RescheduleNotAllowed,
+                "Potvrdite da razlika u ceni neće biti refundirana.", result.Quote),
+            RescheduleReservationStatus.QuoteChanged => this.ApiError(409, ApiErrorCodes.Conflict,
+                "Cena ili stanje uplate su promenjeni. Proverite novi iznos i potvrdite ponovo.", result.Quote),
+            RescheduleReservationStatus.ProviderUnavailable => this.ApiError(503, ApiErrorCodes.ProviderUnavailable,
+                "Plaćanje trenutno nije dostupno. Pokušajte ponovo."),
             RescheduleReservationStatus.CheckoutRequired => Ok(new
             {
                 message = "Doplata je potrebna za novi termin.",
@@ -132,16 +121,16 @@ public class ReservationsController : ControllerBase
             id, userId, HttpContext.RequestAborted);
         return result.Status switch
         {
-            CancelReservationStatus.NotFound => NotFound("Rezervacija nije pronađena."),
-            CancelReservationStatus.AlreadyCancelled => Conflict(
+            CancelReservationStatus.NotFound => this.ApiError(404, ApiErrorCodes.NotFound, "Rezervacija nije pronađena."),
+            CancelReservationStatus.AlreadyCancelled => this.ApiError(409, ApiErrorCodes.Conflict,
                 "Rezervacija je već otkazana."),
-            CancelReservationStatus.NotActive => Conflict(
+            CancelReservationStatus.NotActive => this.ApiError(409, ApiErrorCodes.PaymentPending,
                 "Rezervacija još nije potvrđena plaćanjem."),
-            CancelReservationStatus.Completed => Conflict(
+            CancelReservationStatus.Completed => this.ApiError(409, ApiErrorCodes.CancellationNotAllowed,
                 "Završenu rezervaciju nije moguće otkazati."),
-            CancelReservationStatus.Started => Conflict(
+            CancelReservationStatus.Started => this.ApiError(409, ApiErrorCodes.CancellationNotAllowed,
                 "Rezervaciju koja je već počela nije moguće otkazati."),
-            CancelReservationStatus.PendingTopUp => Conflict(
+            CancelReservationStatus.PendingTopUp => this.ApiError(409, ApiErrorCodes.PaymentPending,
                 "Otkazivanje nije moguće dok se obrađuje doplata za promenu termina."),
             CancelReservationStatus.LockTimeout => LockTimeout(),
             _ => Ok(new { message = "Rezervacija uspešno otkazana." })
@@ -158,7 +147,7 @@ public class ReservationsController : ControllerBase
             courtId, date, reservationId, currentUserId,
             HttpContext.RequestAborted);
         return availability is null
-            ? NotFound("Teren nije pronađen.")
+            ? this.ApiError(404, ApiErrorCodes.NotFound, "Teren nije pronađen.")
             : Ok(availability);
     }
 
@@ -169,10 +158,7 @@ public class ReservationsController : ControllerBase
     private IActionResult LockTimeout()
     {
         Response.Headers.RetryAfter = "1";
-        return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-        {
-            code = "COURT_LOCK_TIMEOUT",
-            message = "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo."
-        });
+        return this.ApiError(503, ApiErrorCodes.CourtLockTimeout,
+            "Teren je trenutno zauzet obradom drugog zahteva. Pokušajte ponovo.");
     }
 }

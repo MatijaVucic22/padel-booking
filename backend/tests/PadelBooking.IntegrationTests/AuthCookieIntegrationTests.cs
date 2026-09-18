@@ -55,6 +55,10 @@ public sealed class AuthCookieIntegrationTests(IntegrationTestHost host)
         maliciousLogout.Headers.Add("Origin", "https://untrusted.example.test");
         using var forbidden = await host.Client.SendAsync(maliciousLogout);
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        Assert.Equal("application/problem+json", forbidden.Content.Headers.ContentType?.MediaType);
+        using var forbiddenJson = JsonDocument.Parse(await forbidden.Content.ReadAsStringAsync());
+        Assert.Equal("FORBIDDEN", forbiddenJson.RootElement.GetProperty("code").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(forbiddenJson.RootElement.GetProperty("traceId").GetString()));
 
         using var noOriginLogout = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout");
         noOriginLogout.Headers.Add("Cookie", cookie);

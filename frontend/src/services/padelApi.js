@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { apiBaseUrl } from "../api/api";
+import { normalizeApiErrorData } from "../utils/validationErrors";
 
 const fetchPadelBaseQuery = fetchBaseQuery({
     baseUrl: apiBaseUrl,
@@ -11,6 +12,10 @@ const baseQueryWithSessionHandling = async (args, api, extraOptions) => {
 
   if (result.error?.status === 401 && api.getState().auth.isAuthenticated) {
     window.dispatchEvent(new Event("auth:unauthorized"));
+  }
+
+  if (result.error) {
+    result.error.data = normalizeApiErrorData(result.error.data);
   }
 
   return result;

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using PadelBooking.Api.DTOs;
 using PadelBooking.Api.Authentication;
+using PadelBooking.Api.Errors;
 using PadelBooking.Application.Authentication.GetCurrentUser;
 using PadelBooking.Application.Authentication.Login;
 using PadelBooking.Application.Authentication.Register;
@@ -45,7 +46,7 @@ namespace PadelBooking.Api.Controllers
 
             if (result.IsDuplicateEmail)
             {
-                return BadRequest("Korisnik sa ovim email-om već postoji.");
+                return this.ApiError(400, ApiErrorCodes.DuplicateEmail, "Korisnik sa ovim email-om već postoji.");
             }
 
             var user = result.User!;
@@ -73,7 +74,7 @@ namespace PadelBooking.Api.Controllers
 
             if (!result.Succeeded)
             {
-                return Unauthorized("Pogrešan email ili lozinka.");
+                return this.ApiError(401, ApiErrorCodes.Unauthorized, "Pogrešan email ili lozinka.");
             }
 
             var user = result.User!;

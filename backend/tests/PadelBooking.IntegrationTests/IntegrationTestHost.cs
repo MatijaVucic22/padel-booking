@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using PadelBooking.Application.Abstractions.Notifications;
 using PadelBooking.Application.Abstractions.Payments;
+using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Infrastructure.Persistence;
 using Testcontainers.MySql;
 using Xunit;
@@ -32,6 +33,16 @@ public sealed class IntegrationTestHost : IAsyncLifetime
     public TestEmailService Email { get; } = new();
     public HttpClient Client { get; private set; } = null!;
     public IServiceProvider Services => _factory!.Services;
+
+    public WebApplicationFactory<Program> CreateIsolatedFactory() =>
+        _factory!.WithWebHostBuilder(_ => { });
+
+    public WebApplicationFactory<Program> CreateFactoryWithCourtFailure() =>
+        _factory!.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<ICourtRepository>();
+            services.AddScoped<ICourtRepository, ThrowingCourtRepository>();
+        }));
 
     public HttpClient ClientFactoryWithToken(string token)
     {
