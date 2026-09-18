@@ -48,7 +48,7 @@ function Navbar({ onLogout, onNavigate }) {
     <nav className="navbar">
       <Link to="/" className="logo" onClick={(event) => handleNavigation(event, "/")}>
         <span className="logo-name">PADEL<span>BOOKING</span></span>
-        <small>NIŠ / SRBIJA</small>
+        <small>PADEL TERENI</small>
       </Link>
 
       <button

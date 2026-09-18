@@ -886,7 +886,7 @@ function MyReservations() {
                     <div><dt>Već plaćeno</dt><dd>{priceFormatter.format(rescheduleQuote.paidCredit)}</dd></div>
                     <div><dt>Nova cena</dt><dd>{priceFormatter.format(rescheduleQuote.newPrice)}</dd></div>
                     {rescheduleQuote.topUpAmount > 0 && (
-                      <div><dt>Doplata preko Stripe-a</dt><dd>{priceFormatter.format(rescheduleQuote.topUpAmount)}</dd></div>
+                      <div><dt>Doplata karticom</dt><dd>{priceFormatter.format(rescheduleQuote.topUpAmount)}</dd></div>
                     )}
                     {rescheduleQuote.nonRefundedDifference > 0 && (
                       <p>Razlika od {priceFormatter.format(rescheduleQuote.nonRefundedDifference)} neće biti automatski refundirana. Uplaćeni iznos ostaje kredit za buduću promenu termina.</p>

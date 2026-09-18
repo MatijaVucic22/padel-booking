@@ -1519,7 +1519,7 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .booking-confirm-total dd { color: var(--color-green); font-family: "Sora", sans-serif; font-size: 1.3rem; }
 .booking-confirm-error { margin: 20px 0 0; padding: 13px 15px; border: 1px solid color-mix(in srgb, var(--color-danger) 40%, var(--color-border)); border-radius: 9px; background: color-mix(in srgb, var(--color-danger) 9%, var(--color-surface)); color: var(--color-danger); }
 .booking-confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 26px; }
-.booking-confirm-actions button { min-width: 120px; min-height: 48px; padding: 0 20px; border: 1px solid var(--color-border); border-radius: 10px; background: transparent; color: var(--color-text); font-weight: 800; cursor: pointer; }
+.booking-confirm-actions button { min-width: 120px; min-height: 48px; padding: 0 20px; border: 1px solid var(--color-border); border-radius: 10px; background: transparent; color: var(--color-text); font-weight: 800; white-space: nowrap; cursor: pointer; }
 .booking-confirm-actions .primary-button { border-color: var(--color-green); background: var(--color-green); color: var(--color-on-primary); }
 .booking-confirm-actions .cancellation-confirm-button { border-color: var(--color-danger); background: var(--color-danger); color: var(--color-on-danger); }
 .booking-confirm-actions .cancellation-confirm-button:hover { border-color: color-mix(in srgb, var(--color-danger) 82%, #000); background: color-mix(in srgb, var(--color-danger) 82%, #000); }
@@ -1624,7 +1624,7 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .reschedule-financial-details > label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .reschedule-financial-details input { width: 18px; height: 18px; flex: none; accent-color: var(--color-green); }
 .reschedule-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--color-border); }
-.reschedule-modal-actions button { min-height: 46px; padding: 0 18px; border: 1px solid var(--color-border); border-radius: 9px; background: transparent; color: var(--color-text); font-weight: 700; }
+.reschedule-modal-actions button { min-height: 46px; padding: 0 18px; border: 1px solid var(--color-border); border-radius: 9px; background: transparent; color: var(--color-text); font-weight: 700; white-space: nowrap; }
 .reschedule-modal-actions .primary-button { border-color: var(--color-green); background: var(--color-green); color: var(--color-on-primary); }
 .reschedule-modal-actions button:disabled { cursor: not-allowed; opacity: .55; }
 
