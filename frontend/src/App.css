@@ -393,7 +393,7 @@ main {
 .slot-button.selected {
   background-color: #111;
   color: white;
-  box-shadow: 0 0 0 3px #d1d5db;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
 }
 
 .slot-button:disabled {
@@ -1561,7 +1561,7 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .slots-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
 .slot-button { min-height: 46px; padding: 8px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-cream); color: var(--color-forest); font-size: .8rem; font-weight: 700; }
 .slot-button:hover:not(:disabled) { border-color: var(--color-green); background: var(--color-hover-soft); }
-.slot-button.selected { border-color: var(--color-orange); background: var(--color-orange); color: var(--color-text); }
+.slot-button.selected { border-color: var(--color-green); background: var(--color-green); color: var(--color-on-primary); }
 .slots-message, .booking-error, .booking-success, .booking-field-errors { border-radius: 9px; font-size: .86rem; }
 .booking-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--color-border); background: transparent; }
 .booking-summary > div { display: grid; gap: 4px; }
@@ -2064,7 +2064,7 @@ body.route-transition-locked {
 .footer-section { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 .footer-section h2 { margin: 0 0 8px; color: #f3f1e9; font-size: .92rem; text-transform: uppercase; letter-spacing: .08em; }
 .footer-section a, .footer-section p { margin: 0; color: #a8b2ab; text-decoration: none; }
-.footer-section a:hover { color: #56bc8a; }
+.footer-section a:hover { color: var(--brand-accent-ink); }
 .footer-section strong { color: #f3f1e9; font-size: 1.1rem; }
 
 .footer-bottom {
@@ -2089,7 +2089,7 @@ body.route-transition-locked {
   cursor: pointer;
 }
 
-.footer-bottom button:hover { color: #56bc8a; }
+.footer-bottom button:hover { color: var(--brand-accent-ink); }
 
 @media (max-width: 900px) {
   .court-information-layout { grid-template-columns: 1fr; align-items: start; }
