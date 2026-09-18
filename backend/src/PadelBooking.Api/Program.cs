@@ -8,6 +8,7 @@ using PadelBooking.Api.Validation;
 using PadelBooking.Api.Validators;
 using PadelBooking.Api.Services;
 using PadelBooking.Api.Hubs;
+using PadelBooking.Api.Authentication;
 using System.Threading.RateLimiting;
 using PadelBooking.Application.Abstractions.Notifications;
 using PadelBooking.Application;
@@ -79,16 +80,16 @@ static string NormalizeValidationField(string key)
         : char.ToLowerInvariant(field[0]) + field[1..];
 }
 
+var allowedFrontendOrigins = new List<string> { "http://localhost:5173" };
+var additionalOrigin = builder.Configuration["Cors:AdditionalOrigin"];
+if (!string.IsNullOrWhiteSpace(additionalOrigin)) allowedFrontendOrigins.Add(additionalOrigin.TrimEnd('/'));
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        var origins = new List<string> { "http://localhost:5173" };
-        var additionalOrigin = builder.Configuration["Cors:AdditionalOrigin"];
-        if (!string.IsNullOrWhiteSpace(additionalOrigin)) origins.Add(additionalOrigin);
-
         policy
-            .WithOrigins(origins.ToArray())
+            .WithOrigins(allowedFrontendOrigins.ToArray())
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -112,6 +113,16 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (string.IsNullOrWhiteSpace(context.Request.Headers.Authorization))
+                    context.Token = context.Request.Cookies[BrowserAuthCookie.Name];
+
+                return Task.CompletedTask;
+            }
+        };
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -171,9 +182,35 @@ app.UseStaticFiles();
 
 app.UseRouting();
 app.UseCors("AllowReactApp");
+app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    var isUnsafeMethod = !HttpMethods.IsGet(context.Request.Method) &&
+        !HttpMethods.IsHead(context.Request.Method) &&
+        !HttpMethods.IsOptions(context.Request.Method) &&
+        !HttpMethods.IsTrace(context.Request.Method);
+    var usesCookie = context.User.Identity?.IsAuthenticated == true &&
+        context.Request.Cookies.ContainsKey(BrowserAuthCookie.Name) &&
+        string.IsNullOrWhiteSpace(context.Request.Headers.Authorization);
+
+    if (isUnsafeMethod && usesCookie)
+    {
+        var origin = context.Request.Headers.Origin.ToString();
+        var serverOrigin = $"{context.Request.Scheme}://{context.Request.Host}";
+        if (string.IsNullOrWhiteSpace(origin) ||
+            (!allowedFrontendOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase) &&
+             !string.Equals(origin, serverOrigin, StringComparison.OrdinalIgnoreCase)))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { message = "Zahtev nije dozvoljen sa ovog izvora." });
+            return;
+        }
+    }
+
+    await next(context);
+});
 app.UseRateLimiter();
 
-app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

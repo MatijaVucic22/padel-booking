@@ -37,7 +37,8 @@ public sealed class IntegrationTestHost : IAsyncLifetime
     {
         var client = _factory!.CreateClient(new WebApplicationFactoryClientOptions
         {
-            BaseAddress = new Uri("https://localhost")
+            BaseAddress = new Uri("https://localhost"),
+            HandleCookies = false
         });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
@@ -52,13 +53,15 @@ public sealed class IntegrationTestHost : IAsyncLifetime
         Environment.SetEnvironmentVariable("Jwt__Key", "integration-tests-only-jwt-key-at-least-32-characters");
         Environment.SetEnvironmentVariable("Jwt__Issuer", "PadelBooking.IntegrationTests");
         Environment.SetEnvironmentVariable("Jwt__Audience", "PadelBooking.IntegrationTests");
+        Environment.SetEnvironmentVariable("Cors__AdditionalOrigin", "https://configured-frontend.example.test");
         Environment.SetEnvironmentVariable("STRIPE_SECRET_KEY", string.Empty);
         Environment.SetEnvironmentVariable("STRIPE_WEBHOOK_SECRET", string.Empty);
         Environment.SetEnvironmentVariable("STRIPE_FRONTEND_URL", "https://localhost");
         _factory = new TestApiFactory(_mysql.GetConnectionString(), Gateway, Email);
         Client = _factory.CreateClient(new WebApplicationFactoryClientOptions
         {
-            BaseAddress = new Uri("https://localhost")
+            BaseAddress = new Uri("https://localhost"),
+            HandleCookies = false
         });
         // Program runs the real migrations as the test host starts.
     }
@@ -71,6 +74,7 @@ public sealed class IntegrationTestHost : IAsyncLifetime
         foreach (var name in new[]
         {
             "ConnectionStrings__DefaultConnection", "Jwt__Key", "Jwt__Issuer", "Jwt__Audience",
+            "Cors__AdditionalOrigin",
             "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_FRONTEND_URL"
         })
             Environment.SetEnvironmentVariable(name, null);
@@ -92,6 +96,7 @@ internal sealed class TestApiFactory(
                 ["Jwt:Key"] = "integration-tests-only-jwt-key-at-least-32-characters",
                 ["Jwt:Issuer"] = "PadelBooking.IntegrationTests",
                 ["Jwt:Audience"] = "PadelBooking.IntegrationTests",
+                ["Cors:AdditionalOrigin"] = "https://configured-frontend.example.test",
                 ["STRIPE_SECRET_KEY"] = string.Empty,
                 ["STRIPE_WEBHOOK_SECRET"] = string.Empty,
                 ["STRIPE_FRONTEND_URL"] = "https://localhost"

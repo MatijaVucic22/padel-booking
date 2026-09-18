@@ -45,9 +45,6 @@ function Login({ onLogin }) {
     try {
       const response = await api.post("/auth/login", formData);
 
-      localStorage.setItem("token", response.data.token);
-      localStorage.removeItem("user");
-
       const requestedPath = location.state?.from;
       const destination =
         typeof requestedPath === "string" &&
@@ -57,7 +54,7 @@ function Login({ onLogin }) {
           ? requestedPath
           : "/";
 
-      onLogin(response.data.user, response.data.token, destination);
+      onLogin(response.data.user, destination);
     } catch (error) {
       const validationErrors = parseValidationErrors(error);
 
