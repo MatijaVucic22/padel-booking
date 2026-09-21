@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using PadelBooking.Application.Abstractions.Notifications;
 using PadelBooking.Application.Abstractions.Payments;
 using PadelBooking.Application.Abstractions.Persistence;
+using PadelBooking.Application.Abstractions.Time;
 using PadelBooking.Application.Notifications;
 using PadelBooking.Domain.Entities;
 
@@ -14,6 +15,8 @@ public sealed class TestPaymentGateway : IPaymentGateway
 
     private readonly ConcurrentDictionary<string, FakeSession> _sessions = new();
     private int _failNextCheckout;
+
+    public int SessionCount => _sessions.Count;
 
     public void FailNextCheckout() => Interlocked.Exchange(ref _failNextCheckout, 1);
 
@@ -66,6 +69,33 @@ public sealed class TestPaymentGateway : IPaymentGateway
         session.Email,
         session.Reference,
         session.Reference);
+}
+
+public sealed class TestBookingTimeService : IBookingTimeService
+{
+    private readonly TimeZoneInfo _businessTimeZone;
+
+    public TestBookingTimeService(DateTime localNow)
+    {
+        Now = DateTime.SpecifyKind(localNow, DateTimeKind.Unspecified);
+        _businessTimeZone = GetBusinessTimeZone();
+        UtcNow = ToUtc(Now);
+    }
+
+    public DateTime Now { get; }
+    public DateTime UtcNow { get; }
+
+    public DateTime ToUtc(DateTime localBookingTime) => TimeZoneInfo.ConvertTimeToUtc(
+        DateTime.SpecifyKind(localBookingTime, DateTimeKind.Unspecified), _businessTimeZone);
+
+    private static TimeZoneInfo GetBusinessTimeZone()
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById("Europe/Belgrade"); }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time");
+        }
+    }
 }
 
 public sealed class TestEmailService : IEmailService
