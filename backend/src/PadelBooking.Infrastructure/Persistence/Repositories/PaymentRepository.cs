@@ -21,7 +21,8 @@ public sealed class PaymentRepository(ApplicationDbContext context) : IPaymentRe
 
     public Task<decimal> GetPaidCreditAsync(int reservationId, CancellationToken cancellationToken = default) =>
         context.Payments.Where(payment => payment.ReservationId == reservationId &&
-                payment.Status == PaymentStatus.Paid)
+                payment.Status == PaymentStatus.Paid &&
+                payment.FulfillmentStatus == PaymentFulfillmentStatus.Applied)
             .SumAsync(payment => payment.Amount, cancellationToken);
 
     public Task<bool> HasPendingTopUpAsync(int reservationId, CancellationToken cancellationToken = default) =>

@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using PadelBooking.Application.Abstractions.Notifications;
 using PadelBooking.Application.Abstractions.Payments;
 using PadelBooking.Application.Abstractions.Persistence;
+using PadelBooking.Application.Abstractions.Time;
 using PadelBooking.Infrastructure.Persistence;
 using Testcontainers.MySql;
 using Xunit;
@@ -42,6 +43,13 @@ public sealed class IntegrationTestHost : IAsyncLifetime
         {
             services.RemoveAll<ICourtRepository>();
             services.AddScoped<ICourtRepository, ThrowingCourtRepository>();
+        }));
+
+    public WebApplicationFactory<Program> CreateFactoryWithBookingTime(IBookingTimeService bookingTime) =>
+        _factory!.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IBookingTimeService>();
+            services.AddSingleton(bookingTime);
         }));
 
     public HttpClient ClientFactoryWithToken(string token)

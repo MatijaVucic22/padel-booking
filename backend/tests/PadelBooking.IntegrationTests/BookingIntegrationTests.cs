@@ -7,6 +7,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PadelBooking.Application.Abstractions.Authentication;
+using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Application.Abstractions.Time;
 using PadelBooking.Application.Payments;
 using PadelBooking.Domain.Entities;
@@ -416,6 +417,210 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
             .SingleAsync(item => item.Id == reservationId)).Status);
         Assert.False(await verificationDb.Payments.AnyAsync(
             item => item.ReservationId == reservationId));
+    }
+
+    [Fact]
+    public async Task PaidCredit_IncludesOnlyPaidAppliedPayments()
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var user = new User
+        {
+            FirstName = "Test", LastName = "Igrac", Email = UniqueEmail(),
+            PasswordHash = "integration-test-not-used"
+        };
+        var court = new Court
+        {
+            Name = $"Integration {Guid.NewGuid():N}", Location = "Nis",
+            PricePerHour = 2500m, IsActive = true
+        };
+        var (start, end) = Slot(10);
+        var reservation = new Reservation
+        {
+            User = user, Court = court, StartTime = start, EndTime = end,
+            TotalPrice = 2500m, Status = "Active", CreatedAt = DateTime.UtcNow
+        };
+        db.Reservations.Add(reservation);
+        await db.SaveChangesAsync();
+        db.Payments.AddRange(
+            PaymentForCredit(reservation.Id, 2500m, PaymentStatus.Paid,
+                PaymentFulfillmentStatus.Applied),
+            PaymentForCredit(reservation.Id, 1250m, PaymentStatus.Paid,
+                PaymentFulfillmentStatus.RequiresResolution),
+            PaymentForCredit(reservation.Id, 500m, PaymentStatus.Pending,
+                PaymentFulfillmentStatus.Pending),
+            PaymentForCredit(reservation.Id, 250m, PaymentStatus.Paid,
+                PaymentFulfillmentStatus.NotApplicable));
+        await db.SaveChangesAsync();
+
+        var paidCredit = await scope.ServiceProvider.GetRequiredService<IPaymentRepository>()
+            .GetPaidCreditAsync(reservation.Id);
+
+        Assert.Equal(2500m, paidCredit);
+    }
+
+    [Fact]
+    public async Task RequiresResolutionPayment_DoesNotEraseLaterRequiredTopUp()
+    {
+        var courtId = await SeedCourtAsync(2500m);
+        using var owner = await AuthenticatedClientAsync();
+        var (start, end) = Slot(10);
+        var (reservationId, sessionId) = await CreateCheckoutAsync(owner, courtId, start, end);
+        await PayAsync(owner, sessionId);
+
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            (await db.Courts.SingleAsync(court => court.Id == courtId)).PricePerHour = 1750m;
+            db.Payments.Add(PaymentForCredit(reservationId, 1250m, PaymentStatus.Paid,
+                PaymentFulfillmentStatus.RequiresResolution));
+            await db.SaveChangesAsync();
+        }
+
+        var target = start.AddHours(2);
+        var quote = await QuoteAsync(owner, reservationId, target, target.AddHours(2));
+
+        Assert.Equal(3500m, quote.NewPrice);
+        Assert.Equal(2500m, quote.PaidCredit);
+        Assert.Equal(1000m, quote.TopUpAmount);
+    }
+
+    [Fact]
+    public async Task LatePaidInitialBooking_RequiresResolutionAndReleasesProvisionalHold()
+    {
+        var courtId = await SeedCourtAsync();
+        using var owner = await AuthenticatedClientAsync();
+        var (start, end) = Slot(10);
+        var (reservationId, sessionId) = await CreateCheckoutAsync(owner, courtId, start, end);
+        DateTime lateStart;
+        DateTime lateEnd;
+
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var now = scope.ServiceProvider.GetRequiredService<IBookingTimeService>().Now;
+            lateStart = now.AddMinutes(-5);
+            lateEnd = now.AddMinutes(55);
+            var reservation = await db.Reservations.SingleAsync(item => item.Id == reservationId);
+            reservation.StartTime = lateStart;
+            reservation.EndTime = lateEnd;
+            await db.SaveChangesAsync();
+        }
+
+        host.Gateway.SetPaid(sessionId);
+        using var status = await owner.GetAsync($"/api/payments/session/{sessionId}/status");
+        Assert.Equal(HttpStatusCode.OK, status.StatusCode);
+        using var statusJson = JsonDocument.Parse(await status.Content.ReadAsStringAsync());
+        Assert.False(statusJson.RootElement.GetProperty("confirmed").GetBoolean());
+        Assert.Equal("RequiresResolution",
+            statusJson.RootElement.GetProperty("fulfillmentStatus").GetString());
+
+        await using var verification = host.Services.CreateAsyncScope();
+        var verificationDb = verification.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var payment = await verificationDb.Payments.AsNoTracking()
+            .SingleAsync(item => item.ExternalSessionId == sessionId);
+        var reservationState = await verificationDb.Reservations.AsNoTracking()
+            .SingleAsync(item => item.Id == reservationId);
+        Assert.Equal(PaymentStatus.Paid, payment.Status);
+        Assert.Equal(PaymentFulfillmentStatus.RequiresResolution, payment.FulfillmentStatus);
+        Assert.Equal("Cancelled", reservationState.Status);
+        Assert.False(await verification.ServiceProvider.GetRequiredService<IReservationRepository>()
+            .HasOverlapAsync(courtId, lateStart, lateEnd));
+    }
+
+    [Fact]
+    public async Task ImpossiblePaidTopUp_RequiresResolutionAndDoesNotIncreasePaidCredit()
+    {
+        var courtId = await SeedCourtAsync();
+        using var owner = await AuthenticatedClientAsync();
+        var (start, end) = Slot(10);
+        var (reservationId, sessionId) = await CreateCheckoutAsync(owner, courtId, start, end);
+        await PayAsync(owner, sessionId);
+        var target = start.AddHours(2);
+        using var checkout = await StartTopUpAsync(owner, reservationId, target);
+        var topUpSessionId = SessionIdFromResponse(await checkout.Content.ReadAsStringAsync());
+
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.BlockedPeriods.Add(new BlockedPeriod
+            {
+                CourtId = courtId,
+                StartTime = target,
+                EndTime = target.AddHours(2),
+                Reason = "Integration conflict",
+                CreatedAtUtc = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+
+        host.Gateway.SetPaid(topUpSessionId);
+        using var status = await owner.GetAsync($"/api/payments/session/{topUpSessionId}/status");
+        Assert.Equal(HttpStatusCode.OK, status.StatusCode);
+
+        await using (var verification = host.Services.CreateAsyncScope())
+        {
+            var db = verification.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var reservation = await db.Reservations.AsNoTracking()
+                .SingleAsync(item => item.Id == reservationId);
+            var payment = await db.Payments.AsNoTracking()
+                .SingleAsync(item => item.ExternalSessionId == topUpSessionId);
+            Assert.Equal(start, reservation.StartTime);
+            Assert.Equal(end, reservation.EndTime);
+            Assert.Equal(2000m, reservation.TotalPrice);
+            Assert.Equal(PaymentStatus.Paid, payment.Status);
+            Assert.Equal(PaymentFulfillmentStatus.RequiresResolution, payment.FulfillmentStatus);
+            Assert.False(await verification.ServiceProvider.GetRequiredService<IPaymentRepository>()
+                .HasPendingTargetOverlapAsync(courtId, target, target.AddHours(2)));
+        }
+
+        var laterTarget = target.AddHours(3);
+        var laterQuote = await QuoteAsync(owner, reservationId, laterTarget, laterTarget.AddHours(2));
+        Assert.Equal(2000m, laterQuote.PaidCredit);
+        Assert.Equal(2000m, laterQuote.TopUpAmount);
+    }
+
+    [Fact]
+    public async Task CheckoutLeadTime_RejectsBelow34MinutesAndAllowsExactBoundary()
+    {
+        var courtId = await SeedCourtAsync();
+        using var authenticated = await AuthenticatedClientAsync();
+        var authorization = authenticated.DefaultRequestHeaders.Authorization;
+        var target = new DateTime(2026, 9, 22, 10, 0, 0, DateTimeKind.Unspecified);
+        var sessionsBefore = host.Gateway.SessionCount;
+
+        using (var tooCloseFactory = host.CreateFactoryWithBookingTime(
+            new TestBookingTimeService(target.AddMinutes(-34).AddSeconds(1))))
+        using (var tooCloseClient = tooCloseFactory.CreateClient())
+        {
+            tooCloseClient.DefaultRequestHeaders.Authorization = authorization;
+            using var rejected = await CheckoutAsync(tooCloseClient, courtId, target, target.AddHours(1));
+            Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+            using var problem = await AssertProblemAsync(rejected, "CHECKOUT_TOO_CLOSE");
+        }
+
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.False(await db.Reservations.AnyAsync(item => item.CourtId == courtId));
+            Assert.False(await db.Payments.AnyAsync(item => item.Reservation.CourtId == courtId));
+        }
+        Assert.Equal(sessionsBefore, host.Gateway.SessionCount);
+
+        using (var allowedFactory = host.CreateFactoryWithBookingTime(
+            new TestBookingTimeService(target.AddMinutes(-34))))
+        using (var allowedClient = allowedFactory.CreateClient())
+        {
+            allowedClient.DefaultRequestHeaders.Authorization = authorization;
+            using var allowed = await CheckoutAsync(allowedClient, courtId, target, target.AddHours(1));
+            Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+        }
+
+        Assert.Equal(sessionsBefore + 1, host.Gateway.SessionCount);
+        await using var finalScope = host.Services.CreateAsyncScope();
+        var finalDb = finalScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await finalDb.Reservations.CountAsync(item => item.CourtId == courtId));
+        Assert.Equal(1, await finalDb.Payments.CountAsync(item => item.Reservation.CourtId == courtId));
     }
 
     [Fact]
@@ -1015,14 +1220,29 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
             .Segments.Last().Trim('/');
     }
 
-    private async Task<int> SeedCourtAsync()
+    private static Payment PaymentForCredit(int reservationId, decimal amount,
+        PaymentStatus status, PaymentFulfillmentStatus fulfillmentStatus) => new()
+    {
+        ReservationId = reservationId,
+        Amount = amount,
+        Currency = "RSD",
+        Status = status,
+        FulfillmentStatus = fulfillmentStatus,
+        Purpose = PaymentPurpose.RescheduleTopUp,
+        Provider = "Stripe",
+        ExternalSessionId = $"cs_test_credit_{Guid.NewGuid():N}",
+        CreatedAtUtc = DateTime.UtcNow,
+        SessionExpiresAtUtc = DateTime.UtcNow.AddMinutes(35)
+    };
+
+    private async Task<int> SeedCourtAsync(decimal pricePerHour = 2000m)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var court = new Court
         {
             Name = $"Integration {Guid.NewGuid():N}", Location = "Nis",
-            PricePerHour = 2000m, IsActive = true
+            PricePerHour = pricePerHour, IsActive = true
         };
         db.Courts.Add(court);
         await db.SaveChangesAsync();
