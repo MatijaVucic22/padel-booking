@@ -9,6 +9,7 @@ public enum CancelReservationStatus
     Completed,
     Started,
     PendingTopUp,
+    NoRefundAcknowledgementRequired,
     LockTimeout
 }
 

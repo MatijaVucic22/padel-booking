@@ -7,5 +7,6 @@ public sealed record MyReservationItem(
     DateTime StartTime,
     DateTime EndTime,
     decimal TotalPrice,
+    decimal PaidAmount,
     bool CanCancel,
     string Status);

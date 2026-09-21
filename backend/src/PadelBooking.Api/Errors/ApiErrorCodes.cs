@@ -14,6 +14,8 @@ public static class ApiErrorCodes
     public const string PaymentPending = "PAYMENT_PENDING";
     public const string RescheduleNotAllowed = "RESCHEDULE_NOT_ALLOWED";
     public const string CancellationNotAllowed = "CANCELLATION_NOT_ALLOWED";
+    public const string CancellationNoRefundAcknowledgementRequired =
+        "CANCELLATION_NO_REFUND_ACK_REQUIRED";
     public const string CheckoutTooClose = "CHECKOUT_TOO_CLOSE";
     public const string ActivePaymentHold = "ACTIVE_PAYMENT_HOLD";
     public const string Conflict = "CONFLICT";

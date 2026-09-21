@@ -5,6 +5,9 @@ namespace PadelBooking.Application.Abstractions.Persistence;
 public interface IPaymentRepository
 {
     void Add(Payment payment);
+    Task<IReadOnlyDictionary<int, decimal>> GetAppliedPaidAmountsAsync(
+        IReadOnlyCollection<int> reservationIds,
+        CancellationToken cancellationToken = default);
     Task<decimal> GetPaidCreditAsync(int reservationId, CancellationToken cancellationToken = default);
     Task<bool> HasPendingTopUpAsync(int reservationId, CancellationToken cancellationToken = default);
     Task<bool> HasLivePendingHoldForCourtAsync(int courtId, DateTime nowLocal,

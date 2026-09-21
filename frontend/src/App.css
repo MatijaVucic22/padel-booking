@@ -1517,12 +1517,20 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .booking-confirm-details dd { margin: 0; color: var(--color-text); font-weight: 750; overflow-wrap: anywhere; }
 .booking-confirm-details .booking-confirm-total { grid-column: 1 / -1; display: flex; align-items: end; justify-content: space-between; gap: 20px; padding-top: 20px; }
 .booking-confirm-total dd { color: var(--color-green); font-family: "Sora", sans-serif; font-size: 1.3rem; }
+.cancellation-no-refund-notice { display: grid; gap: 7px; margin-top: 20px; padding: 14px 15px; border: 1px solid color-mix(in srgb, var(--color-danger) 36%, var(--color-border)); border-radius: 9px; background: color-mix(in srgb, var(--color-danger) 7%, var(--color-surface)); color: var(--color-text); }
+.cancellation-no-refund-notice strong { color: var(--color-danger); }
+.cancellation-no-refund-notice .cancellation-paid-label { color: var(--color-muted); font-size: .7rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.cancellation-no-refund-notice > b { color: var(--color-text); font-family: "Sora", sans-serif; font-size: 1.3rem; }
+.cancellation-no-refund-acknowledgement { display: flex; align-items: flex-start; gap: 10px; margin-top: 7px; padding-top: 13px; border-top: 1px solid color-mix(in srgb, var(--color-danger) 24%, var(--color-border)); line-height: 1.45; cursor: pointer; }
+.cancellation-no-refund-acknowledgement input { flex: 0 0 20px; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--color-danger); }
+.cancellation-no-refund-acknowledgement input:focus-visible { outline: 3px solid color-mix(in srgb, var(--color-danger) 30%, transparent); outline-offset: 2px; }
 .booking-confirm-error { margin: 20px 0 0; padding: 13px 15px; border: 1px solid color-mix(in srgb, var(--color-danger) 40%, var(--color-border)); border-radius: 9px; background: color-mix(in srgb, var(--color-danger) 9%, var(--color-surface)); color: var(--color-danger); }
 .booking-confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 26px; }
 .booking-confirm-actions button { min-width: 120px; min-height: 48px; padding: 0 20px; border: 1px solid var(--color-border); border-radius: 10px; background: transparent; color: var(--color-text); font-weight: 800; white-space: nowrap; cursor: pointer; }
 .booking-confirm-actions .primary-button { border-color: var(--color-green); background: var(--color-green); color: var(--color-on-primary); }
 .booking-confirm-actions .cancellation-confirm-button { border-color: var(--color-danger); background: var(--color-danger); color: var(--color-on-danger); }
-.booking-confirm-actions .cancellation-confirm-button:hover { border-color: color-mix(in srgb, var(--color-danger) 82%, #000); background: color-mix(in srgb, var(--color-danger) 82%, #000); }
+.booking-confirm-actions .cancellation-confirm-button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--color-danger) 82%, #000); background: color-mix(in srgb, var(--color-danger) 82%, #000); }
+.booking-confirm-actions button:disabled { cursor: not-allowed; opacity: .5; }
 .booking-confirm-state { display: grid; justify-items: center; min-height: 260px; place-content: center; gap: 14px; text-align: center; }
 .booking-confirm-state p { margin: 0; color: var(--color-muted); }
 .payment-result-page { display: grid; place-items: center; min-height: 65vh; }

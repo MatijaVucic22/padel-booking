@@ -8,6 +8,17 @@ public sealed class PaymentRepository(ApplicationDbContext context) : IPaymentRe
 {
     public void Add(Payment payment) => context.Payments.Add(payment);
 
+    public async Task<IReadOnlyDictionary<int, decimal>> GetAppliedPaidAmountsAsync(
+        IReadOnlyCollection<int> reservationIds,
+        CancellationToken cancellationToken = default) =>
+        await context.Payments.AsNoTracking()
+            .Where(payment => reservationIds.Contains(payment.ReservationId) &&
+                payment.Status == PaymentStatus.Paid &&
+                payment.FulfillmentStatus == PaymentFulfillmentStatus.Applied)
+            .GroupBy(payment => payment.ReservationId)
+            .Select(group => new { ReservationId = group.Key, Amount = group.Sum(payment => payment.Amount) })
+            .ToDictionaryAsync(item => item.ReservationId, item => item.Amount, cancellationToken);
+
     public Task<decimal> GetPaidCreditAsync(int reservationId, CancellationToken cancellationToken = default) =>
         context.Payments.Where(payment => payment.ReservationId == reservationId &&
                 payment.Status == PaymentStatus.Paid)

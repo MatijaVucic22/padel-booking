@@ -150,6 +150,7 @@ function MyReservations() {
   const [cancellationReservation, setCancellationReservation] = useState(null);
   const [cancellationPhase, setCancellationPhase] = useState("confirm");
   const [cancellationError, setCancellationError] = useState("");
+  const [cancellationNoRefundAcknowledged, setCancellationNoRefundAcknowledged] = useState(false);
   const error = reservationsRequestError
     ? reservationsRequestError.status === 401
       ? "Morate biti prijavljeni da biste videli rezervacije."
@@ -310,6 +311,7 @@ function MyReservations() {
     setCancellationReservation(reservation);
     setCancellationPhase("confirm");
     setCancellationError("");
+    setCancellationNoRefundAcknowledged(false);
     setActionMessage("");
     setActionError("");
   };
@@ -327,6 +329,7 @@ function MyReservations() {
 
   const cancelReservation = async () => {
     if (!cancellationReservation || cancellationPhase !== "confirm" || cancellingId !== null) return;
+    if (cancellationReservation.paidAmount > 0 && !cancellationNoRefundAcknowledged) return;
 
     const reservation = cancellationReservation;
     const loadingStartedAt = Date.now();
@@ -335,7 +338,12 @@ function MyReservations() {
     setCancellationError("");
 
     try {
-      const response = await cancelReservationRequest(reservation.id).unwrap();
+      const response = await cancelReservationRequest({
+        id: reservation.id,
+        acknowledgeNoRefund: reservation.paidAmount > 0
+          ? cancellationNoRefundAcknowledged
+          : false,
+      }).unwrap();
       await waitForCancellationLoading(loadingStartedAt);
       if (!componentMounted.current) return;
 
@@ -345,6 +353,7 @@ function MyReservations() {
         cancellationTimer.current = null;
         setCancellationReservation(null);
         setCancellationPhase("confirm");
+        setCancellationNoRefundAcknowledged(false);
       }, 1200);
     } catch (requestError) {
       await waitForCancellationLoading(loadingStartedAt);
@@ -678,6 +687,7 @@ function MyReservations() {
               <>
                 <header className="booking-confirm-heading">
                   <div>
+                    <span className="reservation-label">Otkazivanje rezervacije</span>
                     <h2 id="cancellation-confirm-title">Otkaži rezervaciju?</h2>
                     <p>Ova radnja će otkazati rezervaciju.</p>
                   </div>
@@ -694,10 +704,34 @@ function MyReservations() {
                   )}
                 </dl>
 
+                {cancellationReservation.paidAmount > 0 && (
+                  <aside className="cancellation-no-refund-notice" role="note">
+                    <span className="cancellation-paid-label">Uplaćeno</span>
+                    <b>{priceFormatter.format(cancellationReservation.paidAmount)}</b>
+                    <strong>Važno: Otkazivanjem rezervacije uplaćeni iznos se ne vraća.</strong>
+                    <span>Uplaćeni iznos se ne pretvara automatski u kredit za drugu rezervaciju.</span>
+                    <label className="cancellation-no-refund-acknowledgement">
+                      <input
+                        type="checkbox"
+                        checked={cancellationNoRefundAcknowledged}
+                        onChange={(event) => setCancellationNoRefundAcknowledged(event.target.checked)}
+                      />
+                      Razumem da se otkazivanjem rezervacije uplaćeni iznos ne vraća.
+                    </label>
+                  </aside>
+                )}
+
                 {cancellationError && <p className="booking-confirm-error" role="alert">{cancellationError}</p>}
                 <div className="booking-confirm-actions">
                   <button type="button" onClick={closeCancellation}>Nazad</button>
-                  <button type="button" className="cancellation-confirm-button" onClick={cancelReservation}>Otkaži rezervaciju</button>
+                  <button
+                    type="button"
+                    className="cancellation-confirm-button"
+                    disabled={cancellationReservation.paidAmount > 0 && !cancellationNoRefundAcknowledged}
+                    onClick={cancelReservation}
+                  >
+                    Otkaži rezervaciju
+                  </button>
                 </div>
               </>
             )}
