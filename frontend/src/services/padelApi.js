@@ -83,9 +83,10 @@ export const padelApi = createApi({
       providesTags: ["Reservations"],
     }),
     cancelReservation: builder.mutation({
-      query: (id) => ({
+      query: ({ id, acknowledgeNoRefund }) => ({
         url: `/reservations/${id}`,
         method: "DELETE",
+        body: { acknowledgeNoRefund },
       }),
       invalidatesTags: ["Reservations", "Availability"],
     }),

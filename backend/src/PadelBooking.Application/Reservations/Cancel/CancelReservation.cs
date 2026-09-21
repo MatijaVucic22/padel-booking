@@ -30,7 +30,8 @@ public sealed class CancelReservation
     }
 
     public async Task<CancelReservationResult> ExecuteAsync(
-        int id, int userId, CancellationToken cancellationToken = default)
+        int id, int userId, bool acknowledgeNoRefund,
+        CancellationToken cancellationToken = default)
     {
         var courtId = await _reservations.GetCourtIdForUserAsync(id, userId, cancellationToken);
         if (courtId is null) return new(CancelReservationStatus.NotFound);
@@ -51,6 +52,11 @@ public sealed class CancelReservation
             var now = _bookingTime.Now;
             if (reservation.EndTime <= now) return new(CancelReservationStatus.Completed);
             if (reservation.StartTime <= now) return new(CancelReservationStatus.Started);
+
+            var paidAmounts = await _payments.GetAppliedPaidAmountsAsync(
+                [reservation.Id], cancellationToken);
+            if (paidAmounts.GetValueOrDefault(reservation.Id) > 0 && !acknowledgeNoRefund)
+                return new(CancelReservationStatus.NoRefundAcknowledgementRequired);
 
             reservation.Status = "Cancelled";
             await _unitOfWork.SaveChangesAsync(cancellationToken);

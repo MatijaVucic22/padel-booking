@@ -298,6 +298,126 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
         Assert.Equal(1, host.Email.ConfirmationCount(reservationId));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CancellingPaidReservation_WithoutAcknowledgement_IsRejected(bool sendRequestBody)
+    {
+        var courtId = await SeedCourtAsync();
+        using var owner = await AuthenticatedClientAsync();
+        var (start, end) = Slot(10);
+        var (reservationId, sessionId) = await CreateCheckoutAsync(owner, courtId, start, end);
+        await PayAsync(owner, sessionId);
+
+        using var rejected = sendRequestBody
+            ? await CancelAsync(owner, reservationId, acknowledgeNoRefund: false)
+            : await owner.DeleteAsync($"/api/reservations/{reservationId}");
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        using var problem = await AssertProblemAsync(
+            rejected, "CANCELLATION_NO_REFUND_ACK_REQUIRED");
+        Assert.Equal(400, problem.RootElement.GetProperty("status").GetInt32());
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal("Active", (await db.Reservations.AsNoTracking()
+            .SingleAsync(item => item.Id == reservationId)).Status);
+        var payment = await db.Payments.AsNoTracking()
+            .SingleAsync(item => item.ReservationId == reservationId);
+        Assert.Equal(PaymentStatus.Paid, payment.Status);
+        Assert.Equal(PaymentFulfillmentStatus.Applied, payment.FulfillmentStatus);
+    }
+
+    [Fact]
+    public async Task CancellingPaidReservation_WithAcknowledgement_PreservesPaymentAndRevenueWithoutReusableReservation()
+    {
+        var courtId = await SeedCourtAsync();
+        using var owner = await AuthenticatedClientAsync();
+        using var admin = await AuthenticatedClientAsync(admin: true);
+        var (start, end) = Slot(10);
+        var (reservationId, sessionId) = await CreateCheckoutAsync(owner, courtId, start, end);
+        await PayAsync(owner, sessionId);
+
+        using var reservationsBefore = await owner.GetAsync("/api/reservations/my");
+        reservationsBefore.EnsureSuccessStatusCode();
+        using var reservationsJson = JsonDocument.Parse(await reservationsBefore.Content.ReadAsStringAsync());
+        var paidReservation = reservationsJson.RootElement.EnumerateArray()
+            .Single(item => item.GetProperty("id").GetInt32() == reservationId);
+        var paidAmount = paidReservation.GetProperty("paidAmount").GetDecimal();
+        Assert.True(paidAmount > 0);
+
+        using var statsBefore = await admin.GetAsync("/api/admin/stats");
+        statsBefore.EnsureSuccessStatusCode();
+        using var beforeJson = JsonDocument.Parse(await statsBefore.Content.ReadAsStringAsync());
+        var revenueBefore = beforeJson.RootElement.GetProperty("realizedRevenue").GetDecimal();
+
+        using var cancelled = await CancelAsync(owner, reservationId, acknowledgeNoRefund: true);
+        Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var reservation = await db.Reservations.AsNoTracking()
+            .SingleAsync(item => item.Id == reservationId);
+        var payments = await db.Payments.AsNoTracking()
+            .Where(item => item.ReservationId == reservationId)
+            .ToListAsync();
+        Assert.Equal("Cancelled", reservation.Status);
+        var payment = Assert.Single(payments);
+        Assert.Equal(PaymentStatus.Paid, payment.Status);
+        Assert.Equal(PaymentFulfillmentStatus.Applied, payment.FulfillmentStatus);
+        Assert.Equal(paidAmount, payment.Amount);
+
+        using var statsAfter = await admin.GetAsync("/api/admin/stats");
+        statsAfter.EnsureSuccessStatusCode();
+        using var afterJson = JsonDocument.Parse(await statsAfter.Content.ReadAsStringAsync());
+        Assert.Equal(revenueBefore, afterJson.RootElement.GetProperty("realizedRevenue").GetDecimal());
+
+        using var quoteAttempt = await owner.PostAsJsonAsync(
+            $"/api/reservations/{reservationId}/reschedule/quote",
+            new { startTime = Local(start.AddHours(2)), endTime = Local(end.AddHours(2)) });
+        Assert.Equal(HttpStatusCode.Conflict, quoteAttempt.StatusCode);
+    }
+
+    [Fact]
+    public async Task CancellingActiveReservationWithoutCapturedPayment_DoesNotRequireAcknowledgement()
+    {
+        var courtId = await SeedCourtAsync();
+        using var owner = await AuthenticatedClientAsync();
+        using var meResponse = await owner.GetAsync("/api/auth/me");
+        meResponse.EnsureSuccessStatusCode();
+        using var me = JsonDocument.Parse(await meResponse.Content.ReadAsStringAsync());
+        var userId = me.RootElement.GetProperty("id").GetInt32();
+        var (start, end) = Slot(10);
+        int reservationId;
+
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var reservation = new Reservation
+            {
+                UserId = userId,
+                CourtId = courtId,
+                StartTime = start,
+                EndTime = end,
+                TotalPrice = 2000m,
+                Status = "Active",
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Reservations.Add(reservation);
+            await db.SaveChangesAsync();
+            reservationId = reservation.Id;
+        }
+
+        using var cancelled = await owner.DeleteAsync($"/api/reservations/{reservationId}");
+        Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+
+        await using var verificationScope = host.Services.CreateAsyncScope();
+        var verificationDb = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal("Cancelled", (await verificationDb.Reservations.AsNoTracking()
+            .SingleAsync(item => item.Id == reservationId)).Status);
+        Assert.False(await verificationDb.Payments.AnyAsync(
+            item => item.ReservationId == reservationId));
+    }
+
     [Fact]
     public async Task UnpaidCheckout_DoesNotConfirmReservation()
     {
@@ -850,6 +970,16 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
             expectedTopUpAmount = quote.TopUpAmount,
             acknowledgeNoRefund = acknowledge
         });
+
+    private static Task<HttpResponseMessage> CancelAsync(
+        HttpClient client, int id, bool acknowledgeNoRefund)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/reservations/{id}")
+        {
+            Content = JsonContent.Create(new { acknowledgeNoRefund })
+        };
+        return client.SendAsync(request);
+    }
 
     private async Task<HttpResponseMessage> StartTopUpAsync(HttpClient owner, int id, DateTime target)
     {

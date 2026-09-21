@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using PadelBooking.Api.DTOs;
 using PadelBooking.Api.Errors;
 using PadelBooking.Application.Reservations.Availability;
@@ -114,11 +115,14 @@ public class ReservationsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> CancelReservation(int id)
+    public async Task<IActionResult> CancelReservation(
+        int id,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] CancelReservationRequest? request)
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
         var result = await _cancelReservation.ExecuteAsync(
-            id, userId, HttpContext.RequestAborted);
+            id, userId, request?.AcknowledgeNoRefund == true,
+            HttpContext.RequestAborted);
         return result.Status switch
         {
             CancelReservationStatus.NotFound => this.ApiError(404, ApiErrorCodes.NotFound, "Rezervacija nije pronađena."),
@@ -132,6 +136,9 @@ public class ReservationsController : ControllerBase
                 "Rezervaciju koja je već počela nije moguće otkazati."),
             CancelReservationStatus.PendingTopUp => this.ApiError(409, ApiErrorCodes.PaymentPending,
                 "Otkazivanje nije moguće dok se obrađuje doplata za promenu termina."),
+            CancelReservationStatus.NoRefundAcknowledgementRequired => this.ApiError(400,
+                ApiErrorCodes.CancellationNoRefundAcknowledgementRequired,
+                "Potvrdite da razumete da se uplaćeni iznos ne vraća i ne pretvara u kredit."),
             CancelReservationStatus.LockTimeout => LockTimeout(),
             _ => Ok(new { message = "Rezervacija uspešno otkazana." })
         };
