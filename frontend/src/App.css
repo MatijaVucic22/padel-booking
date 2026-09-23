@@ -2376,6 +2376,19 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
 .courts-book-link { display: inline-flex; align-items: center; gap: 15px; padding-bottom: 7px; border-bottom: 1px solid var(--brand-accent); color: var(--brand-accent-ink); font-size: .77rem; font-weight: 900; letter-spacing: .09em; text-decoration: none; text-transform: uppercase; }
 .courts-book-link span { transition: transform .2s ease; }
 .courts-book-link:hover span { transform: translate(3px, -3px); }
+.courts-location-filter { display: grid; gap: 8px; width: min(520px, 100%); margin: -18px 0 36px; }
+.courts-location-filter > label { color: var(--brand-text); font-size: .78rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.courts-location-control { display: flex; gap: 8px; min-width: 0; }
+.courts-location-control input { min-width: 0; flex: 1; min-height: 48px; padding: 0 14px; border: 1px solid var(--brand-line); border-radius: 6px; background: var(--brand-surface); color: var(--brand-text); font: inherit; }
+.courts-location-control input::placeholder { color: var(--brand-muted); }
+.courts-location-control input:hover { border-color: color-mix(in srgb, var(--brand-accent) 55%, var(--brand-line)); }
+.courts-location-control button,
+.courts-filter-empty button { min-height: 48px; padding: 0 15px; border: 1px solid var(--brand-line); border-radius: 6px; background: transparent; color: var(--brand-text); font-weight: 750; white-space: nowrap; }
+.courts-location-control button:hover,
+.courts-filter-empty button:hover { border-color: var(--brand-accent); color: var(--brand-accent-ink); }
+.courts-filter-status { min-height: 20px; color: var(--brand-muted); font-size: .78rem; }
+.courts-filter-empty { display: grid; justify-items: start; gap: 14px; }
+.courts-filter-empty p { margin: 0; }
 .courts-page .courts-grid { gap: 40px 20px; }
 .courts-page .court-card { border-color: var(--brand-line); border-radius: 10px; background: var(--brand-surface); }
 .courts-page .court-card:hover, .courts-page .court-card:focus-visible { border-color: var(--brand-accent); transform: translateY(-3px); }
@@ -2598,6 +2611,9 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
   :is(.courts-page, .court-details-page, .quick-book-page, .reservations-page) { width: calc(100% - 32px); padding-block: 52px 70px; }
   .courts-page .courts-header { align-items: start; gap: 22px; }
   .courts-page .courts-header h1 { font-size: clamp(3.1rem, 14vw, 5rem); }
+  .courts-location-filter { margin-top: -6px; }
+  .courts-location-control { align-items: stretch; flex-direction: column; }
+  .courts-location-control button { width: 100%; }
   .courts-page .courts-grid { grid-template-columns: 1fr; gap: 20px; }
   .courts-page .court-card-image { height: clamp(260px, 78vw, 360px); }
   .court-details-page .court-information-image-wrap { height: clamp(290px, 88vw, 430px); }

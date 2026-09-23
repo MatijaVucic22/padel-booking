@@ -36,7 +36,12 @@ export const padelApi = createApi({
   ],
   endpoints: (builder) => ({
     getCourts: builder.query({
-      query: () => "/courts",
+      query: ({ location } = {}) => {
+        const normalizedLocation = location?.trim();
+        return normalizedLocation
+          ? { url: "/courts", params: { location: normalizedLocation } }
+          : "/courts";
+      },
       providesTags: (result) => result
         ? [{ type: "Court", id: "LIST" }, ...result.map((court) => ({ type: "Court", id: court.id }))]
         : [{ type: "Court", id: "LIST" }],

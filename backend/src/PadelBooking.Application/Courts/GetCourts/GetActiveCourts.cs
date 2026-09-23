@@ -10,6 +10,9 @@ public sealed class GetActiveCourts
     public GetActiveCourts(ICourtRepository courts) => _courts = courts;
 
     public Task<IReadOnlyList<Court>> ExecuteAsync(
+        string? location,
         CancellationToken cancellationToken = default) =>
-        _courts.ListActiveAsync(cancellationToken);
+        _courts.ListActiveAsync(
+            string.IsNullOrWhiteSpace(location) ? null : location.Trim(),
+            cancellationToken);
 }

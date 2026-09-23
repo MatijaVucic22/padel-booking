@@ -36,9 +36,9 @@ public class CourtsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetCourts()
+    public async Task<IActionResult> GetCourts([FromQuery] string? location)
     {
-        var courts = await _getCourts.ExecuteAsync(HttpContext.RequestAborted);
+        var courts = await _getCourts.ExecuteAsync(location, HttpContext.RequestAborted);
         return Ok(courts);
     }
 

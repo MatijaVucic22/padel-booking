@@ -243,6 +243,55 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    public async Task CourtsList_WithoutLocationFilterReturnsNormalActiveList()
+    {
+        var courtId = await SeedCourtAsync(location: $"Novi Sad {Guid.NewGuid():N}");
+
+        using var response = await host.Client.GetAsync("/api/courts");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Contains(json.RootElement.EnumerateArray(),
+            court => court.GetProperty("id").GetInt32() == courtId);
+    }
+
+    [Fact]
+    public async Task CourtsList_LocationFilterIsCaseInsensitiveAndTrimsWhitespace()
+    {
+        var uniqueLocation = $"Beograd-{Guid.NewGuid():N}";
+        var courtId = await SeedCourtAsync(location: $"{uniqueLocation}, Novi Beograd");
+        var searches = new[]
+        {
+            uniqueLocation,
+            uniqueLocation.ToLowerInvariant(),
+            $"  {uniqueLocation}  "
+        };
+
+        foreach (var search in searches)
+        {
+            using var response = await host.Client.GetAsync(
+                $"/api/courts?location={Uri.EscapeDataString(search)}");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.Contains(json.RootElement.EnumerateArray(),
+                court => court.GetProperty("id").GetInt32() == courtId);
+        }
+    }
+
+    [Fact]
+    public async Task CourtsList_NonMatchingLocationReturnsEmptyList()
+    {
+        var missingLocation = $"Nepostojeca-{Guid.NewGuid():N}";
+
+        using var response = await host.Client.GetAsync(
+            $"/api/courts?location={Uri.EscapeDataString(missingLocation)}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Empty(json.RootElement.EnumerateArray());
+    }
+
+    [Fact]
     public async Task MissingApiRoute_WithHtmlAccept_ReturnsProblemDetails()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/does-not-exist");
@@ -1397,13 +1446,15 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
         return payment.Id;
     }
 
-    private async Task<int> SeedCourtAsync(decimal pricePerHour = 2000m)
+    private async Task<int> SeedCourtAsync(
+        decimal pricePerHour = 2000m,
+        string location = "Nis")
     {
         await using var scope = host.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var court = new Court
         {
-            Name = $"Integration {Guid.NewGuid():N}", Location = "Nis",
+            Name = $"Integration {Guid.NewGuid():N}", Location = location,
             PricePerHour = pricePerHour, IsActive = true
         };
         db.Courts.Add(court);
