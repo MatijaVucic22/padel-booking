@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { flushSync } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -8,16 +8,17 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
-import Courts from "./pages/Courts";
-import CourtDetails from "./pages/CourtDetails";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
 import "./App.css";
-import MyReservations from "./pages/MyReservations";
-import AdminDashboard from "./pages/AdminDashboard";
-import Book from "./pages/Book";
-import PaymentSuccess from "./pages/PaymentSuccess";
-import PaymentCancel from "./pages/PaymentCancel";
+
+const Courts = lazy(() => import("./pages/Courts"));
+const CourtDetails = lazy(() => import("./pages/CourtDetails"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const MyReservations = lazy(() => import("./pages/MyReservations"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const Book = lazy(() => import("./pages/Book"));
+const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
+const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
 
 function App() {
   const navigate = useNavigate();
@@ -271,6 +272,7 @@ function App() {
             Provera sesije...
           </div>
         ) : (
+        <Suspense fallback={<div className="session-loading" role="status">Učitavanje...</div>}>
         <Routes>
           <Route path="/" element={<Home />} />
 
@@ -306,6 +308,7 @@ function App() {
             }
           />
         </Routes>
+        </Suspense>
         )}
       </main>
 
