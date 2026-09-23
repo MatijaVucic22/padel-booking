@@ -8,6 +8,7 @@ import {
   useDeactivateCourtMutation,
   useDeleteBlockedPeriodMutation,
   useLazyGetAdminCalendarQuery,
+  useLazyGetAdminPaymentAttentionQuery,
   useLazyGetAdminReservationsQuery,
   useLazyGetAdminStatsQuery,
   useLazyGetAdminUsersQuery,
@@ -59,11 +60,27 @@ const statusLabels = {
   Completed: "Završena",
 };
 
+const paymentPurposeLabels = {
+  InitialBooking: "Početna rezervacija",
+  RescheduleTopUp: "Doplata za promenu termina",
+};
+
+const paymentStatusLabels = {
+  Paid: "Plaćeno",
+  Pending: "Na čekanju",
+};
+
+const fulfillmentStatusLabels = {
+  RequiresResolution: "Potrebna intervencija",
+  Pending: "Čeka proveru",
+};
+
 const tabs = [
   { id: "dashboard", label: "Dashboard" },
   { id: "calendar", label: "Kalendar" },
   { id: "courts", label: "Tereni" },
   { id: "reservations", label: "Rezervacije" },
+  { id: "payments", label: "Plaćanja" },
   { id: "users", label: "Korisnici" },
 ];
 
@@ -127,6 +144,7 @@ function AdminDashboard() {
   const [getAdminReservations] = useLazyGetAdminReservationsQuery();
   const [getAdminStats] = useLazyGetAdminStatsQuery();
   const [getAdminCalendar] = useLazyGetAdminCalendarQuery();
+  const [getAdminPaymentAttention] = useLazyGetAdminPaymentAttentionQuery();
   const [getCourts] = useLazyGetCourtsQuery();
   const [createBlockedPeriod] = useCreateBlockedPeriodMutation();
   const [removeBlockedPeriod] = useDeleteBlockedPeriodMutation();
@@ -138,6 +156,12 @@ function AdminDashboard() {
   const [courts, setCourts] = useState([]);
   const [users, setUsers] = useState([]);
   const [reservations, setReservations] = useState([]);
+  const [paymentAttention, setPaymentAttention] = useState({
+    items: [], page: 1, pageSize: 20, totalCount: 0, totalPages: 0,
+  });
+  const [paymentAttentionPage, setPaymentAttentionPage] = useState(1);
+  const [paymentAttentionReloadKey, setPaymentAttentionReloadKey] = useState(0);
+  const [paymentAttentionState, setPaymentAttentionState] = useState({ loading: false, error: "" });
   const [sectionState, setSectionState] = useState(initialSectionState);
   const [courtForm, setCourtForm] = useState(emptyCourtForm);
   const [editingCourtId, setEditingCourtId] = useState(null);
@@ -456,6 +480,32 @@ function AdminDashboard() {
       ignoreResponse = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "payments") return undefined;
+
+    let ignoreResponse = false;
+    setPaymentAttentionState({ loading: true, error: "" });
+    unwrapApiRequest(getAdminPaymentAttention({ page: paymentAttentionPage, pageSize: 20 }))
+      .then((data) => {
+        if (ignoreResponse) return;
+        setPaymentAttention(data);
+        setPaymentAttentionState({ loading: false, error: "" });
+      })
+      .catch((requestError) => {
+        if (ignoreResponse) return;
+        setPaymentAttentionState({
+          loading: false,
+          error: requestError.response?.status === 403
+            ? "Nemaš dozvolu za pregled plaćanja."
+            : "Plaćanja koja zahtevaju pažnju trenutno nije moguće učitati.",
+        });
+      });
+
+    return () => {
+      ignoreResponse = true;
+    };
+  }, [activeTab, getAdminPaymentAttention, paymentAttentionPage, paymentAttentionReloadKey]);
 
   const retrySection = async (section) => {
     const requests = {
@@ -1158,6 +1208,125 @@ function AdminDashboard() {
             </table>
           </div>}
           {!sectionState.reservations.loading && !sectionState.reservations.error && reservations.length === 0 && <p className="admin-empty">Nema rezervacija.</p>}
+        </section>
+      )}
+
+      {activeTab === "payments" && (
+        <section className="admin-section admin-payment-attention">
+          <div className="admin-section-heading">
+            <div>
+              <span className="admin-eyebrow">Kontrola plaćanja</span>
+              <h2>Plaćanja koja zahtevaju pažnju</h2>
+            </div>
+            <span>{paymentAttention.totalCount} ukupno</span>
+          </div>
+          <p className="admin-payment-attention-intro">
+            Ova stranica prikazuje plaćanja koja mogu zahtevati pažnju administratora.
+            Sa ove stranice nije moguće promeniti stanje plaćanja.
+          </p>
+          <p className="admin-payment-attention-note">
+            Plaćanje na čekanju ne znači da je neuspešno: stanje provajdera još nije bezbedno
+            potvrđeno, a ovaj pregled ne otkazuje uplatu niti oslobađa termin.
+          </p>
+
+          <SectionFeedback
+            state={paymentAttentionState}
+            onRetry={() => setPaymentAttentionReloadKey((current) => current + 1)}
+          />
+
+          {!paymentAttentionState.loading && !paymentAttentionState.error && paymentAttention.items.length > 0 && (
+            <div className="admin-table-wrapper">
+              <table className="admin-table admin-payment-attention-table">
+                <thead>
+                  <tr>
+                    <th>Plaćanje</th>
+                    <th>Korisnik</th>
+                    <th>Rezervacija</th>
+                    <th>Iznos</th>
+                    <th>Namena</th>
+                    <th>Finansijski status</th>
+                    <th>Fulfillment status</th>
+                    <th>Razlog</th>
+                    <th>Termin</th>
+                    <th>Kreirano</th>
+                    <th>Pažnja</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paymentAttention.items.map((payment) => {
+                    const requiresResolution = payment.fulfillmentStatus === "RequiresResolution";
+                    const targetStart = payment.targetStartTime
+                      ? new Date(payment.targetStartTime)
+                      : null;
+                    const targetEnd = payment.targetEndTime
+                      ? new Date(payment.targetEndTime)
+                      : null;
+                    return (
+                      <tr key={payment.paymentId}>
+                        <td><strong>#{payment.paymentId}</strong></td>
+                        <td><strong>{payment.userName}</strong><small>{payment.userEmail}</small></td>
+                        <td><strong>#{payment.reservationId}</strong><small>{payment.courtName}</small></td>
+                        <td>{priceFormatter.format(payment.amount)}</td>
+                        <td>{paymentPurposeLabels[payment.paymentPurpose] ?? payment.paymentPurpose}</td>
+                        <td>{paymentStatusLabels[payment.paymentStatus] ?? payment.paymentStatus}</td>
+                        <td>
+                          <span className={`admin-payment-status ${requiresResolution ? "is-resolution" : "is-pending"}`}>
+                            {fulfillmentStatusLabels[payment.fulfillmentStatus] ?? payment.fulfillmentStatus}
+                          </span>
+                        </td>
+                        <td>
+                          {payment.resolutionReasonCode ?? (requiresResolution
+                            ? "Potrebna je ručna provera."
+                            : "Stanje provajdera nije bezbedno potvrđeno.")}
+                        </td>
+                        <td>
+                          {targetStart && targetEnd ? (
+                            <>
+                              <strong>{dateFormatter.format(targetStart)}</strong>
+                              <small>{timeFormatter.format(targetStart)}–{timeFormatter.format(targetEnd)}</small>
+                            </>
+                          ) : "—"}
+                        </td>
+                        <td>
+                          <strong>{dateFormatter.format(new Date(payment.createdAtUtc))}</strong>
+                          <small>{timeFormatter.format(new Date(payment.createdAtUtc))}</small>
+                        </td>
+                        <td>
+                          <span className={`admin-payment-attention-label ${requiresResolution ? "is-resolution" : "is-pending"}`}>
+                            {requiresResolution ? "Potrebna intervencija" : "Čeka proveru"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {!paymentAttentionState.loading && !paymentAttentionState.error && paymentAttention.items.length === 0 && (
+            <p className="admin-empty">Trenutno nijedno plaćanje ne zahteva pažnju.</p>
+          )}
+
+          {!paymentAttentionState.loading && !paymentAttentionState.error && paymentAttention.totalPages > 1 && (
+            <nav className="admin-payment-pagination" aria-label="Stranice plaćanja">
+              <button
+                type="button"
+                disabled={paymentAttention.page <= 1}
+                onClick={() => setPaymentAttentionPage((current) => Math.max(1, current - 1))}
+              >
+                Prethodna
+              </button>
+              <span>Strana {paymentAttention.page} od {paymentAttention.totalPages}</span>
+              <button
+                type="button"
+                disabled={paymentAttention.page >= paymentAttention.totalPages}
+                onClick={() => setPaymentAttentionPage((current) => current + 1)}
+              >
+                Sledeća
+              </button>
+            </nav>
+          )}
         </section>
       )}
 

@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PadelBooking.Application.Admin.BlockedPeriods;
 using PadelBooking.Application.Admin.Calendar;
 using PadelBooking.Application.Admin.Reservations;
+using PadelBooking.Application.Admin.Payments;
 using PadelBooking.Application.Admin.Statistics;
 using PadelBooking.Application.Admin.Users;
 using PadelBooking.Application.Authentication.GetCurrentUser;
@@ -44,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<ProcessDueReservationReminders>();
         services.AddScoped<GetAdminUsers>();
         services.AddScoped<GetAdminReservations>();
+        services.AddScoped<GetAdminPaymentAttention>();
         services.AddScoped<GetAdminStatistics>();
         services.AddScoped<GetAdminCalendar>();
         services.AddScoped<CreateBlockedPeriod>();

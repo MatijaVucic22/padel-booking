@@ -1,4 +1,5 @@
 using PadelBooking.Application.Admin.Models;
+using PadelBooking.Application.Admin.Payments;
 
 namespace PadelBooking.Application.Abstractions.Persistence;
 
@@ -22,5 +23,11 @@ public interface IAdminReadRepository
     Task<AdminCalendarData> GetCalendarAsync(
         DateTime dayStart,
         DateTime dayEnd,
+        CancellationToken cancellationToken = default);
+
+    Task<AdminPaymentAttentionPage> GetPaymentsNeedingAttentionAsync(
+        DateTime pendingBeforeUtc,
+        int page,
+        int pageSize,
         CancellationToken cancellationToken = default);
 }

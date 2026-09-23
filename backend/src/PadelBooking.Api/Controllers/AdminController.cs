@@ -5,6 +5,7 @@ using PadelBooking.Api.DTOs;
 using PadelBooking.Api.Errors;
 using PadelBooking.Application.Admin.BlockedPeriods;
 using PadelBooking.Application.Admin.Calendar;
+using PadelBooking.Application.Admin.Payments;
 using PadelBooking.Application.Admin.Reservations;
 using PadelBooking.Application.Admin.Statistics;
 using PadelBooking.Application.Admin.Users;
@@ -20,16 +21,19 @@ public class AdminController : ControllerBase
     private readonly GetAdminReservations _getReservations;
     private readonly GetAdminStatistics _getStatistics;
     private readonly GetAdminCalendar _getCalendar;
+    private readonly GetAdminPaymentAttention _getPaymentAttention;
     private readonly CreateBlockedPeriod _createBlockedPeriod;
     private readonly DeleteBlockedPeriod _deleteBlockedPeriod;
 
     public AdminController(GetAdminUsers getUsers,
         GetAdminReservations getReservations, GetAdminStatistics getStatistics,
-        GetAdminCalendar getCalendar, CreateBlockedPeriod createBlockedPeriod,
+        GetAdminCalendar getCalendar, GetAdminPaymentAttention getPaymentAttention,
+        CreateBlockedPeriod createBlockedPeriod,
         DeleteBlockedPeriod deleteBlockedPeriod)
     {
         _getUsers = getUsers; _getReservations = getReservations;
         _getStatistics = getStatistics; _getCalendar = getCalendar;
+        _getPaymentAttention = getPaymentAttention;
         _createBlockedPeriod = createBlockedPeriod;
         _deleteBlockedPeriod = deleteBlockedPeriod;
     }
@@ -41,6 +45,13 @@ public class AdminController : ControllerBase
     [HttpGet("reservations")]
     public async Task<IActionResult> GetReservations() =>
         Ok(await _getReservations.ExecuteAsync(HttpContext.RequestAborted));
+
+    [HttpGet("payments/attention")]
+    public async Task<IActionResult> GetPaymentsNeedingAttention(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20) =>
+        Ok(await _getPaymentAttention.ExecuteAsync(
+            page, pageSize, HttpContext.RequestAborted));
 
     [HttpGet("calendar")]
     public async Task<IActionResult> GetCalendar([FromQuery] string? date)

@@ -32,6 +32,7 @@ export const padelApi = createApi({
     "AdminReservations",
     "AdminStats",
     "AdminCalendar",
+    "AdminPaymentAttention",
   ],
   endpoints: (builder) => ({
     getCourts: builder.query({
@@ -123,6 +124,13 @@ export const padelApi = createApi({
         { type: "AdminCalendar", id: date },
       ],
     }),
+    getAdminPaymentAttention: builder.query({
+      query: ({ page = 1, pageSize = 20 } = {}) => ({
+        url: "/admin/payments/attention",
+        params: { page, pageSize },
+      }),
+      providesTags: ["AdminPaymentAttention"],
+    }),
     createBlockedPeriod: builder.mutation({
       query: (blockedPeriod) => ({
         url: "/admin/blocked-periods",
@@ -184,6 +192,7 @@ export const {
   useLazyGetAdminReservationsQuery,
   useLazyGetAdminStatsQuery,
   useLazyGetAdminCalendarQuery,
+  useLazyGetAdminPaymentAttentionQuery,
   useCreateBlockedPeriodMutation,
   useDeleteBlockedPeriodMutation,
   useCreateCourtMutation,
