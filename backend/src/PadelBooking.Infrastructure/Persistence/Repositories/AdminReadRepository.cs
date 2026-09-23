@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Application.Admin.Models;
+using PadelBooking.Application.Admin.Payments;
 using PadelBooking.Domain.Entities;
 
 namespace PadelBooking.Infrastructure.Persistence.Repositories;
@@ -78,5 +79,62 @@ public sealed class AdminReadRepository : IAdminReadRepository
                 period.EndTime, period.Reason))
             .ToListAsync(cancellationToken);
         return new(courts, reservations, blockedPeriods);
+    }
+
+    public async Task<AdminPaymentAttentionPage> GetPaymentsNeedingAttentionAsync(
+        DateTime pendingBeforeUtc,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Payments.AsNoTracking()
+            .Where(payment =>
+                (payment.Status == PaymentStatus.Paid &&
+                    payment.FulfillmentStatus == PaymentFulfillmentStatus.RequiresResolution) ||
+                (payment.Status == PaymentStatus.Pending &&
+                    payment.CreatedAtUtc <= pendingBeforeUtc));
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var totalPages = totalCount == 0
+            ? 0
+            : (int)Math.Ceiling(totalCount / (double)pageSize);
+        if (totalCount == 0 || page > totalPages)
+            return new([], page, pageSize, totalCount, totalPages);
+
+        var items = await query
+            .OrderBy(payment => payment.Status == PaymentStatus.Paid ? 0 : 1)
+            .ThenByDescending(payment => payment.CreatedAtUtc)
+            .ThenByDescending(payment => payment.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(payment => new AdminPaymentAttentionItem(
+                payment.Id,
+                payment.ReservationId,
+                payment.Reservation.UserId,
+                payment.Reservation.User.FirstName + " " + payment.Reservation.User.LastName,
+                payment.Reservation.User.Email,
+                payment.Reservation.CourtId,
+                payment.Reservation.Court.Name,
+                payment.Purpose == PaymentPurpose.InitialBooking
+                    ? "InitialBooking" : "RescheduleTopUp",
+                payment.Status == PaymentStatus.Paid ? "Paid" : "Pending",
+                payment.FulfillmentStatus == PaymentFulfillmentStatus.RequiresResolution
+                    ? "RequiresResolution"
+                    : payment.FulfillmentStatus == PaymentFulfillmentStatus.Applied
+                        ? "Applied"
+                        : payment.FulfillmentStatus == PaymentFulfillmentStatus.NotApplicable
+                            ? "NotApplicable" : "Pending",
+                payment.Amount,
+                payment.Currency,
+                payment.CreatedAtUtc,
+                payment.UpdatedAtUtc,
+                payment.ResolutionReasonCode,
+                payment.Purpose == PaymentPurpose.RescheduleTopUp
+                    ? payment.TargetStartTime : payment.Reservation.StartTime,
+                payment.Purpose == PaymentPurpose.RescheduleTopUp
+                    ? payment.TargetEndTime : payment.Reservation.EndTime))
+            .ToListAsync(cancellationToken);
+
+        return new(items, page, pageSize, totalCount, totalPages);
     }
 }

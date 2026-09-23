@@ -94,6 +94,119 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    public async Task AdminPaymentAttention_ReturnsPaidRequiresResolutionWithStoredReason()
+    {
+        var paymentId = await SeedAttentionPaymentAsync(
+            PaymentStatus.Paid,
+            PaymentFulfillmentStatus.RequiresResolution,
+            DateTime.UtcNow.AddMinutes(-5),
+            "TARGET_BLOCKED");
+        using var admin = await AuthenticatedClientAsync(admin: true);
+
+        using var response = await admin.GetAsync("/api/admin/payments/attention?page=1&pageSize=100");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var item = json.RootElement.GetProperty("items").EnumerateArray()
+            .Single(candidate => candidate.GetProperty("paymentId").GetInt32() == paymentId);
+
+        Assert.Equal("Paid", item.GetProperty("paymentStatus").GetString());
+        Assert.Equal("RequiresResolution", item.GetProperty("fulfillmentStatus").GetString());
+        Assert.Equal("TARGET_BLOCKED", item.GetProperty("resolutionReasonCode").GetString());
+        Assert.Equal(1, json.RootElement.GetProperty("page").GetInt32());
+        Assert.Equal(100, json.RootElement.GetProperty("pageSize").GetInt32());
+        Assert.True(json.RootElement.GetProperty("totalCount").GetInt32() >= 1);
+        Assert.True(json.RootElement.GetProperty("totalPages").GetInt32() >= 1);
+    }
+
+    [Fact]
+    public async Task AdminPaymentAttention_MaxPageReturnsEmptyPageWithoutOverflow()
+    {
+        using var admin = await AuthenticatedClientAsync(admin: true);
+        using var firstPageResponse = await admin.GetAsync(
+            "/api/admin/payments/attention?page=1&pageSize=100");
+        firstPageResponse.EnsureSuccessStatusCode();
+        using var firstPage = JsonDocument.Parse(
+            await firstPageResponse.Content.ReadAsStringAsync());
+        var expectedTotalCount = firstPage.RootElement.GetProperty("totalCount").GetInt32();
+        var expectedTotalPages = firstPage.RootElement.GetProperty("totalPages").GetInt32();
+
+        using var response = await admin.GetAsync(
+            "/api/admin/payments/attention?page=2147483647&pageSize=100");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Empty(json.RootElement.GetProperty("items").EnumerateArray());
+        Assert.Equal(int.MaxValue, json.RootElement.GetProperty("page").GetInt32());
+        Assert.Equal(100, json.RootElement.GetProperty("pageSize").GetInt32());
+        Assert.Equal(expectedTotalCount, json.RootElement.GetProperty("totalCount").GetInt32());
+        Assert.Equal(expectedTotalPages, json.RootElement.GetProperty("totalPages").GetInt32());
+    }
+
+    [Fact]
+    public async Task AdminPaymentAttention_DoesNotReturnPaidApplied()
+    {
+        var paymentId = await SeedAttentionPaymentAsync(
+            PaymentStatus.Paid,
+            PaymentFulfillmentStatus.Applied,
+            DateTime.UtcNow.AddHours(-2));
+        using var admin = await AuthenticatedClientAsync(admin: true);
+
+        using var response = await admin.GetAsync("/api/admin/payments/attention?pageSize=100");
+        response.EnsureSuccessStatusCode();
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.DoesNotContain(json.RootElement.GetProperty("items").EnumerateArray(),
+            item => item.GetProperty("paymentId").GetInt32() == paymentId);
+    }
+
+    [Fact]
+    public async Task AdminPaymentAttention_DoesNotReturnRecentPending()
+    {
+        var paymentId = await SeedAttentionPaymentAsync(
+            PaymentStatus.Pending,
+            PaymentFulfillmentStatus.Pending,
+            DateTime.UtcNow.AddMinutes(-30));
+        using var admin = await AuthenticatedClientAsync(admin: true);
+
+        using var response = await admin.GetAsync("/api/admin/payments/attention?pageSize=100");
+        response.EnsureSuccessStatusCode();
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.DoesNotContain(json.RootElement.GetProperty("items").EnumerateArray(),
+            item => item.GetProperty("paymentId").GetInt32() == paymentId);
+    }
+
+    [Fact]
+    public async Task AdminPaymentAttention_ReturnsPendingOlderThanThreshold()
+    {
+        var paymentId = await SeedAttentionPaymentAsync(
+            PaymentStatus.Pending,
+            PaymentFulfillmentStatus.Pending,
+            DateTime.UtcNow.AddMinutes(-61));
+        using var admin = await AuthenticatedClientAsync(admin: true);
+
+        using var response = await admin.GetAsync("/api/admin/payments/attention?pageSize=100");
+        response.EnsureSuccessStatusCode();
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var item = json.RootElement.GetProperty("items").EnumerateArray()
+            .Single(candidate => candidate.GetProperty("paymentId").GetInt32() == paymentId);
+
+        Assert.Equal("Pending", item.GetProperty("paymentStatus").GetString());
+        Assert.Equal("Pending", item.GetProperty("fulfillmentStatus").GetString());
+    }
+
+    [Fact]
+    public async Task AdminPaymentAttention_AsUser_ReturnsForbidden()
+    {
+        using var user = await AuthenticatedClientAsync();
+
+        using var response = await user.GetAsync("/api/admin/payments/attention");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = await AssertProblemAsync(response, "FORBIDDEN");
+    }
+
+    [Fact]
     public async Task ValidationFailure_ReturnsProblemDetailsWithFieldErrors()
     {
         using var response = await host.Client.PostAsJsonAsync("/api/auth/register", new
@@ -1234,6 +1347,55 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
         CreatedAtUtc = DateTime.UtcNow,
         SessionExpiresAtUtc = DateTime.UtcNow.AddMinutes(35)
     };
+
+    private async Task<int> SeedAttentionPaymentAsync(
+        PaymentStatus status,
+        PaymentFulfillmentStatus fulfillmentStatus,
+        DateTime createdAtUtc,
+        string? resolutionReasonCode = null)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var user = new User
+        {
+            FirstName = "Admin", LastName = "Attention", Email = UniqueEmail(),
+            PasswordHash = "integration-test-not-used"
+        };
+        var court = new Court
+        {
+            Name = $"Attention {Guid.NewGuid():N}", Location = "Nis",
+            PricePerHour = 2000m, IsActive = true
+        };
+        var (start, end) = Slot(10);
+        var reservation = new Reservation
+        {
+            User = user,
+            Court = court,
+            StartTime = start,
+            EndTime = end,
+            TotalPrice = 2000m,
+            Status = status == PaymentStatus.Pending ? "PendingPayment" : "Active",
+            CreatedAt = createdAtUtc
+        };
+        var payment = new Payment
+        {
+            Reservation = reservation,
+            Amount = 2000m,
+            Currency = "RSD",
+            Status = status,
+            FulfillmentStatus = fulfillmentStatus,
+            ResolutionReasonCode = resolutionReasonCode,
+            Purpose = PaymentPurpose.InitialBooking,
+            Provider = "Stripe",
+            ExternalSessionId = $"cs_test_attention_{Guid.NewGuid():N}",
+            CreatedAtUtc = createdAtUtc,
+            UpdatedAtUtc = status == PaymentStatus.Paid ? createdAtUtc.AddMinutes(1) : null,
+            SessionExpiresAtUtc = createdAtUtc.AddMinutes(35)
+        };
+        db.Payments.Add(payment);
+        await db.SaveChangesAsync();
+        return payment.Id;
+    }
 
     private async Task<int> SeedCourtAsync(decimal pricePerHour = 2000m)
     {
