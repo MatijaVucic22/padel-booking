@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import * as signalR from "@microsoft/signalr";
 import { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
@@ -13,13 +13,26 @@ const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
 });
 
 function Courts() {
+  const [location, setLocation] = useState("");
+  const [debouncedLocation, setDebouncedLocation] = useState("");
   const {
     data: courts = [],
     isLoading,
     isFetching,
     isError,
     refetch,
-  } = useGetCourtsQuery(undefined, { refetchOnMountOrArgChange: true });
+  } = useGetCourtsQuery(
+    { location: debouncedLocation },
+    { refetchOnMountOrArgChange: true },
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedLocation(location.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [location]);
 
   useEffect(() => {
     let disposed = false;
@@ -45,7 +58,7 @@ function Courts() {
 
   const retryLoading = () => refetch();
 
-  if (isLoading || isFetching) {
+  if (isLoading && courts.length === 0) {
     return (
       <section className="page courts-page" aria-live="polite">
         <h1>Padel tereni</h1>
@@ -76,10 +89,37 @@ function Courts() {
         </div>
       </Reveal>
 
+      <div className="courts-location-filter">
+        <label htmlFor="court-location-filter">Lokacija</label>
+        <div className="courts-location-control">
+          <input
+            id="court-location-filter"
+            type="search"
+            value={location}
+            placeholder="Pretraži grad ili lokaciju"
+            onChange={(event) => setLocation(event.target.value)}
+            aria-controls="courts-results"
+          />
+          {location && (
+            <button type="button" onClick={() => setLocation("")}>
+              Obriši
+            </button>
+          )}
+        </div>
+        {isFetching && <span className="courts-filter-status" role="status">Osvežavanje terena...</span>}
+      </div>
+
       {courts.length === 0 ? (
-        <p className="courts-feedback">Trenutno nema dostupnih terena.</p>
+        debouncedLocation ? (
+          <div className="courts-feedback courts-filter-empty">
+            <p>Nema terena koji odgovaraju unetoj lokaciji.</p>
+            <button type="button" onClick={() => setLocation("")}>Prikaži sve terene</button>
+          </div>
+        ) : (
+          <p className="courts-feedback">Trenutno nema dostupnih terena.</p>
+        )
       ) : (
-        <div className="courts-grid">
+        <div className="courts-grid" id="courts-results" aria-busy={isFetching}>
           {courts.map((court, index) => (
             <Reveal
               as={Link}

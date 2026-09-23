@@ -28,10 +28,12 @@ public sealed class CourtRepository : ICourtRepository
             cancellationToken);
 
     public async Task<IReadOnlyList<Court>> ListActiveAsync(
+        string? location = null,
         CancellationToken cancellationToken = default) =>
         await _context.Courts
             .AsNoTracking()
-            .Where(court => court.IsActive)
+            .Where(court => court.IsActive &&
+                (location == null || court.Location.Contains(location)))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Court>> ListAvailableAsync(

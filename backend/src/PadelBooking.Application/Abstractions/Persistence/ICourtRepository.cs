@@ -13,6 +13,7 @@ public interface ICourtRepository
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Court>> ListActiveAsync(
+        string? location = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Court>> ListAvailableAsync(

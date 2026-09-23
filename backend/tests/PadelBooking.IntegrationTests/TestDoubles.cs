@@ -139,7 +139,8 @@ internal sealed class ThrowingCourtRepository : ICourtRepository
 
     public Task<Court?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => throw Failure();
     public Task<Court?> GetActiveByIdAsync(int id, CancellationToken cancellationToken = default) => throw Failure();
-    public Task<IReadOnlyList<Court>> ListActiveAsync(CancellationToken cancellationToken = default) => throw Failure();
+    public Task<IReadOnlyList<Court>> ListActiveAsync(string? location = null,
+        CancellationToken cancellationToken = default) => throw Failure();
     public Task<IReadOnlyList<Court>> ListAvailableAsync(DateTime startTime, DateTime endTime,
         CancellationToken cancellationToken = default) => throw Failure();
     public void Add(Court court) => throw Failure();
