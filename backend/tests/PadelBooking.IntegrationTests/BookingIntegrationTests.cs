@@ -72,6 +72,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task AdminEndpoint_AsUser_ReturnsForbiddenProblemDetails()
     {
         using var user = await AuthenticatedClientAsync();
@@ -243,6 +244,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task CourtsList_WithoutLocationFilterReturnsNormalActiveList()
     {
         var courtId = await SeedCourtAsync(location: $"Novi Sad {Guid.NewGuid():N}");
@@ -486,6 +488,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task ConcurrentCheckoutForSameCourtAndTime_AllowsOnlyOneHold()
     {
         var courtId = await SeedCourtAsync();
@@ -516,6 +519,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task BlockedPeriod_PreventsCheckout()
     {
         var courtId = await SeedCourtAsync();
@@ -536,6 +540,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task CreateBlockedPeriod_PastStartIsRejectedAndNotPersisted()
     {
         var now = new DateTime(2026, 10, 8, 13, 34, 0, DateTimeKind.Unspecified);
@@ -589,6 +594,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task SuccessfulPaymentCompletion_ConfirmsReservation()
     {
         var courtId = await SeedCourtAsync();
@@ -667,6 +673,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task CancellingPaidReservation_WithAcknowledgement_PreservesPaymentAndRevenueWithoutReusableReservation()
     {
         var courtId = await SeedCourtAsync();
@@ -824,6 +831,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task LatePaidInitialBooking_RequiresResolutionAndReleasesProvisionalHold()
     {
         var courtId = await SeedCourtAsync();
@@ -919,6 +927,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task CheckoutLeadTime_RejectsBelow15MinutesAndAllowsExactBoundary()
     {
         var courtId = await SeedCourtAsync();
@@ -1031,6 +1040,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task PaidTopUpReschedule_AllowsExact15MinutesAndRejectsJustUnderBoundary()
     {
         using var owner = await AuthenticatedClientAsync();
@@ -1266,6 +1276,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task PaidTopUp_AppliesOnceAndKeepsBothSuccessfulPayments()
     {
         var courtId = await SeedCourtAsync();

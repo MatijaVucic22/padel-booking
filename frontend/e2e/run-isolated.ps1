@@ -90,7 +90,11 @@ try {
 
     Push-Location $frontendRoot
     try {
-        & $npmCommand run test:e2e
+        $playwrightArguments = @("run", "test:e2e")
+        if ($env:PADELBOOKING_E2E_GREP) {
+            $playwrightArguments += @("--", "--grep", $env:PADELBOOKING_E2E_GREP)
+        }
+        & $npmCommand @playwrightArguments
         Assert-ExitCode "Playwright testovi"
     } finally {
         Pop-Location
