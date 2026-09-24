@@ -91,7 +91,7 @@ public class ReservationsController : ControllerBase
             RescheduleReservationStatus.PendingTopUp => this.ApiError(409, ApiErrorCodes.PaymentPending,
                 "Promena termina već čeka potvrdu doplate."),
             RescheduleReservationStatus.CheckoutWindowClosed => this.ApiError(400, ApiErrorCodes.CheckoutTooClose,
-                "Za doplatu izaberite termin koji počinje za najmanje 34 minuta."),
+                "Novi termin je moguće izabrati najkasnije 15 minuta pre početka."),
             RescheduleReservationStatus.ConfirmationRequired => this.ApiError(400, ApiErrorCodes.RescheduleNotAllowed,
                 "Potvrdite da razlika u ceni neće biti refundirana.", result.Quote),
             RescheduleReservationStatus.QuoteChanged => this.ApiError(409, ApiErrorCodes.Conflict,

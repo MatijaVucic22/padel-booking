@@ -5,6 +5,7 @@ using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Application.Abstractions.Time;
 using PadelBooking.Application.Notifications;
 using PadelBooking.Application.Payments;
+using PadelBooking.Application.Reservations.Availability;
 using PadelBooking.Domain.Entities;
 
 namespace PadelBooking.Application.Reservations.Reschedule;
@@ -54,6 +55,8 @@ public sealed class RescheduleReservation(
                 return new(RescheduleReservationStatus.SameSlot);
             if (await payments.HasPendingTopUpAsync(reservation.Id, cancellationToken))
                 return new(RescheduleReservationStatus.PendingTopUp);
+            if (!BookingCutoffPolicy.CanBook(command.StartTime, bookingTime.Now))
+                return new(RescheduleReservationStatus.CheckoutWindowClosed);
             if (await reservations.HasOverlapAsync(reservation.CourtId, command.StartTime,
                     command.EndTime, reservation.Id, cancellationToken) ||
                 await payments.HasPendingTargetOverlapAsync(reservation.CourtId,
@@ -77,16 +80,14 @@ public sealed class RescheduleReservation(
 
             if (topUp > 0m)
             {
-                var expiresAtUtc = CheckoutExpirationPolicy.GetExpirationUtc(command.StartTime, bookingTime);
-                if (expiresAtUtc is null)
-                    return new(RescheduleReservationStatus.CheckoutWindowClosed);
+                var expiresAtUtc = CheckoutExpirationPolicy.GetExpirationUtc(bookingTime);
 
                 CheckoutSession session;
                 try
                 {
                     session = await gateway.CreateCheckoutAsync(new CheckoutRequest(
                         Guid.NewGuid().ToString("N"), court.Name, reservation.User.Email,
-                        checked((long)(topUp * 100m)), "RSD", expiresAtUtc.Value), cancellationToken);
+                        checked((long)(topUp * 100m)), "RSD", expiresAtUtc), cancellationToken);
                 }
                 catch (CheckoutWindowClosedException)
                 {

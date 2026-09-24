@@ -3,6 +3,7 @@ using PadelBooking.Application.Abstractions.Notifications;
 using PadelBooking.Application.Abstractions.Payments;
 using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Application.Abstractions.Time;
+using PadelBooking.Application.Reservations.Availability;
 using PadelBooking.Domain.Entities;
 
 namespace PadelBooking.Application.Payments;
@@ -28,6 +29,8 @@ public sealed class StartCheckout(
     {
         var user = await users.GetByIdAsync(userId, cancellationToken);
         if (user is null) return new(StartCheckoutStatus.Unauthorized);
+        if (!BookingCutoffPolicy.CanBook(startTime, bookingTime.Now))
+            return new(StartCheckoutStatus.CheckoutWindowClosed);
 
         var acquiredLock = await courtLock.TryAcquireAsync(courtId, cancellationToken);
         if (acquiredLock is null) return new(StartCheckoutStatus.LockTimeout);
@@ -49,8 +52,7 @@ public sealed class StartCheckout(
             var durationHours = (decimal)(endTime - startTime).TotalHours;
             var amount = Math.Round(court.PricePerHour * durationHours, 2);
             var amountMinor = checked((long)(amount * 100m));
-            var expiresAtUtc = CheckoutExpirationPolicy.GetExpirationUtc(startTime, bookingTime);
-            if (expiresAtUtc is null) return new(StartCheckoutStatus.CheckoutWindowClosed);
+            var expiresAtUtc = CheckoutExpirationPolicy.GetExpirationUtc(bookingTime);
             reservation = new Reservation
             {
                 UserId = userId,
@@ -65,7 +67,7 @@ public sealed class StartCheckout(
             {
                 session = await gateway.CreateCheckoutAsync(
                     new CheckoutRequest(Guid.NewGuid().ToString("N"), court.Name, user.Email, amountMinor, "RSD",
-                        expiresAtUtc.Value),
+                        expiresAtUtc),
                     cancellationToken);
             }
             catch (CheckoutWindowClosedException)
