@@ -53,6 +53,21 @@ public sealed class BlockedPeriodRepository : IBlockedPeriodRepository
                 blockedPeriod.EndTime > requestedStart)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<CourtScheduleInterval>> ListOverlappingForCourtsAsync(
+        IReadOnlyCollection<int> courtIds,
+        DateTime requestedStart,
+        DateTime requestedEnd,
+        CancellationToken cancellationToken = default) =>
+        await _context.BlockedPeriods
+            .AsNoTracking()
+            .Where(blockedPeriod =>
+                courtIds.Contains(blockedPeriod.CourtId) &&
+                blockedPeriod.StartTime < requestedEnd &&
+                blockedPeriod.EndTime > requestedStart)
+            .Select(blockedPeriod => new CourtScheduleInterval(
+                blockedPeriod.CourtId, blockedPeriod.StartTime, blockedPeriod.EndTime))
+            .ToListAsync(cancellationToken);
+
     public void Add(BlockedPeriod blockedPeriod) =>
         _context.BlockedPeriods.Add(blockedPeriod);
 

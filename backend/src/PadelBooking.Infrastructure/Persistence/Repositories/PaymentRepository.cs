@@ -74,6 +74,20 @@ public sealed class PaymentRepository(ApplicationDbContext context) : IPaymentRe
         return intervals.Select(interval => (interval.TargetStartTime!.Value, interval.TargetEndTime!.Value)).ToList();
     }
 
+    public async Task<IReadOnlyList<CourtScheduleInterval>> ListPendingTargetIntervalsForCourtsAsync(
+        IReadOnlyCollection<int> courtIds, DateTime dayStart, DateTime dayEnd,
+        CancellationToken cancellationToken = default) =>
+        await context.Payments.AsNoTracking()
+            .Where(payment => courtIds.Contains(payment.Reservation.CourtId) &&
+                payment.Purpose == PaymentPurpose.RescheduleTopUp &&
+                payment.Status == PaymentStatus.Pending &&
+                payment.TargetStartTime < dayEnd && payment.TargetEndTime > dayStart)
+            .Select(payment => new CourtScheduleInterval(
+                payment.Reservation.CourtId,
+                payment.TargetStartTime!.Value,
+                payment.TargetEndTime!.Value))
+            .ToListAsync(cancellationToken);
+
     public Task<Payment?> GetTrackedBySessionIdAsync(string sessionId, CancellationToken cancellationToken = default) =>
         context.Payments.Include(payment => payment.Reservation)
             .ThenInclude(reservation => reservation.User)

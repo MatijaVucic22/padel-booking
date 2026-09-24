@@ -41,6 +41,12 @@ public interface IReservationRepository
         int? excludedReservationId = null,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<CourtScheduleInterval>> ListOverlappingForCourtsAsync(
+        IReadOnlyCollection<int> courtIds,
+        DateTime requestedStart,
+        DateTime requestedEnd,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<int>> ListDueReminderIdsAsync(
         DateTime now,
         DateTime reminderCutoff,

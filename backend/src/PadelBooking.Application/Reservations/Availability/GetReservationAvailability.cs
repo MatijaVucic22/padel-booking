@@ -47,22 +47,18 @@ public sealed class GetReservationAvailability
             courtId, dayStart, dayEnd, cancellationToken);
         var pendingTargets = await _payments.ListPendingTargetIntervalsAsync(
             courtId, dayStart, dayEnd, cancellationToken);
-        var slots = new List<AvailableReservationSlot>();
         var now = _bookingTime.Now;
-
-        for (var hour = 8; hour < 22; hour++)
-        {
-            var startTime = dayStart.AddHours(hour);
-            var endTime = startTime.AddHours(1);
-            var occupied = reservations.Any(item =>
-                startTime < item.EndTime && endTime > item.StartTime);
-            var blocked = blockedPeriods.Any(item =>
-                startTime < item.EndTime && endTime > item.StartTime);
-            var held = pendingTargets.Any(item =>
-                startTime < item.EndTime && endTime > item.StartTime);
-            if (!occupied && !blocked && !held && startTime > now)
-                slots.Add(new(startTime, endTime));
-        }
+        var unavailable = reservations
+            .Select(item => new BookingTimeRange(item.StartTime, item.EndTime))
+            .Concat(blockedPeriods.Select(item =>
+                new BookingTimeRange(item.StartTime, item.EndTime)))
+            .Concat(pendingTargets.Select(item =>
+                new BookingTimeRange(item.StartTime, item.EndTime)));
+        var slots = BookingSlotCalculator.GetAvailableStarts(
+                dayStart, 1, now, unavailable)
+            .Select(startTime => new AvailableReservationSlot(
+                startTime, startTime.AddHours(1)))
+            .ToList();
 
         return new(courtId, court.Name, date.Date, slots);
     }

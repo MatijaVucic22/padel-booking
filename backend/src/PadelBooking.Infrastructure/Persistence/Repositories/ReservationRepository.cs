@@ -100,6 +100,22 @@ public sealed class ReservationRepository : IReservationRepository
                 reservation.EndTime > requestedStart)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<CourtScheduleInterval>> ListOverlappingForCourtsAsync(
+        IReadOnlyCollection<int> courtIds,
+        DateTime requestedStart,
+        DateTime requestedEnd,
+        CancellationToken cancellationToken = default) =>
+        await _context.Reservations
+            .AsNoTracking()
+            .Where(reservation =>
+                courtIds.Contains(reservation.CourtId) &&
+                reservation.Status != "Cancelled" &&
+                reservation.StartTime < requestedEnd &&
+                reservation.EndTime > requestedStart)
+            .Select(reservation => new CourtScheduleInterval(
+                reservation.CourtId, reservation.StartTime, reservation.EndTime))
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<int>> ListDueReminderIdsAsync(
         DateTime now,
         DateTime reminderCutoff,

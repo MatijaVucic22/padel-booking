@@ -12,6 +12,43 @@ const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   maximumFractionDigits: 2,
 });
 
+const slotDateFormatter = new Intl.DateTimeFormat("sr-Latn-RS", {
+  day: "numeric",
+  month: "long",
+  timeZone: "UTC",
+});
+
+function belgradeDateKey() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Belgrade",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+function addDays(dateKey, days) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days, 12));
+  return date.toISOString().slice(0, 10);
+}
+
+function formatNextAvailableSlot(value) {
+  if (!value) return "Nema slobodnih termina u narednih 7 dana";
+
+  const [dateKey, timeValue] = value.split("T");
+  const time = timeValue.slice(0, 5);
+  const today = belgradeDateKey();
+  if (dateKey === today) return `Danas u ${time}`;
+  if (dateKey === addDays(today, 1)) return `Sutra u ${time}`;
+
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
+  return `${slotDateFormatter.format(date)} u ${time}`;
+}
+
 function Courts() {
   const [location, setLocation] = useState("");
   const [debouncedLocation, setDebouncedLocation] = useState("");
@@ -136,6 +173,10 @@ function Courts() {
                 <div className="court-card-status"><span aria-hidden="true" /> Dostupan za rezervacije</div>
                 <div className="court-card-heading"><div><span>{court.location}</span><h2>{court.name}</h2></div></div>
                 <p className="court-description">{court.description || "Detalji o terenu dostupni su na stranici terena."}</p>
+                <div className="court-card-availability">
+                  <span>Prvi slobodan termin</span>
+                  <strong>{formatNextAvailableSlot(court.nextAvailableStart)}</strong>
+                </div>
                 <div className="court-card-price"><span>Cena po satu</span><strong>{priceFormatter.format(court.pricePerHour)}</strong></div>
                 <span className="court-card-details">Detalji →</span>
               </div>
