@@ -2630,7 +2630,7 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
 .reservations-page .reschedule-confirm-modal .booking-confirm-close:focus-visible { opacity: 1; }
 .reservations-page :is(.field-error, .error-message, .booking-confirm-error) { color: var(--danger); }
 .reservations-page .success-message { color: var(--success); }
-.reservations-page .cancel-reservation-button { color: var(--danger); border-color: var(--danger); }
+.reservations-page .cancel-reservation-button { border-color: var(--danger); border-radius: 3px; color: var(--danger); }
 .reservations-page .cancel-reservation-button:hover:not(:disabled) { background: var(--danger); color: var(--brand-bg); }
 .reservations-page .booking-confirm-actions .cancellation-confirm-button { border-color: var(--danger); background: var(--danger); color: var(--brand-bg); }
 
