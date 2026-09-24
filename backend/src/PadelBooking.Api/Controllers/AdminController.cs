@@ -86,6 +86,8 @@ public class AdminController : ControllerBase
             HttpContext.RequestAborted);
         return result.Status switch
         {
+            CreateBlockedPeriodStatus.InPast => this.ApiError(400, ApiErrorCodes.BlockedPeriodInPast,
+                "Blokirani period ne može početi u prošlosti."),
             CreateBlockedPeriodStatus.CourtNotFound => this.ApiError(404, ApiErrorCodes.CourtInactive,
                 "Teren nije pronađen ili više nije aktivan."),
             CreateBlockedPeriodStatus.ReservationOverlap => this.ApiError(409, ApiErrorCodes.SlotUnavailable,

@@ -18,6 +18,7 @@ public static class ApiErrorCodes
         "CANCELLATION_NO_REFUND_ACK_REQUIRED";
     public const string CheckoutTooClose = "CHECKOUT_TOO_CLOSE";
     public const string ActivePaymentHold = "ACTIVE_PAYMENT_HOLD";
+    public const string BlockedPeriodInPast = "BLOCKED_PERIOD_IN_PAST";
     public const string Conflict = "CONFLICT";
     public const string CourtLockTimeout = "COURT_LOCK_TIMEOUT";
     public const string RateLimited = "RATE_LIMITED";

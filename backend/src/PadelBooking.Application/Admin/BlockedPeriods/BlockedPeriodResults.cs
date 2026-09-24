@@ -2,7 +2,7 @@ namespace PadelBooking.Application.Admin.BlockedPeriods;
 
 public enum CreateBlockedPeriodStatus
 {
-    Success, CourtNotFound, ReservationOverlap, PaymentHoldOverlap, BlockedPeriodOverlap, LockTimeout
+    Success, InPast, CourtNotFound, ReservationOverlap, PaymentHoldOverlap, BlockedPeriodOverlap, LockTimeout
 }
 
 public sealed record CreatedBlockedPeriod(

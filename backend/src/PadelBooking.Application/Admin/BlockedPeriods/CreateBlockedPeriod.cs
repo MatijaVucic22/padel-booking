@@ -32,6 +32,9 @@ public sealed class CreateBlockedPeriod
         CreateBlockedPeriodCommand command,
         CancellationToken cancellationToken = default)
     {
+        if (command.StartTime < _bookingTime.Now)
+            return new(CreateBlockedPeriodStatus.InPast);
+
         var acquiredLock = await _courtLock.TryAcquireAsync(
             command.CourtId, cancellationToken);
         if (acquiredLock is null) return new(CreateBlockedPeriodStatus.LockTimeout);
@@ -40,6 +43,9 @@ public sealed class CreateBlockedPeriod
         string courtName;
         await using (acquiredLock)
         {
+            if (command.StartTime < _bookingTime.Now)
+                return new(CreateBlockedPeriodStatus.InPast);
+
             var court = await _courts.GetActiveByIdAsync(
                 command.CourtId, cancellationToken);
             if (court is null) return new(CreateBlockedPeriodStatus.CourtNotFound);

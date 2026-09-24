@@ -87,16 +87,48 @@ const tabs = [
 const calendarHours = Array.from({ length: 14 }, (_, index) => index + 8);
 const calendarBoundaryHours = Array.from({ length: 15 }, (_, index) => index + 8);
 
-function getTodayDate() {
+function getBelgradeNow() {
+  const now = new Date();
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Belgrade",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(new Date());
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
 
-  return `${values.year}-${values.month}-${values.day}`;
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    value: Date.UTC(
+      Number(values.year), Number(values.month) - 1, Number(values.day),
+      Number(values.hour), Number(values.minute), Number(values.second), now.getMilliseconds(),
+    ),
+  };
+}
+
+function getTodayDate() {
+  return getBelgradeNow().date;
+}
+
+function isBlockedPeriodStartPast(date, hour, belgradeNow) {
+  if (!date || hour === "") return true;
+  const [year, month, day] = date.split("-").map(Number);
+  return Date.UTC(year, month - 1, day, Number(hour)) < belgradeNow.value;
+}
+
+function getInitialBlockHours(date, belgradeNow) {
+  const start = calendarHours.find((hour) =>
+    !isBlockedPeriodStartPast(date, String(hour).padStart(2, "0"), belgradeNow));
+  return start === undefined
+    ? { startHour: "", endHour: "" }
+    : {
+        startHour: String(start).padStart(2, "0"),
+        endHour: String(start + 1).padStart(2, "0"),
+      };
 }
 
 function shiftCalendarDate(date, days) {
@@ -174,6 +206,7 @@ function AdminDashboard() {
   const [courtImage, setCourtImage] = useState(null);
   const [courtImagePreview, setCourtImagePreview] = useState("");
   const [calendarDate, setCalendarDate] = useState(getTodayDate);
+  const [belgradeNow, setBelgradeNow] = useState(getBelgradeNow);
   const [calendarData, setCalendarData] = useState({ courts: [], reservations: [], blockedPeriods: [] });
   const [calendarDataDate, setCalendarDataDate] = useState("");
   const [calendarLoading, setCalendarLoading] = useState(false);
@@ -267,11 +300,12 @@ function AdminDashboard() {
     .join(",");
 
   const openBlockForm = () => {
+    const date = calendarDate < belgradeNow.date ? belgradeNow.date : calendarDate;
+    const initialHours = getInitialBlockHours(date, belgradeNow);
     setBlockForm({
       courtId: String(calendarData.courts[0]?.id ?? ""),
-      date: calendarDate,
-      startHour: "08",
-      endHour: "09",
+      date,
+      ...initialHours,
       reason: "",
     });
     setBlockFieldErrors({});
@@ -297,6 +331,10 @@ function AdminDashboard() {
 
   const saveBlockedPeriod = async (event) => {
     event.preventDefault();
+    if (isBlockedPeriodStartPast(blockForm.date, blockForm.startHour, belgradeNow)) {
+      setBlockFieldErrors({ startTime: ["Blokirani period ne može početi u prošlosti."] });
+      return;
+    }
     setSavingBlock(true);
     setBlockError("");
     setBlockFieldErrors({});
@@ -326,6 +364,30 @@ function AdminDashboard() {
       setSavingBlock(false);
     }
   };
+
+  useEffect(() => {
+    let interval = null;
+    const timeout = window.setTimeout(() => {
+      setBelgradeNow(getBelgradeNow());
+      interval = window.setInterval(() => setBelgradeNow(getBelgradeNow()), 60_000);
+    }, 60_000 - (Date.now() % 60_000) + 50);
+
+    return () => {
+      window.clearTimeout(timeout);
+      if (interval !== null) window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showBlockForm || !blockForm.startHour ||
+        !isBlockedPeriodStartPast(blockForm.date, blockForm.startHour, belgradeNow)) return;
+
+    setBlockForm((current) => ({ ...current, startHour: "", endHour: "" }));
+    setBlockFieldErrors((current) => ({
+      ...current,
+      startTime: ["Izabrano vreme početka je prošlo. Odaberite buduće vreme."],
+    }));
+  }, [belgradeNow, blockForm.date, blockForm.startHour, showBlockForm]);
 
   const deleteBlockedPeriod = async () => {
     if (!window.confirm("Da li sigurno želiš da odblokiraš ovaj termin?")) return;
@@ -1354,23 +1416,42 @@ function AdminDashboard() {
               Datum
               <DatePicker
                 value={blockForm.date}
+                min={belgradeNow.date}
                 ariaLabel="Datum blokiranog termina"
-                onChange={(date) => setBlockForm((current) => ({ ...current, date }))}
+                onChange={(date) => {
+                  const initialHours = getInitialBlockHours(date, belgradeNow);
+                  setBlockForm((current) => ({ ...current, date, ...initialHours }));
+                  setBlockFieldErrors((current) => {
+                    if (!current.startTime) return current;
+                    const next = { ...current };
+                    delete next.startTime;
+                    return next;
+                  });
+                }}
               />
             </label>
             <div className="admin-block-time-fields">
               <label>
                 Početak
-                <select name="startHour" value={blockForm.startHour} onChange={handleBlockInput}>
+                <select name="startHour" value={blockForm.startHour} onChange={handleBlockInput} required>
+                  {blockForm.startHour === "" && <option value="">Izaberi vreme</option>}
                   {calendarHours.map((hour) => (
-                    <option value={String(hour).padStart(2, "0")} key={hour}>{String(hour).padStart(2, "0")}:00</option>
+                    <option
+                      value={String(hour).padStart(2, "0")}
+                      disabled={isBlockedPeriodStartPast(
+                        blockForm.date, String(hour).padStart(2, "0"), belgradeNow)}
+                      key={hour}
+                    >
+                      {String(hour).padStart(2, "0")}:00
+                    </option>
                   ))}
                 </select>
                 {blockFieldErrors.startTime?.map((message) => <span className="field-error" key={message}>{message}</span>)}
               </label>
               <label>
                 Kraj
-                <select name="endHour" value={blockForm.endHour} onChange={handleBlockInput}>
+                <select name="endHour" value={blockForm.endHour} onChange={handleBlockInput} required>
+                  {blockForm.endHour === "" && <option value="">Izaberi vreme</option>}
                   {calendarBoundaryHours.slice(1).map((hour) => (
                     <option value={String(hour).padStart(2, "0")} key={hour}>{String(hour).padStart(2, "0")}:00</option>
                   ))}
@@ -1387,7 +1468,12 @@ function AdminDashboard() {
             {blockError && <p className="error-message" role="alert">{blockError}</p>}
             <div className="reschedule-modal-actions">
               <button type="button" onClick={() => setShowBlockForm(false)}>Otkaži</button>
-              <button type="submit" className="primary-button" disabled={savingBlock}>
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={savingBlock || isBlockedPeriodStartPast(
+                  blockForm.date, blockForm.startHour, belgradeNow)}
+              >
                 {savingBlock ? "Blokiranje..." : "Blokiraj termin"}
               </button>
             </div>
