@@ -19,6 +19,7 @@ import {
   timeFormatter,
 } from "../utils/dateFormatters";
 import DatePicker from "../components/DatePicker";
+import AddToCalendarButton from "../components/AddToCalendarButton";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
@@ -615,6 +616,9 @@ function MyReservations() {
             const startTime = new Date(reservation.startTime);
             const endTime = new Date(reservation.endTime);
             const normalizedStatus = reservation.status.toLowerCase();
+            const canAddToCalendar =
+              reservation.status === "Active" &&
+              toWallClockValue(reservation.startTime) > belgradeNow;
 
             return (
               <article className="reservation-card" key={reservation.id}>
@@ -653,26 +657,34 @@ function MyReservations() {
                   </div>
                 </dl>
 
-                {activeTab === "upcoming" && reservation.canCancel && (
-                  <div className="reservation-actions">
-                    <button
-                      type="button"
-                      className="reschedule-reservation-button"
-                      disabled={cancellingId !== null}
-                      onClick={() => openReschedule(reservation)}
-                    >
-                      Promeni termin
-                    </button>
-                    <button
-                      type="button"
-                      className="cancel-reservation-button"
-                      disabled={cancellingId !== null}
-                      onClick={() => openCancellation(reservation)}
-                    >
-                      Otkaži rezervaciju
-                    </button>
-                  </div>
-                )}
+                {activeTab === "upcoming" &&
+                  (canAddToCalendar || reservation.canCancel) && (
+                    <div className="reservation-action-row">
+                      {canAddToCalendar && (
+                        <AddToCalendarButton reservation={reservation} />
+                      )}
+                      {reservation.canCancel && (
+                        <div className="reservation-actions">
+                          <button
+                            type="button"
+                            className="reschedule-reservation-button"
+                            disabled={cancellingId !== null}
+                            onClick={() => openReschedule(reservation)}
+                          >
+                            Promeni termin
+                          </button>
+                          <button
+                            type="button"
+                            className="cancel-reservation-button"
+                            disabled={cancellingId !== null}
+                            onClick={() => openCancellation(reservation)}
+                          >
+                            Otkaži rezervaciju
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </article>
             );
