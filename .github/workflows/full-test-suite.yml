@@ -1,13 +1,13 @@
-name: PR CI
+name: Full Test Suite
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 1'
 
 jobs:
-  build-and-smoke-tests:
-    name: Build & Smoke Tests
+  full-verification:
+    name: Full Verification
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +28,8 @@ jobs:
       - name: Build backend
         run: dotnet build backend/PadelBooking.sln -c Release --no-restore
 
-      - name: Test backend smoke set
-        run: dotnet test backend/PadelBooking.sln -c Release --no-build --filter "Category=Smoke"
+      - name: Test complete backend suite
+        run: dotnet test backend/PadelBooking.sln -c Release --no-build
 
       - name: Install frontend dependencies
         run: npm ci --prefix frontend
@@ -43,5 +43,5 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/frontend/.playwright-browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Test representative browser flow
-        run: npm run test:e2e:isolated:smoke --prefix frontend
+      - name: Test all browser flows against isolated Docker environment
+        run: npm run test:e2e:isolated --prefix frontend

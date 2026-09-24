@@ -37,7 +37,7 @@ test.describe("isolated backend flows", () => {
     await expect(page.getByRole("tab", { name: /Predstojeće/ })).toBeVisible();
   });
 
-  test("Authenticated_User_Can_Open_Courts_And_Booking_UI", async ({ page }) => {
+  test("@smoke Authenticated_User_Can_Open_Courts_And_Booking_UI", async ({ page }) => {
     await registerAndLogin(page);
     await page.goto("/courts");
     await page.getByRole("link", { name: /Otvori detalje terena/ }).first().click();

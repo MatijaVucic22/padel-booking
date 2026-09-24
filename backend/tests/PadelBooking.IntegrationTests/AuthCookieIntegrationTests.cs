@@ -17,6 +17,7 @@ namespace PadelBooking.IntegrationTests;
 public sealed class AuthCookieIntegrationTests(IntegrationTestHost host)
 {
     [Fact]
+    [Trait("Category", "Smoke")]
     public async Task LoginCookie_AuthenticatesMe_AndLogoutExpiresIt()
     {
         var email = $"cookie-{Guid.NewGuid():N}@example.test";
