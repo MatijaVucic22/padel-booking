@@ -536,6 +536,59 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    public async Task CreateBlockedPeriod_PastStartIsRejectedAndNotPersisted()
+    {
+        var now = new DateTime(2026, 10, 8, 13, 34, 0, DateTimeKind.Unspecified);
+        var courtId = await SeedCourtAsync();
+        using var admin = await AuthenticatedClientAsync(admin: true);
+        var authorization = admin.DefaultRequestHeaders.Authorization;
+        using var factory = host.CreateFactoryWithBookingTime(new TestBookingTimeService(now));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = authorization;
+
+        using var response = await client.PostAsJsonAsync("/api/admin/blocked-periods", new
+        {
+            courtId,
+            startTime = Local(now.Date.AddHours(13)),
+            endTime = Local(now.Date.AddHours(15)),
+            reason = "Održavanje"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var problem = await AssertProblemAsync(response, "BLOCKED_PERIOD_IN_PAST");
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await db.BlockedPeriods.AnyAsync(period => period.CourtId == courtId));
+    }
+
+    [Fact]
+    public async Task CreateBlockedPeriod_FutureStartIsAccepted()
+    {
+        var now = new DateTime(2026, 10, 9, 13, 34, 0, DateTimeKind.Unspecified);
+        var courtId = await SeedCourtAsync();
+        using var admin = await AuthenticatedClientAsync(admin: true);
+        var authorization = admin.DefaultRequestHeaders.Authorization;
+        using var factory = host.CreateFactoryWithBookingTime(new TestBookingTimeService(now));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = authorization;
+        var start = now.Date.AddHours(14);
+
+        using var response = await client.PostAsJsonAsync("/api/admin/blocked-periods", new
+        {
+            courtId,
+            startTime = Local(start),
+            endTime = Local(start.AddHours(1)),
+            reason = "Održavanje"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.True(await db.BlockedPeriods.AnyAsync(period =>
+            period.CourtId == courtId && period.StartTime == start));
+    }
+
+    [Fact]
     public async Task SuccessfulPaymentCompletion_ConfirmsReservation()
     {
         var courtId = await SeedCourtAsync();
