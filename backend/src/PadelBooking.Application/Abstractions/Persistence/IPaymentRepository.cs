@@ -18,6 +18,9 @@ public interface IPaymentRepository
         int? excludedPaymentId = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<(DateTime StartTime, DateTime EndTime)>> ListPendingTargetIntervalsAsync(
         int courtId, DateTime dayStart, DateTime dayEnd, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CourtScheduleInterval>> ListPendingTargetIntervalsForCourtsAsync(
+        IReadOnlyCollection<int> courtIds, DateTime dayStart, DateTime dayEnd,
+        CancellationToken cancellationToken = default);
     Task<Payment?> GetTrackedBySessionIdAsync(string sessionId, CancellationToken cancellationToken = default);
     Task<Payment?> GetBySessionIdAsync(string sessionId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<string>> ListDueSessionIdsAsync(DateTime nowUtc, CancellationToken cancellationToken = default);

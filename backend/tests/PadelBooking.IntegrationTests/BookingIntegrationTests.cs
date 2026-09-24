@@ -292,6 +292,74 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    public async Task CourtsList_NextAvailableStartReturnsEarliestFreeSlot()
+    {
+        var now = new DateTime(2026, 10, 1, 7, 30, 0);
+        var seeded = await SeedNextAvailabilityCourtAsync();
+        using var factory = host.CreateFactoryWithBookingTime(new TestBookingTimeService(now));
+        using var client = factory.CreateClient();
+
+        var next = await GetNextAvailableStartAsync(client, seeded.Location);
+
+        Assert.Equal(now.Date.AddHours(8), next);
+    }
+
+    [Fact]
+    public async Task CourtsList_ReservationMovesNextAvailableStartToNextSlot()
+    {
+        var now = new DateTime(2026, 10, 2, 7, 30, 0);
+        var seeded = await SeedNextAvailabilityCourtAsync(
+            reservationStart: now.Date.AddHours(8));
+        using var factory = host.CreateFactoryWithBookingTime(new TestBookingTimeService(now));
+        using var client = factory.CreateClient();
+
+        var next = await GetNextAvailableStartAsync(client, seeded.Location);
+
+        Assert.Equal(now.Date.AddHours(9), next);
+    }
+
+    [Fact]
+    public async Task CourtsList_BlockedPeriodMovesNextAvailableStartToNextSlot()
+    {
+        var now = new DateTime(2026, 10, 3, 7, 30, 0);
+        var seeded = await SeedNextAvailabilityCourtAsync(
+            blockedStart: now.Date.AddHours(8));
+        using var factory = host.CreateFactoryWithBookingTime(new TestBookingTimeService(now));
+        using var client = factory.CreateClient();
+
+        var next = await GetNextAvailableStartAsync(client, seeded.Location);
+
+        Assert.Equal(now.Date.AddHours(9), next);
+    }
+
+    [Fact]
+    public async Task CourtsList_TodaysPastSlotsAreNotReturned()
+    {
+        var now = new DateTime(2026, 10, 4, 10, 28, 0);
+        var seeded = await SeedNextAvailabilityCourtAsync();
+        using var factory = host.CreateFactoryWithBookingTime(new TestBookingTimeService(now));
+        using var client = factory.CreateClient();
+
+        var next = await GetNextAvailableStartAsync(client, seeded.Location);
+
+        Assert.Equal(now.Date.AddHours(11), next);
+    }
+
+    [Fact]
+    public async Task CourtsList_NoAvailableSlotWithinSevenDaysReturnsNull()
+    {
+        var now = new DateTime(2026, 10, 5, 7, 30, 0);
+        var seeded = await SeedNextAvailabilityCourtAsync(
+            blockedHorizonStart: now.Date);
+        using var factory = host.CreateFactoryWithBookingTime(new TestBookingTimeService(now));
+        using var client = factory.CreateClient();
+
+        var next = await GetNextAvailableStartAsync(client, seeded.Location);
+
+        Assert.Null(next);
+    }
+
+    [Fact]
     public async Task MissingApiRoute_WithHtmlAccept_ReturnsProblemDetails()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/does-not-exist");
@@ -1460,6 +1528,85 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
         db.Courts.Add(court);
         await db.SaveChangesAsync();
         return court.Id;
+    }
+
+    private async Task<(int CourtId, string Location)> SeedNextAvailabilityCourtAsync(
+        DateTime? reservationStart = null,
+        DateTime? blockedStart = null,
+        DateTime? blockedHorizonStart = null)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var location = $"Availability-{Guid.NewGuid():N}";
+        var court = new Court
+        {
+            Name = $"Availability {Guid.NewGuid():N}",
+            Location = location,
+            PricePerHour = 2000m,
+            IsActive = true
+        };
+        db.Courts.Add(court);
+
+        if (reservationStart.HasValue)
+        {
+            db.Reservations.Add(new Reservation
+            {
+                Court = court,
+                User = new User
+                {
+                    FirstName = "Slot", LastName = "Test", Email = UniqueEmail(),
+                    PasswordHash = "integration-test-not-used"
+                },
+                StartTime = reservationStart.Value,
+                EndTime = reservationStart.Value.AddHours(1),
+                TotalPrice = 2000m,
+                Status = "Active",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        if (blockedStart.HasValue)
+        {
+            db.BlockedPeriods.Add(new BlockedPeriod
+            {
+                Court = court,
+                StartTime = blockedStart.Value,
+                EndTime = blockedStart.Value.AddHours(1),
+                Reason = "Integration test",
+                CreatedAtUtc = DateTime.UtcNow
+            });
+        }
+
+        if (blockedHorizonStart.HasValue)
+        {
+            for (var day = 0; day < 7; day++)
+            {
+                var date = blockedHorizonStart.Value.Date.AddDays(day);
+                db.BlockedPeriods.Add(new BlockedPeriod
+                {
+                    Court = court,
+                    StartTime = date.AddHours(8),
+                    EndTime = date.AddHours(22),
+                    Reason = "Integration test horizon",
+                    CreatedAtUtc = DateTime.UtcNow
+                });
+            }
+        }
+
+        await db.SaveChangesAsync();
+        return (court.Id, location);
+    }
+
+    private static async Task<DateTime?> GetNextAvailableStartAsync(
+        HttpClient client, string location)
+    {
+        using var response = await client.GetAsync(
+            $"/api/courts?location={Uri.EscapeDataString(location)}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var court = Assert.Single(json.RootElement.EnumerateArray());
+        var value = court.GetProperty("nextAvailableStart");
+        return value.ValueKind == JsonValueKind.Null ? null : value.GetDateTime();
     }
 
     private async Task<HttpClient> AuthenticatedClientAsync(bool admin = false)

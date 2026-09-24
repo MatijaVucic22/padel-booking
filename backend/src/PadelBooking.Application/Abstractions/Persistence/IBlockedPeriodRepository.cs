@@ -24,6 +24,12 @@ public interface IBlockedPeriodRepository
         DateTime requestedEnd,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<CourtScheduleInterval>> ListOverlappingForCourtsAsync(
+        IReadOnlyCollection<int> courtIds,
+        DateTime requestedStart,
+        DateTime requestedEnd,
+        CancellationToken cancellationToken = default);
+
     void Add(BlockedPeriod blockedPeriod);
 
     void Remove(BlockedPeriod blockedPeriod);

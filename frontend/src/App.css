@@ -2400,6 +2400,9 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
 .courts-page .court-card-status > span { background: var(--brand-accent); box-shadow: none; }
 .courts-page .court-card h2 { color: var(--brand-text); font-size: 1.45rem; }
 .courts-page .court-description, .courts-page .court-card-price span { color: var(--brand-muted); }
+.court-card-availability { display: grid; gap: 5px; margin-top: auto; padding: 14px 0; border-top: 1px solid var(--brand-line); }
+.court-card-availability span { color: var(--brand-muted); font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.court-card-availability strong { color: var(--brand-accent-ink); font-family: "Sora", sans-serif; font-size: .92rem; line-height: 1.4; }
 .courts-page .court-card-price { border-color: var(--brand-line); }
 .courts-page .court-card-price strong, .courts-page .court-card-details { color: var(--brand-text); }
 .courts-page .court-card-details { color: var(--brand-accent-ink); transition: transform .2s ease; }
