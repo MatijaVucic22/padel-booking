@@ -19,17 +19,25 @@ const timeGroups = [
   { label: "Veče", hours: [17, 18, 19, 20, 21] },
 ];
 const durations = [1, 2, 3];
+const bookingCutoffMinutes = 15;
 const savedSelectionKey = "padelBooking:bookingSelection";
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency", currency: "RSD", maximumFractionDigits: 2,
 });
 
 function getBelgradeNow() {
+  const now = new Date();
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Belgrade", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23",
-  }).formatToParts(new Date());
+    timeZone: "Europe/Belgrade", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(now);
   const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
-  return { date: `${values.year}-${values.month}-${values.day}`, hour: Number(values.hour) };
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    value: Date.UTC(
+      Number(values.year), Number(values.month) - 1, Number(values.day),
+      Number(values.hour), Number(values.minute), Number(values.second), now.getMilliseconds(),
+    ),
+  };
 }
 
 function readSavedSelection() {
@@ -44,9 +52,11 @@ function readSavedSelection() {
   }
 }
 
-function isPastStartTime(date, hour, belgradeNow) {
-  return Boolean(date) && hour !== null &&
-    (date < belgradeNow.date || (date === belgradeNow.date && hour <= belgradeNow.hour));
+function isStartTimeUnavailable(date, hour, belgradeNow) {
+  if (!date || hour === null) return false;
+  const [year, month, day] = date.split("-").map(Number);
+  const candidateStart = Date.UTC(year, month - 1, day, hour);
+  return candidateStart < belgradeNow.value + bookingCutoffMinutes * 60_000;
 }
 
 function Book() {
@@ -102,8 +112,16 @@ function Book() {
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setBelgradeNow(getBelgradeNow()), 60_000);
-    return () => window.clearInterval(timer);
+    let interval = null;
+    const timeout = window.setTimeout(() => {
+      setBelgradeNow(getBelgradeNow());
+      interval = window.setInterval(() => setBelgradeNow(getBelgradeNow()), 60_000);
+    }, 60_000 - (Date.now() % 60_000) + 50);
+
+    return () => {
+      window.clearTimeout(timeout);
+      if (interval !== null) window.clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
@@ -187,9 +205,11 @@ function Book() {
   useEffect(() => {
     if (startHour === null) return;
 
-    if (isPastStartTime(date, startHour, belgradeNow)) {
+    if (isStartTimeUnavailable(date, startHour, belgradeNow)) {
       setStartHour(null);
-      setSelectionError("Izabrani termin je već prošao. Odaberi kasnije vreme.");
+      setCourts([]);
+      if (!bookingInFlight.current) setSelectedCourt(null);
+      setSelectionError("Izabrani termin više nije moguće rezervisati. Odaberi kasnije vreme.");
     } else if (startHour + duration > 22) {
       setStartHour(null);
       setSelectionError("");
@@ -197,7 +217,7 @@ function Book() {
   }, [belgradeNow, date, duration, startHour]);
 
   useEffect(() => {
-    if (!date || startHour === null || isPastStartTime(date, startHour, belgradeNow) || startHour + duration > 22) {
+    if (!date || startHour === null || isStartTimeUnavailable(date, startHour, belgradeNow) || startHour + duration > 22) {
       setCourts([]);
       setLoading(false);
       return undefined;
@@ -340,7 +360,7 @@ function Book() {
                   <span>{group.label}</span>
                   <div className="quick-book-hours">
                     {group.hours.map((hour) => (
-                      <button type="button" className={startHour === hour ? "selected" : ""} aria-pressed={startHour === hour} disabled={hour + duration > 22 || isPastStartTime(date, hour, belgradeNow)} key={hour} onClick={() => { setStartHour(hour); setSelectionError(""); }}>
+                      <button type="button" className={startHour === hour ? "selected" : ""} aria-pressed={startHour === hour} disabled={hour + duration > 22 || isStartTimeUnavailable(date, hour, belgradeNow)} key={hour} onClick={() => { setStartHour(hour); setSelectionError(""); }}>
                         {String(hour).padStart(2, "0")}:00
                       </button>
                     ))}

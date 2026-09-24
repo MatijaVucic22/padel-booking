@@ -335,14 +335,69 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     [Fact]
     public async Task CourtsList_TodaysPastSlotsAreNotReturned()
     {
-        var now = new DateTime(2026, 10, 4, 10, 28, 0);
+        var now = new DateTime(2026, 10, 4, 10, 45, 1);
         var seeded = await SeedNextAvailabilityCourtAsync();
         using var factory = host.CreateFactoryWithBookingTime(new TestBookingTimeService(now));
         using var client = factory.CreateClient();
 
         var next = await GetNextAvailableStartAsync(client, seeded.Location);
 
-        Assert.Equal(now.Date.AddHours(11), next);
+        Assert.Equal(now.Date.AddHours(12), next);
+    }
+
+    [Fact]
+    public async Task ReservationAvailability_AllowsExact15MinutesAndRejectsJustUnderBoundary()
+    {
+        var courtId = await SeedCourtAsync();
+        var target = new DateTime(2026, 10, 6, 11, 0, 0, DateTimeKind.Unspecified);
+        var url = $"/api/reservations/available?courtId={courtId}&date={target:yyyy-MM-dd}";
+
+        using (var exactFactory = host.CreateFactoryWithBookingTime(
+            new TestBookingTimeService(target.AddMinutes(-15))))
+        using (var exactClient = exactFactory.CreateClient())
+        using (var exactResponse = await exactClient.GetAsync(url))
+        {
+            Assert.Equal(HttpStatusCode.OK, exactResponse.StatusCode);
+            using var json = JsonDocument.Parse(await exactResponse.Content.ReadAsStringAsync());
+            Assert.Contains(json.RootElement.GetProperty("slots").EnumerateArray(), slot =>
+                slot.GetProperty("startTime").GetDateTime() == target);
+        }
+
+        using var underFactory = host.CreateFactoryWithBookingTime(
+            new TestBookingTimeService(target.AddMinutes(-15).AddSeconds(1)));
+        using var underClient = underFactory.CreateClient();
+        using var underResponse = await underClient.GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, underResponse.StatusCode);
+        using var underJson = JsonDocument.Parse(await underResponse.Content.ReadAsStringAsync());
+        Assert.DoesNotContain(underJson.RootElement.GetProperty("slots").EnumerateArray(), slot =>
+            slot.GetProperty("startTime").GetDateTime() == target);
+    }
+
+    [Fact]
+    public async Task AvailableCourts_AllowsExact15MinutesAndReturnsEmptyJustUnderBoundary()
+    {
+        var courtId = await SeedCourtAsync(location: $"Cutoff-{Guid.NewGuid():N}");
+        var target = new DateTime(2026, 10, 7, 11, 0, 0, DateTimeKind.Unspecified);
+        var url = $"/api/courts/available?startTime={Uri.EscapeDataString(Local(target))}&durationHours=1";
+
+        using (var exactFactory = host.CreateFactoryWithBookingTime(
+            new TestBookingTimeService(target.AddMinutes(-15))))
+        using (var exactClient = exactFactory.CreateClient())
+        using (var exactResponse = await exactClient.GetAsync(url))
+        {
+            Assert.Equal(HttpStatusCode.OK, exactResponse.StatusCode);
+            using var json = JsonDocument.Parse(await exactResponse.Content.ReadAsStringAsync());
+            Assert.Contains(json.RootElement.EnumerateArray(), court =>
+                court.GetProperty("id").GetInt32() == courtId);
+        }
+
+        using var underFactory = host.CreateFactoryWithBookingTime(
+            new TestBookingTimeService(target.AddMinutes(-15).AddSeconds(1)));
+        using var underClient = underFactory.CreateClient();
+        using var underResponse = await underClient.GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, underResponse.StatusCode);
+        using var underJson = JsonDocument.Parse(await underResponse.Content.ReadAsStringAsync());
+        Assert.Empty(underJson.RootElement.EnumerateArray());
     }
 
     [Fact]
@@ -811,7 +866,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
-    public async Task CheckoutLeadTime_RejectsBelow34MinutesAndAllowsExactBoundary()
+    public async Task CheckoutLeadTime_RejectsBelow15MinutesAndAllowsExactBoundary()
     {
         var courtId = await SeedCourtAsync();
         using var authenticated = await AuthenticatedClientAsync();
@@ -820,7 +875,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
         var sessionsBefore = host.Gateway.SessionCount;
 
         using (var tooCloseFactory = host.CreateFactoryWithBookingTime(
-            new TestBookingTimeService(target.AddMinutes(-34).AddSeconds(1))))
+            new TestBookingTimeService(target.AddMinutes(-15).AddSeconds(1))))
         using (var tooCloseClient = tooCloseFactory.CreateClient())
         {
             tooCloseClient.DefaultRequestHeaders.Authorization = authorization;
@@ -838,7 +893,7 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
         Assert.Equal(sessionsBefore, host.Gateway.SessionCount);
 
         using (var allowedFactory = host.CreateFactoryWithBookingTime(
-            new TestBookingTimeService(target.AddMinutes(-34))))
+            new TestBookingTimeService(target.AddMinutes(-15))))
         using (var allowedClient = allowedFactory.CreateClient())
         {
             allowedClient.DefaultRequestHeaders.Authorization = authorization;
@@ -851,6 +906,140 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
         var finalDb = finalScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.Equal(1, await finalDb.Reservations.CountAsync(item => item.CourtId == courtId));
         Assert.Equal(1, await finalDb.Payments.CountAsync(item => item.Reservation.CourtId == courtId));
+    }
+
+    [Fact]
+    public async Task ZeroTopUpReschedule_AllowsExact15MinutesAndRejectsJustUnderBoundary()
+    {
+        using var owner = await AuthenticatedClientAsync();
+        var authorization = owner.DefaultRequestHeaders.Authorization;
+
+        var allowedCourtId = await SeedCourtAsync();
+        var (allowedOriginalStart, allowedOriginalEnd) = Slot(10);
+        var (allowedId, allowedSession) = await CreateCheckoutAsync(
+            owner, allowedCourtId, allowedOriginalStart, allowedOriginalEnd);
+        await PayAsync(owner, allowedSession);
+        var allowedTarget = allowedOriginalStart.AddHours(-1);
+
+        using (var exactFactory = host.CreateFactoryWithBookingTime(
+            new TestBookingTimeService(allowedTarget.AddMinutes(-15))))
+        using (var exactClient = exactFactory.CreateClient())
+        {
+            exactClient.DefaultRequestHeaders.Authorization = authorization;
+            var quote = await QuoteAsync(exactClient, allowedId, allowedTarget, allowedTarget.AddHours(1));
+            Assert.Equal(0m, quote.TopUpAmount);
+            using var response = await RescheduleAsync(
+                exactClient, allowedId, allowedTarget, allowedTarget.AddHours(1), quote);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        var rejectedCourtId = await SeedCourtAsync();
+        var (rejectedOriginalStart, rejectedOriginalEnd) = Slot(10);
+        var (rejectedId, rejectedSession) = await CreateCheckoutAsync(
+            owner, rejectedCourtId, rejectedOriginalStart, rejectedOriginalEnd);
+        await PayAsync(owner, rejectedSession);
+        var rejectedTarget = rejectedOriginalStart.AddHours(-1);
+
+        using (var underFactory = host.CreateFactoryWithBookingTime(
+            new TestBookingTimeService(rejectedTarget.AddMinutes(-15).AddSeconds(1))))
+        using (var underClient = underFactory.CreateClient())
+        {
+            underClient.DefaultRequestHeaders.Authorization = authorization;
+            using var quoteResponse = await underClient.PostAsJsonAsync(
+                $"/api/reservations/{rejectedId}/reschedule/quote", new
+                {
+                    startTime = Local(rejectedTarget),
+                    endTime = Local(rejectedTarget.AddHours(1))
+                });
+            Assert.Equal(HttpStatusCode.BadRequest, quoteResponse.StatusCode);
+            using var quoteProblem = await AssertProblemAsync(quoteResponse, "CHECKOUT_TOO_CLOSE");
+
+            using var response = await underClient.PutAsJsonAsync(
+                $"/api/reservations/{rejectedId}/reschedule", new
+                {
+                    startTime = Local(rejectedTarget),
+                    endTime = Local(rejectedTarget.AddHours(1)),
+                    expectedNewPrice = 2000m,
+                    expectedTopUpAmount = 0m,
+                    acknowledgeNoRefund = false
+                });
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            using var problem = await AssertProblemAsync(response, "CHECKOUT_TOO_CLOSE");
+        }
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var allowed = await db.Reservations.AsNoTracking().SingleAsync(item => item.Id == allowedId);
+        Assert.Equal(allowedTarget, allowed.StartTime);
+        var rejected = await db.Reservations.AsNoTracking().SingleAsync(item => item.Id == rejectedId);
+        Assert.Equal(rejectedOriginalStart, rejected.StartTime);
+        Assert.Equal(rejectedOriginalEnd, rejected.EndTime);
+        Assert.Equal(1, await db.Payments.CountAsync(item => item.ReservationId == rejectedId));
+    }
+
+    [Fact]
+    public async Task PaidTopUpReschedule_AllowsExact15MinutesAndRejectsJustUnderBoundary()
+    {
+        using var owner = await AuthenticatedClientAsync();
+        var authorization = owner.DefaultRequestHeaders.Authorization;
+
+        var allowedCourtId = await SeedCourtAsync();
+        var (allowedOriginalStart, allowedOriginalEnd) = Slot(10);
+        var (allowedId, allowedSession) = await CreateCheckoutAsync(
+            owner, allowedCourtId, allowedOriginalStart, allowedOriginalEnd);
+        await PayAsync(owner, allowedSession);
+        var allowedTarget = allowedOriginalStart.AddHours(-2);
+        var sessionsBeforeAllowed = host.Gateway.SessionCount;
+
+        using (var exactFactory = host.CreateFactoryWithBookingTime(
+            new TestBookingTimeService(allowedTarget.AddMinutes(-15))))
+        using (var exactClient = exactFactory.CreateClient())
+        {
+            exactClient.DefaultRequestHeaders.Authorization = authorization;
+            var quote = await QuoteAsync(exactClient, allowedId, allowedTarget, allowedTarget.AddHours(2));
+            Assert.Equal(2000m, quote.TopUpAmount);
+            using var response = await RescheduleAsync(
+                exactClient, allowedId, allowedTarget, allowedTarget.AddHours(2), quote);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        Assert.Equal(sessionsBeforeAllowed + 1, host.Gateway.SessionCount);
+
+        var rejectedCourtId = await SeedCourtAsync();
+        var (rejectedOriginalStart, rejectedOriginalEnd) = Slot(10);
+        var (rejectedId, rejectedSession) = await CreateCheckoutAsync(
+            owner, rejectedCourtId, rejectedOriginalStart, rejectedOriginalEnd);
+        await PayAsync(owner, rejectedSession);
+        var rejectedTarget = rejectedOriginalStart.AddHours(-2);
+        var sessionsBeforeRejected = host.Gateway.SessionCount;
+
+        using (var underFactory = host.CreateFactoryWithBookingTime(
+            new TestBookingTimeService(rejectedTarget.AddMinutes(-15).AddSeconds(1))))
+        using (var underClient = underFactory.CreateClient())
+        {
+            underClient.DefaultRequestHeaders.Authorization = authorization;
+            using var response = await underClient.PutAsJsonAsync(
+                $"/api/reservations/{rejectedId}/reschedule", new
+                {
+                    startTime = Local(rejectedTarget),
+                    endTime = Local(rejectedTarget.AddHours(2)),
+                    expectedNewPrice = 4000m,
+                    expectedTopUpAmount = 2000m,
+                    acknowledgeNoRefund = false
+                });
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            using var problem = await AssertProblemAsync(response, "CHECKOUT_TOO_CLOSE");
+        }
+        Assert.Equal(sessionsBeforeRejected, host.Gateway.SessionCount);
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var allowed = await db.Reservations.AsNoTracking().SingleAsync(item => item.Id == allowedId);
+        Assert.Equal(allowedOriginalStart, allowed.StartTime);
+        Assert.Equal(2, await db.Payments.CountAsync(item => item.ReservationId == allowedId));
+        var rejected = await db.Reservations.AsNoTracking().SingleAsync(item => item.Id == rejectedId);
+        Assert.Equal(rejectedOriginalStart, rejected.StartTime);
+        Assert.Equal(rejectedOriginalEnd, rejected.EndTime);
+        Assert.Equal(1, await db.Payments.CountAsync(item => item.ReservationId == rejectedId));
     }
 
     [Fact]

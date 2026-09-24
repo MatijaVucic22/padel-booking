@@ -39,7 +39,7 @@ public sealed class PaymentsController(
             StartCheckoutStatus.Blocked => this.ApiError(409, ApiErrorCodes.SlotUnavailable,
                 "Izabrani termin je blokiran zbog održavanja."),
             StartCheckoutStatus.CheckoutWindowClosed => this.ApiError(400, ApiErrorCodes.CheckoutTooClose,
-                "Za online plaćanje izaberite termin koji počinje za najmanje 34 minuta."),
+                "Termin je moguće rezervisati najkasnije 15 minuta pre početka."),
             StartCheckoutStatus.LockTimeout => LockTimeout(),
             StartCheckoutStatus.ProviderUnavailable => this.ApiError(503, ApiErrorCodes.ProviderUnavailable,
                 "Plaćanje trenutno nije dostupno. Pokušajte ponovo."),

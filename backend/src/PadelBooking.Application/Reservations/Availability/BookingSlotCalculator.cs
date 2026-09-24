@@ -23,7 +23,7 @@ public static class BookingSlotCalculator
             {
                 var start = date.AddHours(hour);
                 var end = start.AddHours(1);
-                if (start <= now) continue;
+                if (!BookingCutoffPolicy.CanBook(start, now)) continue;
                 if (intervals.Any(interval =>
                     interval.StartTime < end && interval.EndTime > start)) continue;
 
