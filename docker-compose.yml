@@ -1,6 +1,8 @@
 services:
   mysql:
     image: mysql:8.4
+    profiles:
+      - legacy-db
     ports:
     - "3307:3306"
     environment:
@@ -26,7 +28,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: Server=mysql;Port=3306;Database=${MYSQL_DATABASE:-padel_booking};User=${MYSQL_USER:-padel_user};Password=${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      ConnectionStrings__DefaultConnection: Server=host.docker.internal;Port=3306;Database=${MYSQL_DATABASE:-padel_booking};User=${MYSQL_USER:-padel_user};Password=${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
       Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env}
       Jwt__Issuer: ${JWT_ISSUER:-PadelBooking.Api}
       Jwt__Audience: ${JWT_AUDIENCE:-PadelBooking.Client}
@@ -43,11 +45,11 @@ services:
     ports:
       - "5238:8080"
 
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     volumes:
       - padel_court_uploads:/app/wwwroot/uploads
-    depends_on:
-      mysql:
-        condition: service_healthy
     restart: unless-stopped
 
   frontend:
