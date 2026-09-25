@@ -82,7 +82,9 @@ $env:ConnectionStrings__DefaultConnection = "Server=$mysqlHost;Port=$mysqlPort;D
 $env:Jwt__Key = $env:JWT_KEY
 $env:Jwt__Issuer = $jwtIssuer
 $env:Jwt__Audience = $jwtAudience
-$env:STRIPE_FRONTEND_URL = "http://localhost:5173"
+if ([string]::IsNullOrWhiteSpace($env:STRIPE_FRONTEND_URL)) {
+    $env:STRIPE_FRONTEND_URL = "http://localhost:5173"
+}
 $env:VITE_API_URL = ""
 
 $emailMappings = @{
