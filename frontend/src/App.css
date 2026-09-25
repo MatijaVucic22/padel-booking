@@ -2542,8 +2542,8 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
 .reservations-page .reservation-actions { flex: none; margin-top: 0; }
 .reservations-page .reschedule-reservation-button { border-color: var(--brand-accent); border-radius: 3px; color: var(--brand-accent-ink); }
 .reservations-page .reschedule-reservation-button:hover:not(:disabled) { background: color-mix(in srgb, var(--brand-accent) 10%, var(--brand-surface)); }
-.reservations-page .reservation-calendar-actions { position: relative; flex: none; }
-.reservations-page .reservation-calendar-trigger {
+.reservations-page :is(.reservation-calendar-actions, .reservation-share-action) { position: relative; flex: none; }
+.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger) {
   display: grid;
   place-items: center;
   width: 44px;
@@ -2556,10 +2556,10 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
   color: var(--brand-accent-ink);
   cursor: pointer;
 }
-.reservations-page .reservation-calendar-trigger:hover,
+.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger):hover,
 .reservations-page .reservation-calendar-trigger[aria-expanded="true"] { border-color: var(--brand-accent); background: color-mix(in srgb, var(--brand-accent) 10%, var(--brand-surface)); }
-.reservations-page .reservation-calendar-trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
-.reservations-page .reservation-calendar-trigger svg { width: 20px; height: 20px; stroke: currentcolor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger) svg { width: 20px; height: 20px; stroke: currentcolor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .reservations-page .reservation-calendar-popover {
   position: absolute;
   z-index: 20;
@@ -2591,6 +2591,26 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
 .reservations-page .reservation-calendar-popover button:hover { background: var(--brand-bg); color: var(--brand-accent-ink); }
 .reservations-page .reservation-calendar-popover button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .reservations-page .reservation-calendar-popover button span { display: grid; flex: 0 0 25px; place-items: center; width: 25px; height: 25px; border: 1px solid var(--brand-line); border-radius: 50%; color: var(--brand-accent-ink); font-family: "Sora", sans-serif; font-size: .68rem; }
+.reservations-page .reservation-share-feedback {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: var(--brand-surface);
+  color: var(--brand-text);
+  box-shadow: 0 10px 24px rgba(6, 78, 59, .12);
+  font-size: .76rem;
+  font-weight: 700;
+  pointer-events: none;
+  visibility: hidden;
+}
+.reservations-page .reservation-share-feedback.success { border-color: color-mix(in srgb, var(--success) 45%, var(--brand-line)); color: var(--success); visibility: visible; }
+.reservations-page .reservation-share-feedback.error { border-color: color-mix(in srgb, var(--danger) 45%, var(--brand-line)); color: var(--danger); visibility: visible; }
 .reservations-page .reservation-card:has(.reservation-calendar-actions) { overflow: visible; }
 .reservations-page .reservation-card:has(.reservation-calendar-actions) .reservation-ticket-date { border-radius: 5px 0 0 5px; }
 .reservations-page .cancel-reservation-button { background: transparent; }
@@ -2701,7 +2721,7 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
   .reservations-page .reservation-tabs button { flex: 0 0 auto; padding-inline: 12px; white-space: nowrap; }
   .reservations-page .reservation-card { grid-template-columns: 76px minmax(0, 1fr); }
   .reservations-page .reservation-ticket-body { padding: 20px 16px; }
-  .reservations-page .reservation-action-row { align-items: flex-start; padding-top: 16px; border-top: 1px solid var(--brand-line); }
+  .reservations-page .reservation-action-row { align-items: flex-start; flex-wrap: wrap; padding-top: 16px; border-top: 1px solid var(--brand-line); }
   .reservations-page .reservation-actions { width: 100%; }
   .reservations-page .reschedule-confirm-modal .reschedule-confirm-comparison { grid-template-columns: 1fr; }
   .reservations-page .reschedule-confirm-modal .reschedule-confirm-comparison section { min-height: 0; }

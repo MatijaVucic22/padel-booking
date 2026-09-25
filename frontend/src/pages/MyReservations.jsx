@@ -20,6 +20,7 @@ import {
 } from "../utils/dateFormatters";
 import DatePicker from "../components/DatePicker";
 import AddToCalendarButton from "../components/AddToCalendarButton";
+import ShareReservationButton from "../components/ShareReservationButton";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
@@ -662,6 +663,9 @@ function MyReservations() {
                     <div className="reservation-action-row">
                       {canAddToCalendar && (
                         <AddToCalendarButton reservation={reservation} />
+                      )}
+                      {canAddToCalendar && (
+                        <ShareReservationButton reservation={reservation} />
                       )}
                       {reservation.canCancel && (
                         <div className="reservation-actions">
