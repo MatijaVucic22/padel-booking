@@ -4,8 +4,8 @@ services:
     ports:
     - "3307:3306"
     environment:
-      MYSQL_DATABASE: padel_booking
-      MYSQL_USER: padel_user
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-padel_booking}
+      MYSQL_USER: ${MYSQL_USER:-padel_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
     volumes:
@@ -26,7 +26,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: Server=mysql;Port=3306;Database=padel_booking;User=padel_user;Password=${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      ConnectionStrings__DefaultConnection: Server=mysql;Port=3306;Database=${MYSQL_DATABASE:-padel_booking};User=${MYSQL_USER:-padel_user};Password=${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
       Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env}
       Jwt__Issuer: ${JWT_ISSUER:-PadelBooking.Api}
       Jwt__Audience: ${JWT_AUDIENCE:-PadelBooking.Client}
@@ -37,9 +37,9 @@ services:
       Email__FromEmail: ${EMAIL_FROM_EMAIL:-}
       Email__FromName: ${EMAIL_FROM_NAME:-PadelBooking}
       Email__UseSsl: ${EMAIL_USE_SSL:-false}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      STRIPE_FRONTEND_URL: ${STRIPE_FRONTEND_URL}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?Set STRIPE_SECRET_KEY in .env}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?Set STRIPE_WEBHOOK_SECRET in .env}
+      STRIPE_FRONTEND_URL: ${STRIPE_FRONTEND_URL:?Set STRIPE_FRONTEND_URL in .env}
     ports:
       - "5238:8080"
 
