@@ -1,7 +1,7 @@
 import axios from "axios";
 import { normalizeApiErrorData } from "../utils/validationErrors";
 
-export const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:5238/api";
+export const apiBaseUrl = import.meta.env.VITE_API_URL || "/api";
 const backendBaseUrl = apiBaseUrl.replace(/\/api\/?$/, "");
 
 const api = axios.create({

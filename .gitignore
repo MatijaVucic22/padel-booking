@@ -11,6 +11,7 @@ BenchmarkDotNet.Artifacts/
 # Environment variables
 .env
 .env.local
+.local-backups/
 
 # VS Code
 .vscode/
