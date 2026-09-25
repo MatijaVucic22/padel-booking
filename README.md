@@ -53,6 +53,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-local.ps1
 
 Ova komanda je kompatibilan alias za `dev-no-docker.ps1`; ne pokreće Docker.
 
+## Mobilno testiranje preko HTTPS tunela
+
+Preduslov je instaliran `cloudflared`. Pokretanje je jednom komandom:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\dev-mobile.ps1
+```
+
+Skripta kreira privremeni Cloudflare Quick Tunnel, sačeka lokalni API, Vite i javni
+HTTPS URL, pa ispiše adresu koju treba otvoriti na telefonu. Samo za taj proces postavlja
+tačan dodatni CORS origin i Stripe povratni URL; root `.env` se ne menja. `Ctrl+C`
+zaustavlja tunel, frontend i backend.
+
 ## Full Docker
 
 ```powershell
