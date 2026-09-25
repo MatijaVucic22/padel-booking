@@ -22,7 +22,9 @@ foreach ($line in Get-Content -LiteralPath $envPath) {
         $value = $value.Substring(1, $value.Length - 2)
     }
 
-    [Environment]::SetEnvironmentVariable($name, $value, "Process")
+    if ($null -eq [Environment]::GetEnvironmentVariable($name, "Process")) {
+        [Environment]::SetEnvironmentVariable($name, $value, "Process")
+    }
 }
 
 $requiredVariables = @(
@@ -47,6 +49,25 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
 if (-not (Get-Command node -ErrorAction SilentlyContinue) -or
     -not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
     throw "Node.js/npm nije dostupan. Instalirajte Node.js i proverite PATH."
+}
+
+$nodeExecutable = (Get-Command node).Source
+$viteScript = Join-Path $repoRoot "frontend\node_modules\vite\bin\vite.js"
+if (-not (Test-Path -LiteralPath $viteScript)) {
+    throw "Vite nije instaliran. Pokrenite npm ci --prefix frontend."
+}
+
+function Test-PortInUse {
+    param([int]$Port)
+
+    $ipProperties = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties()
+    return $ipProperties.GetActiveTcpListeners().Port -contains $Port
+}
+
+foreach ($port in @(5173, 5238)) {
+    if (Test-PortInUse -Port $port) {
+        throw "Port $port je vec zauzet. Zaustavite postojeci lokalni proces ili Docker stack."
+    }
 }
 
 $mysqlHost = if ($env:LOCAL_MYSQL_HOST) { $env:LOCAL_MYSQL_HOST } else { "localhost" }
@@ -115,24 +136,92 @@ function Stop-StartedProcessTree {
     }
 }
 
+function Wait-HttpEndpoint {
+    param(
+        [string]$Url,
+        [System.Diagnostics.Process]$Process,
+        [string]$ServiceName,
+        [int]$TimeoutSeconds = 60
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if ($Process.HasExited) {
+            $Process.WaitForExit()
+            $Process.Refresh()
+            throw "$ServiceName je zavrsen pre nego sto je postao dostupan."
+        }
+
+        try {
+            $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 2
+            if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
+                return
+            }
+        }
+        catch {
+            Start-Sleep -Milliseconds 250
+        }
+    }
+
+    throw "$ServiceName nije postao dostupan u roku od $TimeoutSeconds sekundi."
+}
+
+$emptyInputPath = [System.IO.Path]::GetTempFileName()
+
 try {
     Write-Host "Pokretanje API-ja na http://localhost:5238"
     $backendProcess = Start-Process -FilePath "dotnet" -ArgumentList @(
         "run",
         "--project", "backend/src/PadelBooking.Api/PadelBooking.Api.csproj",
         "--no-launch-profile"
-    ) -WorkingDirectory $repoRoot -NoNewWindow -PassThru
+    ) -WorkingDirectory $repoRoot -RedirectStandardInput $emptyInputPath -NoNewWindow -PassThru
+
+    Wait-HttpEndpoint `
+        -Url "http://localhost:5238/api/courts" `
+        -Process $backendProcess `
+        -ServiceName "Backend"
 
     Write-Host "Pokretanje Vite aplikacije na http://localhost:5173"
-    $frontendProcess = Start-Process -FilePath "npm.cmd" -ArgumentList @(
-        "--prefix", "frontend",
-        "run", "dev", "--",
+    $frontendProcess = Start-Process -FilePath $nodeExecutable -ArgumentList @(
+        ('"' + $viteScript + '"'),
         "--host", "localhost",
         "--port", "5173",
         "--strictPort"
-    ) -WorkingDirectory $repoRoot -NoNewWindow -PassThru
+    ) -WorkingDirectory (Join-Path $repoRoot "frontend") -RedirectStandardInput $emptyInputPath -NoNewWindow -PassThru
 
-    Write-Host "Full local razvoj je pokrenut. Pritisnite Ctrl+C za zaustavljanje."
+    Wait-HttpEndpoint `
+        -Url "http://localhost:5173" `
+        -Process $frontendProcess `
+        -ServiceName "Frontend"
+
+    if (-not [string]::IsNullOrWhiteSpace($env:PADELBOOKING_MOBILE_URL)) {
+        Wait-HttpEndpoint `
+            -Url $env:PADELBOOKING_MOBILE_URL `
+            -Process $frontendProcess `
+            -ServiceName "Cloudflare tunel"
+
+        Write-Host ""
+        Write-Host "=================================================="
+        Write-Host "PadelBooking Mobile Development"
+        Write-Host "=================================================="
+        Write-Host ""
+        Write-Host "Frontend:"
+        Write-Host "http://localhost:5173"
+        Write-Host ""
+        Write-Host "Backend:"
+        Write-Host "http://localhost:5238"
+        Write-Host ""
+        Write-Host "Mobile HTTPS:"
+        Write-Host $env:PADELBOOKING_MOBILE_URL
+        Write-Host ""
+        Write-Host "Otvorite Mobile HTTPS URL na telefonu."
+        Write-Host ""
+        Write-Host "Pritisnite Ctrl+C za zaustavljanje."
+        Write-Host "=================================================="
+    }
+    else {
+        Write-Host "Full local razvoj je spreman. Pritisnite Ctrl+C za zaustavljanje."
+    }
 
     while (-not $backendProcess.HasExited -and -not $frontendProcess.HasExited) {
         Start-Sleep -Seconds 1
@@ -159,5 +248,6 @@ finally {
     foreach ($process in @($backendProcess, $frontendProcess)) {
         Stop-StartedProcessTree -Process $process
     }
+    Remove-Item -LiteralPath $emptyInputPath -Force -ErrorAction SilentlyContinue
     Write-Host "Lokalni frontend i backend su zaustavljeni. Lokalna MySQL baza nije menjana niti obrisana."
 }
