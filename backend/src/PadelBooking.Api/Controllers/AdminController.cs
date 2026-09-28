@@ -141,6 +141,12 @@ public class AdminController : ControllerBase
                 "QR propusnica nije validna."),
             CheckInReservationStatus.NotFound => this.ApiError(
                 404, ApiErrorCodes.NotFound, "Rezervacija nije pronađena."),
+            CheckInReservationStatus.TooEarly => this.ApiError(
+                409, ApiErrorCodes.CheckInTooEarly,
+                "Dolazak se može potvrditi najranije 60 minuta pre početka termina."),
+            CheckInReservationStatus.WindowClosed => this.ApiError(
+                409, ApiErrorCodes.CheckInWindowClosed,
+                "Vreme za potvrdu dolaska je isteklo."),
             CheckInReservationStatus.NotEligible => this.ApiError(
                 409, ApiErrorCodes.ReservationNotCheckInEligible,
                 "Dolazak nije moguće potvrditi za ovu rezervaciju."),

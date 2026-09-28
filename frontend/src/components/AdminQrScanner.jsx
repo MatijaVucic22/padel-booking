@@ -203,9 +203,14 @@ function AdminQrScanner() {
       setCheckInOutcome("confirmed");
     } catch (requestError) {
       if (!mountedRef.current) return;
-      setCheckInError(requestError?.status === 409
-        ? "Dolazak nije moguće potvrditi za ovu rezervaciju."
-        : "Potvrda dolaska trenutno nije dostupna. Pokušajte ponovo.");
+      const code = requestError?.data?.code;
+      setCheckInError(code === "CHECK_IN_TOO_EARLY"
+        ? "Dolazak još nije moguće potvrditi."
+        : code === "CHECK_IN_WINDOW_CLOSED"
+          ? "Vreme za potvrdu dolaska je isteklo."
+          : requestError?.status === 409
+            ? "Dolazak nije moguće potvrditi za ovu rezervaciju."
+            : "Potvrda dolaska trenutno nije dostupna. Pokušajte ponovo.");
     }
   };
 
@@ -220,6 +225,8 @@ function AdminQrScanner() {
     verification?.verificationStatus,
     verification?.checkedIn,
     isCheckingIn,
+    verification?.startTime,
+    verification?.endTime,
   );
   const checkedInTime = verification?.checkedInAtUtc
     ? checkInTimeFormatter.format(new Date(verification.checkedInAtUtc))
@@ -312,6 +319,15 @@ function AdminQrScanner() {
 
             {checkInUi.showAlreadyCheckedIn && checkedInTime && (
               <p className="admin-qr-check-in-time">Potvrđeno u {checkedInTime}</p>
+            )}
+
+            {checkInUi.showTooEarly && (
+              <div className="admin-qr-check-in-pending" role="status">
+                <p>Dolazak još nije moguće potvrditi.</p>
+                {checkInUi.checkInAvailableFrom && (
+                  <small>Dostupno od {checkInUi.checkInAvailableFrom}.</small>
+                )}
+              </div>
             )}
 
             {checkInError && (

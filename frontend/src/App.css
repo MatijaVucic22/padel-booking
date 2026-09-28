@@ -1727,6 +1727,9 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .admin-qr-result-slot strong { color: var(--color-text); }
 .admin-qr-result small { color: var(--color-text); font-weight: 800; }
 .admin-qr-check-in-time { font-weight: 800; color: var(--color-green) !important; }
+.admin-qr-check-in-pending { display: grid; gap: 3px; color: var(--color-muted); }
+.admin-qr-check-in-pending p { margin: 0; }
+.admin-qr-check-in-pending small { color: var(--color-text); font-weight: 750; }
 .admin-qr-check-in-error { max-width: 430px; color: var(--color-danger) !important; }
 .admin-qr-check-in-button { margin-top: 6px; }
 .admin-qr-hint { margin: -10px 0 0; text-align: center; }

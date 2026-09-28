@@ -22,6 +22,7 @@ public sealed class ReservationRepository : IReservationRepository
             .Select(reservation => new ReservationCheckInState(
                 reservation.Id,
                 reservation.Status,
+                reservation.StartTime,
                 reservation.EndTime,
                 reservation.CheckedInAtUtc))
             .FirstOrDefaultAsync(cancellationToken);
@@ -30,11 +31,13 @@ public sealed class ReservationRepository : IReservationRepository
         int id,
         DateTime checkedInAtUtc,
         DateTime currentBookingTime,
+        DateTime latestEligibleStartTime,
         CancellationToken cancellationToken = default) =>
         await _context.Reservations
             .Where(reservation =>
                 reservation.Id == id &&
                 reservation.Status == "Active" &&
+                reservation.StartTime <= latestEligibleStartTime &&
                 reservation.EndTime > currentBookingTime &&
                 reservation.CheckedInAtUtc == null)
             .ExecuteUpdateAsync(setters => setters

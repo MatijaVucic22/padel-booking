@@ -1,7 +1,6 @@
 using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Application.Abstractions.Security;
 using PadelBooking.Application.Abstractions.Time;
-using PadelBooking.Application.Reservations.Verification;
 
 namespace PadelBooking.Application.Reservations.CheckIn;
 
@@ -10,13 +9,16 @@ public enum CheckInReservationStatus
     Success,
     NotFound,
     InvalidToken,
+    TooEarly,
+    WindowClosed,
     NotEligible
 }
 
 public sealed record CheckInReservationResult(
     CheckInReservationStatus Status,
     int ReservationId = 0,
-    DateTime? CheckedInAtUtc = null);
+    DateTime? CheckedInAtUtc = null,
+    DateTime? CheckInAvailableFrom = null);
 
 public sealed class CheckInReservation(
     IReservationRepository reservations,
@@ -37,15 +39,18 @@ public sealed class CheckInReservation(
         if (state is null)
             return new(CheckInReservationStatus.NotFound);
 
-        if (!IsEligible(state))
-            return new(CheckInReservationStatus.NotEligible);
+        var now = bookingTime.Now;
+        var eligibility = GetEligibility(state, now);
+        if (eligibility.Status != CheckInReservationStatus.Success)
+            return eligibility;
 
         if (state.CheckedInAtUtc.HasValue)
             return Success(state.Id, state.CheckedInAtUtc.Value);
 
         var checkedInAtUtc = NormalizeToDatabasePrecision(bookingTime.UtcNow);
         if (await reservations.TrySetCheckedInAtUtcAsync(
-                reservationId, checkedInAtUtc, bookingTime.Now, cancellationToken))
+                reservationId, checkedInAtUtc, now,
+                now.Add(ReservationCheckInPolicy.EarlyCheckInWindow), cancellationToken))
             return Success(reservationId, checkedInAtUtc);
 
         // Another Admin may have completed the same idempotent operation first.
@@ -54,15 +59,32 @@ public sealed class CheckInReservation(
         if (state is null)
             return new(CheckInReservationStatus.NotFound);
 
-        return IsEligible(state) && state.CheckedInAtUtc.HasValue
+        eligibility = GetEligibility(state, now);
+        return eligibility.Status == CheckInReservationStatus.Success &&
+               state.CheckedInAtUtc.HasValue
             ? Success(state.Id, state.CheckedInAtUtc.Value)
-            : new(CheckInReservationStatus.NotEligible);
+            : eligibility.Status == CheckInReservationStatus.Success
+                ? new(CheckInReservationStatus.NotEligible)
+                : eligibility;
     }
 
-    private bool IsEligible(ReservationCheckInState state) =>
-        ReservationVerificationPolicy.GetStatus(
-            state.Status, state.EndTime, bookingTime.Now) ==
-        ReservationVerificationStatuses.Valid;
+    private static CheckInReservationResult GetEligibility(
+        ReservationCheckInState state,
+        DateTime now)
+    {
+        if (!string.Equals(state.Status, "Active", StringComparison.Ordinal))
+            return new(CheckInReservationStatus.NotEligible);
+
+        return ReservationCheckInPolicy.GetStatus(state.StartTime, state.EndTime, now) switch
+        {
+            ReservationCheckInWindowStatus.TooEarly => new(
+                CheckInReservationStatus.TooEarly,
+                CheckInAvailableFrom: ReservationCheckInPolicy.GetAvailableFrom(state.StartTime)),
+            ReservationCheckInWindowStatus.Closed => new(
+                CheckInReservationStatus.WindowClosed),
+            _ => new(CheckInReservationStatus.Success)
+        };
+    }
 
     private static CheckInReservationResult Success(int id, DateTime checkedInAtUtc) =>
         new(CheckInReservationStatus.Success, id,

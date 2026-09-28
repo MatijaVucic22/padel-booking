@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   extractBookingVerificationToken,
   applyScannerCheckInSuccess,
+  getCheckInWindowStatus,
   getScannerVerificationStatusContent,
   getScannerCheckInUiState,
   verificationStatusContent,
@@ -17,17 +18,50 @@ test("prihvata PadelBooking putanju i očekivane tipove origin-a", () => {
   assert.equal(extractBookingVerificationToken(`https://padel.example/verify-booking/${token}`), token);
 });
 
-test("prikazuje potvrdu dolaska samo za validnu nepotvrđenu rezervaciju", () => {
-  assert.deepEqual(getScannerCheckInUiState("Valid", false), {
+test("prikazuje potvrdu dolaska samo unutar dozvoljenog vremenskog prozora", () => {
+  assert.deepEqual(getScannerCheckInUiState(
+    "Valid", false, false,
+    "2026-09-28T18:00:00", "2026-09-28T19:00:00", "2026-09-28T17:00:00",
+  ), {
     showConfirmation: true,
     confirmationDisabled: false,
     showAlreadyCheckedIn: false,
+    showTooEarly: false,
+    checkInAvailableFrom: null,
     showScanNext: true,
   });
-  assert.equal(getScannerCheckInUiState("Valid", true).showAlreadyCheckedIn, true);
+  assert.equal(getScannerCheckInUiState(
+    "Valid", true, false,
+    "2026-09-28T18:00:00", "2026-09-28T19:00:00", "2026-09-28T17:00:00",
+  ).showAlreadyCheckedIn, true);
   assert.equal(getScannerCheckInUiState("Cancelled", false).showConfirmation, false);
   assert.equal(getScannerCheckInUiState("Expired", false).showConfirmation, false);
   assert.equal(getScannerCheckInUiState("Invalid", false).showConfirmation, false);
+});
+
+test("granice check-in prozora su determinističke", () => {
+  const start = "2026-09-28T18:00:00";
+  const end = "2026-09-28T19:00:00";
+
+  assert.equal(getCheckInWindowStatus(start, end, "2026-09-28T16:59:00"), "TooEarly");
+  assert.equal(getCheckInWindowStatus(start, end, "2026-09-28T16:59:59"), "TooEarly");
+  assert.equal(getCheckInWindowStatus(start, end, "2026-09-28T17:00:00"), "Open");
+  assert.equal(getCheckInWindowStatus(start, end, "2026-09-28T17:01:00"), "Open");
+  assert.equal(getCheckInWindowStatus(start, end, "2026-09-28T18:00:00"), "Open");
+  assert.equal(getCheckInWindowStatus(start, end, "2026-09-28T18:59:59"), "Open");
+  assert.equal(getCheckInWindowStatus(start, end, "2026-09-28T19:00:00"), "Closed");
+  assert.equal(getCheckInWindowStatus(start, end, "2026-09-28T19:01:00"), "Closed");
+});
+
+test("prerano skeniranje prikazuje neutralnu poruku i vreme dostupnosti", () => {
+  const state = getScannerCheckInUiState(
+    "Valid", false, false,
+    "2026-09-28T18:00:00", "2026-09-28T19:00:00", "2026-09-28T16:59:00",
+  );
+
+  assert.equal(state.showConfirmation, false);
+  assert.equal(state.showTooEarly, true);
+  assert.equal(state.checkInAvailableFrom, "17:00");
 });
 
 test("uspešna potvrda ažurira prikaz i zadržava sledeće skeniranje", () => {
@@ -47,7 +81,10 @@ test("uspešna potvrda ažurira prikaz i zadržava sledeće skeniranje", () => {
 
 test("potvrda dolaska je onemogućena dok zahtev traje", () => {
   assert.equal(
-    getScannerCheckInUiState("Valid", false, true).confirmationDisabled,
+    getScannerCheckInUiState(
+      "Valid", false, true,
+      "2026-09-28T18:00:00", "2026-09-28T19:00:00", "2026-09-28T17:30:00",
+    ).confirmationDisabled,
     true,
   );
 });
