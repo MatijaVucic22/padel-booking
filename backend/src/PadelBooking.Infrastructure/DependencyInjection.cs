@@ -8,6 +8,7 @@ using PadelBooking.Application.Abstractions.Persistence;
 using PadelBooking.Application.Abstractions.Payments;
 using PadelBooking.Application.Abstractions.Storage;
 using PadelBooking.Application.Abstractions.Time;
+using PadelBooking.Application.Abstractions.Security;
 using PadelBooking.Infrastructure.Authentication;
 using PadelBooking.Infrastructure.Concurrency;
 using PadelBooking.Infrastructure.Email;
@@ -16,6 +17,7 @@ using PadelBooking.Infrastructure.Persistence.Repositories;
 using PadelBooking.Infrastructure.Storage;
 using PadelBooking.Infrastructure.Time;
 using PadelBooking.Infrastructure.Payments;
+using PadelBooking.Infrastructure.Security;
 
 namespace PadelBooking.Infrastructure;
 
@@ -44,6 +46,10 @@ public static class DependencyInjection
         services.AddScoped<IEmailService, EmailService>();
         services.AddSingleton<IPasswordHasher, AspNetPasswordHasher>();
         services.AddSingleton<IAccessTokenGenerator, JwtAccessTokenGenerator>();
+        services.Configure<QrVerificationOptions>(options =>
+            options.Key = configuration["QR_VERIFICATION_KEY"] ?? string.Empty);
+        services.AddSingleton<IReservationVerificationTokenService,
+            HmacReservationVerificationTokenService>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICourtRepository, CourtRepository>();
         services.AddScoped<IReservationRepository, ReservationRepository>();

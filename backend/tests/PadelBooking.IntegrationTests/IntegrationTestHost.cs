@@ -76,6 +76,8 @@ public sealed class IntegrationTestHost : IAsyncLifetime
         Environment.SetEnvironmentVariable("STRIPE_SECRET_KEY", string.Empty);
         Environment.SetEnvironmentVariable("STRIPE_WEBHOOK_SECRET", string.Empty);
         Environment.SetEnvironmentVariable("STRIPE_FRONTEND_URL", "https://localhost");
+        Environment.SetEnvironmentVariable("QR_VERIFICATION_KEY",
+            "integration-tests-only-qr-key-at-least-32-characters");
         _factory = new TestApiFactory(_mysql.GetConnectionString(), Gateway, Email);
         Client = _factory.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -94,7 +96,8 @@ public sealed class IntegrationTestHost : IAsyncLifetime
         {
             "ConnectionStrings__DefaultConnection", "Jwt__Key", "Jwt__Issuer", "Jwt__Audience",
             "Cors__AdditionalOrigin",
-            "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_FRONTEND_URL"
+            "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_FRONTEND_URL",
+            "QR_VERIFICATION_KEY"
         })
             Environment.SetEnvironmentVariable(name, null);
     }
@@ -118,7 +121,8 @@ internal sealed class TestApiFactory(
                 ["Cors:AdditionalOrigin"] = "https://configured-frontend.example.test",
                 ["STRIPE_SECRET_KEY"] = string.Empty,
                 ["STRIPE_WEBHOOK_SECRET"] = string.Empty,
-                ["STRIPE_FRONTEND_URL"] = "https://localhost"
+                ["STRIPE_FRONTEND_URL"] = "https://localhost",
+                ["QR_VERIFICATION_KEY"] = "integration-tests-only-qr-key-at-least-32-characters"
             }));
 
         builder.ConfigureTestServices(services =>

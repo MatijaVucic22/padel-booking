@@ -2543,7 +2543,7 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
 .reservations-page .reschedule-reservation-button { border-color: var(--brand-accent); border-radius: 3px; color: var(--brand-accent-ink); }
 .reservations-page .reschedule-reservation-button:hover:not(:disabled) { background: color-mix(in srgb, var(--brand-accent) 10%, var(--brand-surface)); }
 .reservations-page :is(.reservation-calendar-actions, .reservation-share-action) { position: relative; flex: none; }
-.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger) {
+.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger, .reservation-qr-trigger) {
   display: grid;
   place-items: center;
   width: 44px;
@@ -2556,10 +2556,10 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
   color: var(--brand-accent-ink);
   cursor: pointer;
 }
-.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger):hover,
+.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger, .reservation-qr-trigger):hover,
 .reservations-page .reservation-calendar-trigger[aria-expanded="true"] { border-color: var(--brand-accent); background: color-mix(in srgb, var(--brand-accent) 10%, var(--brand-surface)); }
-.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
-.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger) svg { width: 20px; height: 20px; stroke: currentcolor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger, .reservation-qr-trigger):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.reservations-page :is(.reservation-calendar-trigger, .reservation-share-trigger, .reservation-qr-trigger) svg { width: 20px; height: 20px; stroke: currentcolor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .reservations-page .reservation-calendar-popover {
   position: absolute;
   z-index: 20;
@@ -2611,6 +2611,7 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
 }
 .reservations-page .reservation-share-feedback.success { border-color: color-mix(in srgb, var(--success) 45%, var(--brand-line)); color: var(--success); visibility: visible; }
 .reservations-page .reservation-share-feedback.error { border-color: color-mix(in srgb, var(--danger) 45%, var(--brand-line)); color: var(--danger); visibility: visible; }
+.reservations-page .reservation-qr-trigger { flex: none; }
 .reservations-page .reservation-card:has(.reservation-calendar-actions) { overflow: visible; }
 .reservations-page .reservation-card:has(.reservation-calendar-actions) .reservation-ticket-date { border-radius: 5px 0 0 5px; }
 .reservations-page .cancel-reservation-button { background: transparent; }
@@ -2618,6 +2619,149 @@ body:has(:is(.courts-page, .court-details-page, .quick-book-page, .reservations-
 .reservations-page .reschedule-modal :is(h2, strong) { color: var(--brand-text); }
 .reservations-page .reschedule-current-slot, .reservations-page .reschedule-confirm-comparison section { border-color: var(--brand-line); background: var(--brand-bg); color: var(--brand-muted); }
 .reservations-page .reschedule-modal-actions { border-color: var(--brand-line); }
+
+.reservation-qr-backdrop {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(12, 20, 16, .72);
+}
+.reservation-qr-pass {
+  width: min(100%, 460px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  border: 1px solid var(--brand-line);
+  border-radius: 8px;
+  background: var(--brand-surface);
+  color: var(--brand-text);
+  box-shadow: 0 24px 70px rgba(6, 32, 24, .28);
+}
+.reservation-qr-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--brand-line);
+}
+.reservation-qr-heading span, .verification-brand {
+  color: var(--brand-accent-ink);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+.reservation-qr-heading h2 { margin: 4px 0 0; color: var(--brand-text); font-size: 1.55rem; }
+.reservation-qr-heading button {
+  display: grid;
+  flex: 0 0 42px;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--brand-line);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--brand-text);
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+.reservation-qr-heading button:hover { border-color: var(--brand-accent); color: var(--brand-accent-ink); }
+.reservation-qr-heading button:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.reservation-qr-state {
+  display: grid;
+  min-height: 360px;
+  place-items: center;
+  align-content: center;
+  gap: 16px;
+  padding: 32px;
+  color: var(--brand-muted);
+  text-align: center;
+}
+.reservation-qr-state p { margin: 0; }
+.reservation-qr-state button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--brand-accent);
+  border-radius: 3px;
+  background: var(--brand-accent);
+  color: var(--brand-accent-text);
+  font-weight: 800;
+  cursor: pointer;
+}
+.reservation-qr-spinner {
+  width: 38px;
+  height: 38px;
+  border: 3px solid color-mix(in srgb, var(--brand-accent) 20%, var(--brand-line));
+  border-top-color: var(--brand-accent);
+  border-radius: 50%;
+  animation: route-loader-spin .8s linear infinite;
+}
+.reservation-qr-content { display: grid; justify-items: center; gap: 22px; padding: 28px 30px 30px; text-align: center; }
+.reservation-qr-code { display: grid; max-width: 100%; place-items: center; padding: 12px; border: 1px solid var(--brand-line); background: #fffdf7; }
+.reservation-qr-code svg { display: block; width: min(224px, 62vw); height: auto; }
+.reservation-qr-details { display: grid; justify-items: center; gap: 6px; }
+.reservation-qr-details > span { color: var(--brand-accent-ink); font-size: .65rem; font-weight: 800; letter-spacing: .14em; }
+.reservation-qr-details h3 { margin: 0 0 6px; color: var(--brand-text); font-size: 1.5rem; }
+.reservation-qr-details strong { color: var(--brand-accent-ink); font-family: "Sora", sans-serif; letter-spacing: .05em; }
+.reservation-qr-details p { margin: 0; color: var(--brand-muted); }
+.reservation-qr-details small { margin-top: 5px; color: var(--brand-text); font-weight: 800; }
+.reservation-qr-note { width: 100%; margin: 0; padding-top: 18px; border-top: 1px solid var(--brand-line); color: var(--brand-muted); font-size: .82rem; }
+
+.verification-page {
+  display: grid;
+  min-height: calc(100dvh - 76px);
+  place-items: center;
+  padding: clamp(28px, 7vw, 80px) 20px;
+  background: var(--brand-bg);
+}
+.verification-card {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: min(100%, 560px);
+  padding: clamp(30px, 6vw, 54px);
+  border: 1px solid var(--brand-line);
+  border-top: 5px solid var(--brand-muted);
+  border-radius: 8px;
+  background: var(--brand-surface);
+  color: var(--brand-muted);
+  text-align: center;
+}
+.verification-card.is-valid { border-top-color: var(--brand-accent); }
+.verification-card.is-invalid { border-top-color: var(--danger); }
+.verification-card.is-expired { border-top-color: var(--brand-muted); }
+.verification-icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin: 10px 0 2px;
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  color: var(--brand-muted);
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+.verification-card.is-valid .verification-icon, .verification-card.is-valid .verification-status { color: var(--brand-accent-ink); }
+.verification-card.is-invalid .verification-icon, .verification-card.is-invalid .verification-status { color: var(--danger); }
+.verification-status { margin: 0; color: var(--brand-muted); font-size: .72rem; font-weight: 900; letter-spacing: .12em; }
+.verification-card h1 { margin: 3px 0 0; color: var(--brand-text); font-size: clamp(1.8rem, 5vw, 3rem); }
+.verification-card > p:not(.verification-status) { margin: 0; }
+.verification-slot { display: grid; gap: 5px; margin-top: 6px; }
+.verification-slot strong { color: var(--brand-text); }
+.verification-slot span { color: var(--brand-accent-ink); font-size: 1.25rem; font-weight: 800; }
+.verification-card small { margin-top: 8px; color: var(--brand-text); font-weight: 800; }
+.verification-loading { min-height: 320px; align-content: center; }
+
+@media (max-width: 520px) {
+  .reservation-qr-backdrop { padding: 12px; }
+  .reservation-qr-heading { padding: 18px; }
+  .reservation-qr-content { gap: 18px; padding: 22px 18px 24px; }
+  .reservation-qr-details h3 { font-size: 1.3rem; }
+}
 .reservations-page .reschedule-modal .quick-book-durations { max-width: 460px; }
 .reservations-page .reschedule-modal .quick-book-durations button { height: 54px; min-height: 54px; border-radius: 3px; }
 .reservations-page .reschedule-modal .quick-book-durations button.selected { border-color: var(--brand-accent); background: var(--brand-accent); color: var(--brand-accent-text); }

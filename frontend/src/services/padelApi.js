@@ -61,6 +61,12 @@ export const padelApi = createApi({
       query: () => "/reservations/my",
       providesTags: ["Reservations"],
     }),
+    getReservationVerificationToken: builder.query({
+      query: (id) => `/reservations/${id}/verification-token`,
+    }),
+    verifyReservation: builder.query({
+      query: (token) => `/reservations/verify/${encodeURIComponent(token)}`,
+    }),
     getReservationAvailability: builder.query({
       query: ({ courtId, date, reservationId }) => ({
         url: "/reservations/available",
@@ -178,6 +184,8 @@ export const {
   useGetCourtByIdQuery,
   useLazyGetAvailableCourtsQuery,
   useGetMyReservationsQuery,
+  useLazyGetReservationVerificationTokenQuery,
+  useVerifyReservationQuery,
   useLazyGetReservationAvailabilityQuery,
   useCreateCheckoutMutation,
   useGetCheckoutStatusQuery,

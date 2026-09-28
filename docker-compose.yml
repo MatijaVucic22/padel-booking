@@ -32,6 +32,7 @@ services:
       Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env}
       Jwt__Issuer: ${JWT_ISSUER:-PadelBooking.Api}
       Jwt__Audience: ${JWT_AUDIENCE:-PadelBooking.Client}
+      QR_VERIFICATION_KEY: ${QR_VERIFICATION_KEY:?Set QR_VERIFICATION_KEY in .env}
       Email__SmtpHost: ${EMAIL_SMTP_HOST:-}
       Email__SmtpPort: ${EMAIL_SMTP_PORT:-587}
       Email__Username: ${EMAIL_USERNAME:-}
