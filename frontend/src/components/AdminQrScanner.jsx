@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrowserQRCodeReader } from "@zxing/browser";
-import { useLazyVerifyReservationQuery } from "../services/padelApi";
+import {
+  useCheckInReservationMutation,
+  useLazyVerifyReservationQuery,
+} from "../services/padelApi";
 import {
   extractBookingVerificationToken,
+  applyScannerCheckInSuccess,
+  getScannerCheckInUiState,
   getScannerVerificationStatusContent,
 } from "../utils/bookingVerification";
 
@@ -11,6 +16,12 @@ const scannerDateFormatter = new Intl.DateTimeFormat("sr-Latn-RS", {
   month: "long",
   year: "numeric",
   timeZone: "UTC",
+});
+
+const checkInTimeFormatter = new Intl.DateTimeFormat("sr-Latn-RS", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/Belgrade",
 });
 
 function parseWallClock(value) {
@@ -43,9 +54,13 @@ function getCameraErrorMessage(error) {
 
 function AdminQrScanner() {
   const [verifyReservation] = useLazyVerifyReservationQuery();
+  const [checkInReservation, { isLoading: isCheckingIn }] =
+    useCheckInReservationMutation();
   const [phase, setPhase] = useState("idle");
   const [verification, setVerification] = useState(null);
   const [error, setError] = useState("");
+  const [checkInError, setCheckInError] = useState("");
+  const [checkInOutcome, setCheckInOutcome] = useState(null);
   const videoRef = useRef(null);
   const controlsRef = useRef(null);
   const processingRef = useRef(false);
@@ -91,7 +106,28 @@ function AdminQrScanner() {
     try {
       const result = await verifyReservation(token).unwrap();
       if (!mountedRef.current) return;
-      setVerification(result);
+
+      if (result.verificationStatus === "Valid" && result.checkedIn) {
+        try {
+          const existing = await checkInReservation({
+            reservationId: result.reservationNumber,
+            verificationToken: token,
+          }).unwrap();
+          if (!mountedRef.current) return;
+          setVerification({
+            ...result,
+            verificationToken: token,
+            checkedInAtUtc: existing.checkedInAtUtc,
+          });
+          setCheckInOutcome("existing");
+        } catch {
+          if (!mountedRef.current) return;
+          setVerification({ ...result, verificationToken: token });
+          setCheckInOutcome("existing");
+        }
+      } else {
+        setVerification({ ...result, verificationToken: token });
+      }
       setPhase("result");
     } catch (requestError) {
       if (!mountedRef.current) return;
@@ -104,13 +140,15 @@ function AdminQrScanner() {
         setPhase("error");
       }
     }
-  }, [stopCamera, verifyReservation]);
+  }, [checkInReservation, stopCamera, verifyReservation]);
 
   const startCamera = useCallback(async () => {
     stopCamera();
     processingRef.current = false;
     setVerification(null);
     setError("");
+    setCheckInError("");
+    setCheckInOutcome(null);
 
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setError(getCameraErrorMessage());
@@ -150,6 +188,27 @@ function AdminQrScanner() {
     }
   }, [processScannedValue, stopCamera]);
 
+  const confirmCheckIn = async () => {
+    if (!verification || verification.verificationStatus !== "Valid" ||
+        verification.checkedIn || isCheckingIn) return;
+
+    setCheckInError("");
+    try {
+      const result = await checkInReservation({
+        reservationId: verification.reservationNumber,
+        verificationToken: verification.verificationToken,
+      }).unwrap();
+      if (!mountedRef.current) return;
+      setVerification((current) => applyScannerCheckInSuccess(current, result));
+      setCheckInOutcome("confirmed");
+    } catch (requestError) {
+      if (!mountedRef.current) return;
+      setCheckInError(requestError?.status === 409
+        ? "Dolazak nije moguće potvrditi za ovu rezervaciju."
+        : "Potvrda dolaska trenutno nije dostupna. Pokušajte ponovo.");
+    }
+  };
+
   const isCameraVisible = phase === "requesting" || phase === "scanning";
   const isInvalid = verification?.verificationStatus === "Invalid";
   const status = verification
@@ -157,6 +216,19 @@ function AdminQrScanner() {
     : null;
   const start = parseWallClock(verification?.startTime);
   const end = parseWallClock(verification?.endTime);
+  const checkInUi = getScannerCheckInUiState(
+    verification?.verificationStatus,
+    verification?.checkedIn,
+    isCheckingIn,
+  );
+  const checkedInTime = verification?.checkedInAtUtc
+    ? checkInTimeFormatter.format(new Date(verification.checkedInAtUtc))
+    : null;
+  const resultLabel = checkInOutcome === "confirmed"
+    ? "DOLAZAK POTVRĐEN"
+    : checkInOutcome === "existing"
+      ? "DOLAZAK VEĆ POTVRĐEN"
+      : status?.label;
 
   return (
     <section className="admin-section admin-qr-scanner" aria-labelledby="admin-qr-title">
@@ -220,7 +292,7 @@ function AdminQrScanner() {
         {phase === "result" && status && (
           <article className={`admin-qr-result ${status.className}`} aria-live="polite">
             <span className="admin-qr-result-icon" aria-hidden="true">{status.icon}</span>
-            <p className="admin-qr-result-status">{status.label}</p>
+            <p className="admin-qr-result-status">{resultLabel}</p>
 
             {!isInvalid && (
               <>
@@ -238,9 +310,30 @@ function AdminQrScanner() {
 
             {isInvalid && <p>Ovaj QR kod nije PadelBooking rezervacija.</p>}
 
-            <button type="button" className="primary-button" onClick={startCamera}>
-              Skeniraj sledeći
-            </button>
+            {checkInUi.showAlreadyCheckedIn && checkedInTime && (
+              <p className="admin-qr-check-in-time">Potvrđeno u {checkedInTime}</p>
+            )}
+
+            {checkInError && (
+              <p className="admin-qr-check-in-error" role="alert">{checkInError}</p>
+            )}
+
+            {checkInUi.showConfirmation && (
+              <button
+                type="button"
+                className="primary-button admin-qr-check-in-button"
+                disabled={checkInUi.confirmationDisabled}
+                onClick={confirmCheckIn}
+              >
+                {isCheckingIn ? "Potvrđujemo..." : "Potvrdi dolazak"}
+              </button>
+            )}
+
+            {checkInUi.showScanNext && (
+              <button type="button" className="secondary-button" onClick={startCamera}>
+                Skeniraj sledeći
+              </button>
+            )}
           </article>
         )}
       </div>

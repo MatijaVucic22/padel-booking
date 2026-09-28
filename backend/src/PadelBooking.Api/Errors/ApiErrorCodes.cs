@@ -6,6 +6,7 @@ public static class ApiErrorCodes
     public const string DuplicateEmail = "DUPLICATE_EMAIL";
     public const string InvalidWebhook = "INVALID_WEBHOOK";
     public const string InvalidVerificationToken = "INVALID_VERIFICATION_TOKEN";
+    public const string ReservationNotCheckInEligible = "RESERVATION_NOT_CHECKIN_ELIGIBLE";
     public const string Unauthorized = "UNAUTHORIZED";
     public const string Forbidden = "FORBIDDEN";
     public const string NotFound = "NOT_FOUND";

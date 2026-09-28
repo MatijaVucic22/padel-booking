@@ -20,6 +20,8 @@ namespace PadelBooking.Domain.Entities
 
         public DateTime? ReminderSentAtUtc { get; set; }
 
+        public DateTime? CheckedInAtUtc { get; set; }
+
         public User User { get; set; } = null!;
 
         public Court Court { get; set; } = null!;

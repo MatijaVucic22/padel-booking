@@ -16,6 +16,7 @@ using PadelBooking.Application.Courts.GetCourts;
 using PadelBooking.Application.Courts.UpdateCourt;
 using PadelBooking.Application.Reservations.Availability;
 using PadelBooking.Application.Reservations.Cancel;
+using PadelBooking.Application.Reservations.CheckIn;
 using PadelBooking.Application.Reservations.Create;
 using PadelBooking.Application.Reservations.MyReservations;
 using PadelBooking.Application.Reservations.Reminders;
@@ -41,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<CreateReservation>();
         services.AddScoped<GetMyReservations>();
         services.AddScoped<CancelReservation>();
+        services.AddScoped<CheckInReservation>();
         services.AddScoped<RescheduleReservation>();
         services.AddScoped<GetReservationVerificationToken>();
         services.AddScoped<VerifyReservation>();

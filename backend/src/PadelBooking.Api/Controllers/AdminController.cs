@@ -9,6 +9,7 @@ using PadelBooking.Application.Admin.Payments;
 using PadelBooking.Application.Admin.Reservations;
 using PadelBooking.Application.Admin.Statistics;
 using PadelBooking.Application.Admin.Users;
+using PadelBooking.Application.Reservations.CheckIn;
 
 namespace PadelBooking.Api.Controllers;
 
@@ -24,18 +25,21 @@ public class AdminController : ControllerBase
     private readonly GetAdminPaymentAttention _getPaymentAttention;
     private readonly CreateBlockedPeriod _createBlockedPeriod;
     private readonly DeleteBlockedPeriod _deleteBlockedPeriod;
+    private readonly CheckInReservation _checkInReservation;
 
     public AdminController(GetAdminUsers getUsers,
         GetAdminReservations getReservations, GetAdminStatistics getStatistics,
         GetAdminCalendar getCalendar, GetAdminPaymentAttention getPaymentAttention,
         CreateBlockedPeriod createBlockedPeriod,
-        DeleteBlockedPeriod deleteBlockedPeriod)
+        DeleteBlockedPeriod deleteBlockedPeriod,
+        CheckInReservation checkInReservation)
     {
         _getUsers = getUsers; _getReservations = getReservations;
         _getStatistics = getStatistics; _getCalendar = getCalendar;
         _getPaymentAttention = getPaymentAttention;
         _createBlockedPeriod = createBlockedPeriod;
         _deleteBlockedPeriod = deleteBlockedPeriod;
+        _checkInReservation = checkInReservation;
     }
 
     [HttpGet("users")]
@@ -122,6 +126,32 @@ public class AdminController : ControllerBase
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats() =>
         Ok(await _getStatistics.ExecuteAsync(HttpContext.RequestAborted));
+
+    [HttpPost("reservations/{id:int}/check-in")]
+    public async Task<IActionResult> CheckInReservation(
+        int id,
+        CheckInReservationRequest request)
+    {
+        var result = await _checkInReservation.ExecuteAsync(
+            id, request.VerificationToken, HttpContext.RequestAborted);
+        return result.Status switch
+        {
+            CheckInReservationStatus.InvalidToken => this.ApiError(
+                400, ApiErrorCodes.InvalidVerificationToken,
+                "QR propusnica nije validna."),
+            CheckInReservationStatus.NotFound => this.ApiError(
+                404, ApiErrorCodes.NotFound, "Rezervacija nije pronađena."),
+            CheckInReservationStatus.NotEligible => this.ApiError(
+                409, ApiErrorCodes.ReservationNotCheckInEligible,
+                "Dolazak nije moguće potvrditi za ovu rezervaciju."),
+            _ => Ok(new
+            {
+                result.ReservationId,
+                CheckedIn = true,
+                result.CheckedInAtUtc
+            })
+        };
+    }
 
     private IActionResult LockTimeout()
     {

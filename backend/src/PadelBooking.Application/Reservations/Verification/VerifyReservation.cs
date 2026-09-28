@@ -12,13 +12,26 @@ public static class ReservationVerificationStatuses
     public const string Invalid = "Invalid";
 }
 
+public static class ReservationVerificationPolicy
+{
+    public static string GetStatus(string reservationStatus, DateTime endTime, DateTime now) =>
+        reservationStatus switch
+        {
+            "Cancelled" => ReservationVerificationStatuses.Cancelled,
+            _ when endTime <= now => ReservationVerificationStatuses.Expired,
+            "Active" => ReservationVerificationStatuses.Valid,
+            _ => ReservationVerificationStatuses.Invalid
+        };
+}
+
 public sealed record ReservationVerificationResult(
     int ReservationNumber,
     string CourtName,
     string Location,
     DateTime StartTime,
     DateTime EndTime,
-    string VerificationStatus);
+    string VerificationStatus,
+    bool CheckedIn);
 
 public sealed class VerifyReservation(
     IReservationRepository reservations,
@@ -35,13 +48,8 @@ public sealed class VerifyReservation(
             reservationId, cancellationToken);
         if (reservation is null) return null;
 
-        var status = reservation.Status switch
-        {
-            "Cancelled" => ReservationVerificationStatuses.Cancelled,
-            _ when reservation.EndTime <= bookingTime.Now => ReservationVerificationStatuses.Expired,
-            "Active" => ReservationVerificationStatuses.Valid,
-            _ => ReservationVerificationStatuses.Invalid
-        };
+        var status = ReservationVerificationPolicy.GetStatus(
+            reservation.Status, reservation.EndTime, bookingTime.Now);
 
         return new ReservationVerificationResult(
             reservation.Id,
@@ -49,6 +57,7 @@ public sealed class VerifyReservation(
             reservation.Court.Location,
             reservation.StartTime,
             reservation.EndTime,
-            status);
+            status,
+            reservation.CheckedInAtUtc.HasValue);
     }
 }

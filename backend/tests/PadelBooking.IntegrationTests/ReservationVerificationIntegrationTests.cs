@@ -206,11 +206,11 @@ public sealed class ReservationVerificationIntegrationTests(IntegrationTestHost 
                 .Select(property => property.Name)
                 .ToHashSet(StringComparer.Ordinal);
 
-            Assert.Equal(6, propertyNames.Count);
+            Assert.Equal(7, propertyNames.Count);
             Assert.Subset(new HashSet<string>
             {
                 "reservationNumber", "courtName", "location", "startTime", "endTime",
-                "verificationStatus"
+                "verificationStatus", "checkedIn"
             }, propertyNames);
             Assert.DoesNotContain("email", propertyNames);
             Assert.DoesNotContain("userId", propertyNames);
