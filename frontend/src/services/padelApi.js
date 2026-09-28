@@ -186,6 +186,7 @@ export const {
   useGetMyReservationsQuery,
   useLazyGetReservationVerificationTokenQuery,
   useVerifyReservationQuery,
+  useLazyVerifyReservationQuery,
   useLazyGetReservationAvailabilityQuery,
   useCreateCheckoutMutation,
   useGetCheckoutStatusQuery,
