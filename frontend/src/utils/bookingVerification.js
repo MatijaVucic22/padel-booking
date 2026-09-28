@@ -39,3 +39,25 @@ export function getScannerVerificationStatusContent(status) {
     className: "is-invalid",
   };
 }
+
+export function getScannerCheckInUiState(
+  verificationStatus,
+  checkedIn,
+  isSubmitting = false,
+) {
+  const isValid = verificationStatus === "Valid";
+  return {
+    showConfirmation: isValid && !checkedIn,
+    confirmationDisabled: isValid && !checkedIn && isSubmitting,
+    showAlreadyCheckedIn: isValid && checkedIn,
+    showScanNext: Boolean(verificationStatus),
+  };
+}
+
+export function applyScannerCheckInSuccess(verification, result) {
+  return {
+    ...verification,
+    checkedIn: true,
+    checkedInAtUtc: result.checkedInAtUtc,
+  };
+}

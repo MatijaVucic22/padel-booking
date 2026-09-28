@@ -1708,8 +1708,8 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .admin-qr-idle p { max-width: 430px; color: var(--color-muted); }
 .admin-qr-mark, .admin-qr-result-icon { display: grid; place-items: center; width: 66px; height: 66px; border: 1px solid color-mix(in srgb, var(--color-green) 45%, var(--color-border)); border-radius: 50%; background: color-mix(in srgb, var(--color-green) 10%, var(--color-surface)); color: var(--color-green); font: 800 2rem/1 "Sora", sans-serif; }
 .admin-qr-mark.is-error { border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border)); background: color-mix(in srgb, var(--color-danger) 9%, var(--color-surface)); color: var(--color-danger); }
-.admin-qr-idle .primary-button, .admin-qr-idle .secondary-button, .admin-qr-result .primary-button { min-width: 190px; margin-top: 8px; }
-.admin-qr-idle .secondary-button { min-height: 48px; padding: 0 20px; border: 1px solid var(--color-green); border-radius: 8px; background: transparent; color: var(--color-green); font-weight: 750; cursor: pointer; }
+.admin-qr-idle .primary-button, .admin-qr-idle .secondary-button, .admin-qr-result .primary-button, .admin-qr-result .secondary-button { min-width: 190px; margin-top: 8px; }
+.admin-qr-idle .secondary-button, .admin-qr-result .secondary-button { min-height: 48px; padding: 0 20px; border: 1px solid var(--color-green); border-radius: 8px; background: transparent; color: var(--color-green); font-weight: 750; cursor: pointer; }
 .admin-qr-overlay { color: #fff; background: rgba(8, 20, 15, .42); }
 .admin-qr-overlay p { margin: 0; font-weight: 750; }
 .admin-qr-frame { position: absolute; z-index: 2; inset: 50% auto auto 50%; width: min(58%, 330px); aspect-ratio: 1; border: 2px solid rgba(248, 231, 201, .88); transform: translate(-50%, -50%); }
@@ -1726,6 +1726,9 @@ main { min-height: calc(100vh - 76px); padding: 0; }
 .admin-qr-result-slot { display: grid; gap: 3px; padding: 13px 24px; border-block: 1px solid var(--color-border); }
 .admin-qr-result-slot strong { color: var(--color-text); }
 .admin-qr-result small { color: var(--color-text); font-weight: 800; }
+.admin-qr-check-in-time { font-weight: 800; color: var(--color-green) !important; }
+.admin-qr-check-in-error { max-width: 430px; color: var(--color-danger) !important; }
+.admin-qr-check-in-button { margin-top: 6px; }
 .admin-qr-hint { margin: -10px 0 0; text-align: center; }
 .admin-payment-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .admin-payment-pagination button { min-height: 40px; padding: 0 14px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-text); font-weight: 750; }

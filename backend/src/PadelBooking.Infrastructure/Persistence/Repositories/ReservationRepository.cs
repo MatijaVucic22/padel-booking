@@ -13,6 +13,34 @@ public sealed class ReservationRepository : IReservationRepository
         _context = context;
     }
 
+    public Task<ReservationCheckInState?> GetCheckInStateAsync(
+        int id,
+        CancellationToken cancellationToken = default) =>
+        _context.Reservations
+            .AsNoTracking()
+            .Where(reservation => reservation.Id == id)
+            .Select(reservation => new ReservationCheckInState(
+                reservation.Id,
+                reservation.Status,
+                reservation.EndTime,
+                reservation.CheckedInAtUtc))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<bool> TrySetCheckedInAtUtcAsync(
+        int id,
+        DateTime checkedInAtUtc,
+        DateTime currentBookingTime,
+        CancellationToken cancellationToken = default) =>
+        await _context.Reservations
+            .Where(reservation =>
+                reservation.Id == id &&
+                reservation.Status == "Active" &&
+                reservation.EndTime > currentBookingTime &&
+                reservation.CheckedInAtUtc == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(reservation => reservation.CheckedInAtUtc, checkedInAtUtc),
+                cancellationToken) == 1;
+
     public Task<Reservation?> GetByIdAsync(
         int id,
         CancellationToken cancellationToken = default) =>

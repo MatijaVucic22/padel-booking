@@ -4,6 +4,16 @@ namespace PadelBooking.Application.Abstractions.Persistence;
 
 public interface IReservationRepository
 {
+    Task<ReservationCheckInState?> GetCheckInStateAsync(
+        int id,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> TrySetCheckedInAtUtcAsync(
+        int id,
+        DateTime checkedInAtUtc,
+        DateTime currentBookingTime,
+        CancellationToken cancellationToken = default);
+
     Task<Reservation?> GetByIdAsync(
         int id,
         CancellationToken cancellationToken = default);
@@ -58,3 +68,9 @@ public interface IReservationRepository
 
     void Add(Reservation reservation);
 }
+
+public sealed record ReservationCheckInState(
+    int Id,
+    string Status,
+    DateTime EndTime,
+    DateTime? CheckedInAtUtc);
