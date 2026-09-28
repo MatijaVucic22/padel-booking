@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { getRoleUx } from "../utils/roleUx";
 
 function Navbar({ onLogout, onNavigate }) {
   const user = useSelector((state) => state.auth.user);
+  const roleUx = getRoleUx(user);
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setTheme] = useState(
     () => document.documentElement.dataset.theme || "light",
@@ -70,10 +72,10 @@ function Navbar({ onLogout, onNavigate }) {
         <div className="nav-primary">
           <Link to="/" onClick={(event) => handleNavigation(event, "/")}>Početna</Link>
           <Link to="/courts" onClick={(event) => handleNavigation(event, "/courts")}>Tereni</Link>
-          <Link className="nav-book-link" to="/book" onClick={(event) => handleNavigation(event, "/book")}>Rezerviši <span aria-hidden="true">↗</span></Link>
+          {roleUx.showBookingCta && <Link className="nav-book-link" to="/book" onClick={(event) => handleNavigation(event, "/book")}>Rezerviši <span aria-hidden="true">↗</span></Link>}
 
-          {user && <Link to="/my-reservations" onClick={(event) => handleNavigation(event, "/my-reservations")}>Moje rezervacije</Link>}
-          {user?.role === "Admin" && <Link to="/admin" onClick={(event) => handleNavigation(event, "/admin")}>Admin</Link>}
+          {roleUx.showMyReservations && <Link to="/my-reservations" onClick={(event) => handleNavigation(event, "/my-reservations")}>Moje rezervacije</Link>}
+          {roleUx.showAdminPanel && <Link className="nav-book-link" to="/admin" onClick={(event) => handleNavigation(event, "/admin")}>Admin panel <span aria-hidden="true">↗</span></Link>}
         </div>
 
         <div className="nav-account">{user ? (

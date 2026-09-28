@@ -95,6 +95,56 @@ public sealed class BookingIntegrationTests(IntegrationTestHost host)
     }
 
     [Fact]
+    public async Task NormalUserCanStillStartCustomerCheckout()
+    {
+        var courtId = await SeedCourtAsync();
+        var (start, end) = Slot(10);
+        using var user = await AuthenticatedClientAsync();
+
+        using var response = await CheckoutAsync(user, courtId, start, end);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminCannotStartCustomerCheckoutOrCreatePaymentArtifacts()
+    {
+        var courtId = await SeedCourtAsync();
+        var (start, end) = Slot(10);
+        using var admin = await AuthenticatedClientAsync(admin: true);
+        var sessionsBefore = host.Gateway.SessionCount;
+        await using var beforeScope = host.Services.CreateAsyncScope();
+        var beforeDb = beforeScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var reservationsBefore = await beforeDb.Reservations.CountAsync();
+        var paymentsBefore = await beforeDb.Payments.CountAsync();
+
+        using var response = await CheckoutAsync(admin, courtId, start, end);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = await AssertProblemAsync(response, "ADMIN_BOOKING_NOT_ALLOWED");
+        Assert.Equal(sessionsBefore, host.Gateway.SessionCount);
+        await using var afterScope = host.Services.CreateAsyncScope();
+        var afterDb = afterScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(reservationsBefore, await afterDb.Reservations.CountAsync());
+        Assert.Equal(paymentsBefore, await afterDb.Payments.CountAsync());
+
+        using var adminOperation = await admin.GetAsync("/api/admin/users");
+        Assert.Equal(HttpStatusCode.OK, adminOperation.StatusCode);
+    }
+
+    [Fact]
+    public async Task UnauthenticatedCheckoutBehaviorRemainsUnauthorized()
+    {
+        var courtId = await SeedCourtAsync();
+        var (start, end) = Slot(10);
+
+        using var response = await CheckoutAsync(host.Client, courtId, start, end);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        using var problem = await AssertProblemAsync(response, "UNAUTHORIZED");
+    }
+
+    [Fact]
     public async Task AdminPaymentAttention_ReturnsPaidRequiresResolutionWithStoredReason()
     {
         var paymentId = await SeedAttentionPaymentAsync(

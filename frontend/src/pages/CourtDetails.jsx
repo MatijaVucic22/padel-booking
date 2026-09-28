@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useSelector } from "react-redux";
 import * as signalR from "@microsoft/signalr";
 import { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 import { useGetCourtByIdQuery } from "../services/padelApi";
 import Reveal from "../components/Reveal";
+import { getRoleUx } from "../utils/roleUx";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency", currency: "RSD", maximumFractionDigits: 2,
@@ -12,6 +14,8 @@ const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
 
 function CourtDetails() {
   const { id } = useParams();
+  const user = useSelector((state) => state.auth.user);
+  const roleUx = getRoleUx(user);
   const {
     data: court,
     isLoading,
@@ -78,7 +82,9 @@ function CourtDetails() {
             <strong>{priceFormatter.format(court.pricePerHour)}</strong>
           </div>
           {court.description && <p className="court-information-description">{court.description}</p>}
-          <Link className="primary-button court-information-cta" to="/book">Rezerviši termin</Link>
+          <Link className="primary-button court-information-cta" to={roleUx.isAdmin ? "/admin" : "/book"}>
+            {roleUx.isAdmin ? "Otvori admin panel" : "Rezerviši termin"}
+          </Link>
         </article>
       </Reveal>
     </section>
