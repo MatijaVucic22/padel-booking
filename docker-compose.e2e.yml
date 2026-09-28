@@ -26,6 +26,7 @@ services:
       Jwt__Key: ${E2E_JWT_KEY:?Set by the E2E runner}
       Jwt__Issuer: PadelBooking.Api
       Jwt__Audience: PadelBooking.Client
+      QR_VERIFICATION_KEY: e2e-only-qr-verification-key-at-least-32-characters
       Cors__AdditionalOrigin: http://localhost:5189
       STRIPE_SECRET_KEY: ""
       STRIPE_WEBHOOK_SECRET: ""

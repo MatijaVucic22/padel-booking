@@ -8,6 +8,7 @@ using PadelBooking.Application.Reservations.Availability;
 using PadelBooking.Application.Reservations.Cancel;
 using PadelBooking.Application.Reservations.MyReservations;
 using PadelBooking.Application.Reservations.Reschedule;
+using PadelBooking.Application.Reservations.Verification;
 
 namespace PadelBooking.Api.Controllers;
 
@@ -20,15 +21,21 @@ public class ReservationsController : ControllerBase
     private readonly CancelReservation _cancelReservation;
     private readonly RescheduleReservation _rescheduleReservation;
     private readonly GetReservationAvailability _getAvailability;
+    private readonly GetReservationVerificationToken _getVerificationToken;
+    private readonly VerifyReservation _verifyReservation;
 
     public ReservationsController(GetMyReservations getMyReservations, CancelReservation cancelReservation,
         RescheduleReservation rescheduleReservation,
-        GetReservationAvailability getAvailability)
+        GetReservationAvailability getAvailability,
+        GetReservationVerificationToken getVerificationToken,
+        VerifyReservation verifyReservation)
     {
         _getMyReservations = getMyReservations;
         _cancelReservation = cancelReservation;
         _rescheduleReservation = rescheduleReservation;
         _getAvailability = getAvailability;
+        _getVerificationToken = getVerificationToken;
+        _verifyReservation = verifyReservation;
     }
 
     [HttpPost]
@@ -45,6 +52,30 @@ public class ReservationsController : ControllerBase
         if (!TryGetUserId(out var userId)) return Unauthorized();
         return Ok(await _getMyReservations.ExecuteAsync(
             userId, HttpContext.RequestAborted));
+    }
+
+    [HttpGet("{id:int}/verification-token")]
+    public async Task<IActionResult> GetVerificationToken(int id)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var result = await _getVerificationToken.ExecuteAsync(
+            id, userId, HttpContext.RequestAborted);
+        return result is null
+            ? this.ApiError(404, ApiErrorCodes.NotFound, "Rezervacija nije pronađena.")
+            : Ok(result);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("verify/{token}")]
+    public async Task<IActionResult> VerifyBooking(string token)
+    {
+        var result = await _verifyReservation.ExecuteAsync(
+            token, HttpContext.RequestAborted);
+        return result is null || result.VerificationStatus == ReservationVerificationStatuses.Invalid
+            ? this.ApiError(400, ApiErrorCodes.InvalidVerificationToken,
+                "Rezervacija nije validna.")
+            : Ok(result);
     }
 
     [HttpPut("{id}/reschedule")]

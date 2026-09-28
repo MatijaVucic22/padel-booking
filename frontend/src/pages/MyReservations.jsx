@@ -21,6 +21,7 @@ import {
 import DatePicker from "../components/DatePicker";
 import AddToCalendarButton from "../components/AddToCalendarButton";
 import ShareReservationButton from "../components/ShareReservationButton";
+import ReservationQrPass from "../components/ReservationQrPass";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
@@ -666,6 +667,9 @@ function MyReservations() {
                       )}
                       {canAddToCalendar && (
                         <ShareReservationButton reservation={reservation} />
+                      )}
+                      {canAddToCalendar && (
+                        <ReservationQrPass reservation={reservation} />
                       )}
                       {reservation.canCancel && (
                         <div className="reservation-actions">

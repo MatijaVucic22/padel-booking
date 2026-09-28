@@ -35,6 +35,7 @@ public sealed class GetMyReservations
         return visibleReservations
             .Select(reservation => new MyReservationItem(
             reservation.Id, reservation.CourtId, reservation.Court.Name,
+            reservation.Court.Location,
             reservation.StartTime, reservation.EndTime, reservation.TotalPrice,
             paidAmounts.GetValueOrDefault(reservation.Id),
             reservation.Status != "Cancelled" && reservation.StartTime > now,

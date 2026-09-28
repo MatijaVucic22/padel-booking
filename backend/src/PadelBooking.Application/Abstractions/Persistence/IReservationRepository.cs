@@ -13,6 +13,10 @@ public interface IReservationRepository
         int userId,
         CancellationToken cancellationToken = default);
 
+    Task<Reservation?> GetForVerificationAsync(
+        int id,
+        CancellationToken cancellationToken = default);
+
     Task<int?> GetCourtIdForUserAsync(
         int id,
         int userId,

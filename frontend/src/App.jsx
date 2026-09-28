@@ -19,6 +19,7 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const Book = lazy(() => import("./pages/Book"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
+const VerifyBooking = lazy(() => import("./pages/VerifyBooking"));
 
 function App() {
   const navigate = useNavigate();
@@ -283,6 +284,8 @@ function App() {
           <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
 
           <Route path="/payment/cancel" element={<PaymentCancel />} />
+
+          <Route path="/verify-booking/:token" element={<VerifyBooking />} />
 
           <Route path="/courts/:id" element={<CourtDetails />} />
 

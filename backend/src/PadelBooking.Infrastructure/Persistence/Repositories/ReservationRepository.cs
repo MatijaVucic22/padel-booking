@@ -35,6 +35,16 @@ public sealed class ReservationRepository : IReservationRepository
                     reservation.UserId == userId,
                 cancellationToken);
 
+    public Task<Reservation?> GetForVerificationAsync(
+        int id,
+        CancellationToken cancellationToken = default) =>
+        _context.Reservations
+            .AsNoTracking()
+            .Include(reservation => reservation.Court)
+            .FirstOrDefaultAsync(
+                reservation => reservation.Id == id,
+                cancellationToken);
+
     public Task<int?> GetCourtIdForUserAsync(
         int id,
         int userId,

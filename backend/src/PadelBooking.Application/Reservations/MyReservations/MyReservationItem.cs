@@ -4,6 +4,7 @@ public sealed record MyReservationItem(
     int Id,
     int CourtId,
     string CourtName,
+    string CourtLocation,
     DateTime StartTime,
     DateTime EndTime,
     decimal TotalPrice,
