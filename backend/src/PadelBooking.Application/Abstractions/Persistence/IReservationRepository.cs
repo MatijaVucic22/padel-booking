@@ -12,6 +12,7 @@ public interface IReservationRepository
         int id,
         DateTime checkedInAtUtc,
         DateTime currentBookingTime,
+        DateTime latestEligibleStartTime,
         CancellationToken cancellationToken = default);
 
     Task<Reservation?> GetByIdAsync(
@@ -72,5 +73,6 @@ public interface IReservationRepository
 public sealed record ReservationCheckInState(
     int Id,
     string Status,
+    DateTime StartTime,
     DateTime EndTime,
     DateTime? CheckedInAtUtc);

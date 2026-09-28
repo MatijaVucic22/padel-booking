@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using PadelBooking.Application.Abstractions.Authentication;
 using PadelBooking.Application.Abstractions.Security;
@@ -15,6 +16,8 @@ namespace PadelBooking.IntegrationTests;
 [Collection("mysql-integration")]
 public sealed class ReservationCheckInIntegrationTests(IntegrationTestHost host)
 {
+    private static readonly DateTime FixedNow = new(2026, 9, 28, 17, 30, 0);
+
     [Fact]
     public async Task AdminCanCheckInValidReservationWithoutChangingBookingOrPayment()
     {
@@ -22,12 +25,10 @@ public sealed class ReservationCheckInIntegrationTests(IntegrationTestHost host)
         var (_, userId) = await AuthenticatedClientAsync("User");
         using (admin)
         {
-            var reservationId = await SeedReservationAsync(userId, "Active", future: true,
-                withPayment: true);
+            var reservationId = await SeedReservationAsync(userId, "Active",
+                FixedNow.AddMinutes(30), FixedNow.AddMinutes(90), withPayment: true);
 
-            using var response = await admin.PostAsync(
-                $"/api/admin/reservations/{reservationId}/check-in",
-                JsonContent.Create(new { verificationToken = TokenFor(reservationId) }));
+            using var response = await PostCheckInAtAsync(admin, reservationId, FixedNow);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -42,7 +43,9 @@ public sealed class ReservationCheckInIntegrationTests(IntegrationTestHost host)
                 .SingleAsync(item => item.ReservationId == reservationId);
             Assert.Equal(checkedInAt, reservation.CheckedInAtUtc);
             Assert.Equal("Active", reservation.Status);
-            Assert.Equal(reservation.StartTime.AddHours(1), reservation.EndTime);
+            Assert.Equal(FixedNow.AddMinutes(30), reservation.StartTime);
+            Assert.Equal(FixedNow.AddMinutes(90), reservation.EndTime);
+            Assert.Equal(2500m, reservation.TotalPrice);
             Assert.Equal(PaymentStatus.Paid, payment.Status);
             Assert.Equal(PaymentFulfillmentStatus.Applied, payment.FulfillmentStatus);
 
@@ -114,9 +117,10 @@ public sealed class ReservationCheckInIntegrationTests(IntegrationTestHost host)
         var (_, userId) = await AuthenticatedClientAsync("User");
         using (admin)
         {
-            var reservationId = await SeedReservationAsync(userId, "Active", future: true);
-            var first = await CheckInAsync(admin, reservationId);
-            var second = await CheckInAsync(admin, reservationId);
+            var reservationId = await SeedReservationAsync(userId, "Active",
+                FixedNow.AddMinutes(30), FixedNow.AddMinutes(90));
+            var first = await CheckInAtAsync(admin, reservationId, FixedNow);
+            var second = await CheckInAtAsync(admin, reservationId, FixedNow);
 
             Assert.Equal(first, second);
         }
@@ -147,16 +151,76 @@ public sealed class ReservationCheckInIntegrationTests(IntegrationTestHost host)
         using (firstAdmin)
         using (secondAdmin)
         {
-            var reservationId = await SeedReservationAsync(userId, "Active", future: true);
+            var reservationId = await SeedReservationAsync(userId, "Active",
+                FixedNow.AddMinutes(30), FixedNow.AddMinutes(90));
             var results = await Task.WhenAll(
-                CheckInAsync(firstAdmin, reservationId),
-                CheckInAsync(secondAdmin, reservationId));
+                CheckInAtAsync(firstAdmin, reservationId, FixedNow),
+                CheckInAtAsync(secondAdmin, reservationId, FixedNow));
 
             Assert.Equal(results[0], results[1]);
             await using var scope = host.Services.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             Assert.Equal(results[0], (await db.Reservations.AsNoTracking()
                 .SingleAsync(item => item.Id == reservationId)).CheckedInAtUtc);
+        }
+    }
+
+    [Theory]
+    [InlineData("2026-09-28T16:59:00", HttpStatusCode.Conflict, "CHECK_IN_TOO_EARLY")]
+    [InlineData("2026-09-28T16:59:59", HttpStatusCode.Conflict, "CHECK_IN_TOO_EARLY")]
+    [InlineData("2026-09-28T17:00:00", HttpStatusCode.OK, null)]
+    [InlineData("2026-09-28T17:01:00", HttpStatusCode.OK, null)]
+    [InlineData("2026-09-28T18:00:00", HttpStatusCode.OK, null)]
+    [InlineData("2026-09-28T19:00:00", HttpStatusCode.OK, null)]
+    [InlineData("2026-09-28T19:59:59", HttpStatusCode.OK, null)]
+    [InlineData("2026-09-28T20:00:00", HttpStatusCode.Conflict, "CHECK_IN_WINDOW_CLOSED")]
+    [InlineData("2026-09-28T20:01:00", HttpStatusCode.Conflict, "CHECK_IN_WINDOW_CLOSED")]
+    public async Task CheckInUsesStrictTimeWindow(
+        string currentTime,
+        HttpStatusCode expectedStatus,
+        string? expectedCode)
+    {
+        var (admin, _) = await AuthenticatedClientAsync("Admin");
+        var (_, userId) = await AuthenticatedClientAsync("User");
+        using (admin)
+        {
+            var reservationId = await SeedReservationAsync(userId, "Active",
+                new DateTime(2026, 9, 28, 18, 0, 0),
+                new DateTime(2026, 9, 28, 20, 0, 0));
+
+            using var response = await PostCheckInAtAsync(
+                admin, reservationId, DateTime.Parse(currentTime));
+
+            Assert.Equal(expectedStatus, response.StatusCode);
+            if (expectedCode is not null)
+            {
+                using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                Assert.Equal(expectedCode, json.RootElement.GetProperty("code").GetString());
+            }
+        }
+    }
+
+    [Fact]
+    public async Task CheckInUsesCurrentRescheduledTimes()
+    {
+        var (admin, _) = await AuthenticatedClientAsync("Admin");
+        var (_, userId) = await AuthenticatedClientAsync("User");
+        using (admin)
+        {
+            var reservationId = await SeedReservationAsync(userId, "Active",
+                FixedNow.AddDays(2), FixedNow.AddDays(2).AddHours(1));
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var reservation = await db.Reservations.SingleAsync(item => item.Id == reservationId);
+                reservation.StartTime = FixedNow.AddMinutes(30);
+                reservation.EndTime = FixedNow.AddMinutes(90);
+                await db.SaveChangesAsync();
+            }
+
+            using var response = await PostCheckInAtAsync(admin, reservationId, FixedNow);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
     }
 
@@ -227,11 +291,76 @@ public sealed class ReservationCheckInIntegrationTests(IntegrationTestHost host)
         return reservation.Id;
     }
 
-    private async Task<DateTime> CheckInAsync(HttpClient client, int reservationId)
+    private async Task<int> SeedReservationAsync(
+        int userId,
+        string status,
+        DateTime startTime,
+        DateTime endTime,
+        bool withPayment = false)
     {
-        using var response = await client.PostAsJsonAsync(
+        await using var scope = host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var reservation = new Reservation
+        {
+            UserId = userId,
+            Court = new Court
+            {
+                Name = $"Check-in Court {Guid.NewGuid():N}",
+                Location = "Beograd",
+                PricePerHour = 2500m,
+                IsActive = true
+            },
+            StartTime = startTime,
+            EndTime = endTime,
+            TotalPrice = 2500m,
+            Status = status
+        };
+        db.Reservations.Add(reservation);
+
+        if (withPayment)
+        {
+            db.Payments.Add(new Payment
+            {
+                Reservation = reservation,
+                Amount = 2500m,
+                Status = PaymentStatus.Paid,
+                FulfillmentStatus = PaymentFulfillmentStatus.Applied,
+                Purpose = PaymentPurpose.InitialBooking,
+                CreatedAtUtc = DateTime.UtcNow,
+                SessionExpiresAtUtc = DateTime.UtcNow.AddMinutes(35),
+                ExternalSessionId = $"cs_check_in_{Guid.NewGuid():N}"
+            });
+        }
+
+        await db.SaveChangesAsync();
+        return reservation.Id;
+    }
+
+    private async Task<HttpResponseMessage> PostCheckInAtAsync(
+        HttpClient authenticatedClient,
+        int reservationId,
+        DateTime localNow)
+    {
+        using var factory = host.CreateFactoryWithBookingTime(
+            new TestBookingTimeService(localNow));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost"),
+            HandleCookies = false
+        });
+        client.DefaultRequestHeaders.Authorization =
+            authenticatedClient.DefaultRequestHeaders.Authorization;
+        return await client.PostAsJsonAsync(
             $"/api/admin/reservations/{reservationId}/check-in",
             new { verificationToken = TokenFor(reservationId) });
+    }
+
+    private async Task<DateTime> CheckInAtAsync(
+        HttpClient client,
+        int reservationId,
+        DateTime localNow)
+    {
+        using var response = await PostCheckInAtAsync(client, reservationId, localNow);
         response.EnsureSuccessStatusCode();
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return json.RootElement.GetProperty("checkedInAtUtc").GetDateTime();
