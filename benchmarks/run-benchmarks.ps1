@@ -1,7 +1,61 @@
 $connectionString = [Environment]::GetEnvironmentVariable("PADELBOOKING_BENCHMARK_CONNECTION_STRING", "Process")
 if ([string]::IsNullOrWhiteSpace($connectionString)) {
-    Write-Host "Nedostaje PADELBOOKING_BENCHMARK_CONNECTION_STRING. Podesite je pre pokretanja benchmarka."
-    exit 1
+    $repoRoot = Split-Path -Parent $PSScriptRoot
+    $envPath = Join-Path $repoRoot ".env"
+
+    if (-not (Test-Path -LiteralPath $envPath)) {
+        Write-Host "Nedostaje root .env fajl. Kopirajte .env.example u .env i unesite lokalne DB vrednosti."
+        exit 1
+    }
+
+    $envValues = @{}
+    foreach ($line in Get-Content -LiteralPath $envPath) {
+        $trimmed = $line.Trim()
+        if (-not $trimmed -or $trimmed.StartsWith("#")) { continue }
+
+        $separatorIndex = $trimmed.IndexOf("=")
+        if ($separatorIndex -lt 1) { continue }
+
+        $name = $trimmed.Substring(0, $separatorIndex).Trim()
+        $value = $trimmed.Substring($separatorIndex + 1).Trim()
+        if ($value.Length -ge 2 -and
+            (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+             ($value.StartsWith("'") -and $value.EndsWith("'")))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+
+        $envValues[$name] = $value
+    }
+
+    $requiredDbVariables = @("MYSQL_PASSWORD")
+    $missingDbVariables = $requiredDbVariables | Where-Object {
+        -not $envValues.ContainsKey($_) -or [string]::IsNullOrWhiteSpace($envValues[$_])
+    }
+    if ($missingDbVariables.Count -gt 0) {
+        Write-Host "Nedostaju obavezne DB vrednosti u root .env: $($missingDbVariables -join ', ')."
+        exit 1
+    }
+
+    $mysqlHost = if ($envValues["LOCAL_MYSQL_HOST"]) { $envValues["LOCAL_MYSQL_HOST"] } else { "localhost" }
+    $databaseName = if ($envValues["MYSQL_DATABASE"]) { $envValues["MYSQL_DATABASE"] } else { "padel_booking" }
+    $databaseUser = if ($envValues["MYSQL_USER"]) { $envValues["MYSQL_USER"] } else { "padel_user" }
+    $mysqlPort = 3306
+    if ($envValues["LOCAL_MYSQL_PORT"] -and
+        (-not [int]::TryParse($envValues["LOCAL_MYSQL_PORT"], [ref]$mysqlPort) -or
+         $mysqlPort -lt 1 -or $mysqlPort -gt 65535)) {
+        Write-Host "LOCAL_MYSQL_PORT u root .env mora biti broj izmedju 1 i 65535."
+        exit 1
+    }
+
+    $connectionStringBuilder = [System.Data.Common.DbConnectionStringBuilder]::new()
+    $connectionStringBuilder["Server"] = $mysqlHost
+    $connectionStringBuilder["Port"] = $mysqlPort
+    $connectionStringBuilder["Database"] = $databaseName
+    $connectionStringBuilder["User ID"] = $databaseUser
+    $connectionStringBuilder["Password"] = $envValues["MYSQL_PASSWORD"]
+    $env:PADELBOOKING_BENCHMARK_CONNECTION_STRING = $connectionStringBuilder.ConnectionString
+
+    Write-Host "Benchmark connection string loaded from root .env."
 }
 
 $projectPath = Join-Path $PSScriptRoot "PadelBooking.Benchmarks"
