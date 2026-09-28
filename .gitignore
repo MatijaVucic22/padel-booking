@@ -29,3 +29,5 @@ backend/wwwroot/uploads/
 benchmarks/benchmark-summary.html
 benchmarks/history/
 benchmarks/logs/
+
+.fake
