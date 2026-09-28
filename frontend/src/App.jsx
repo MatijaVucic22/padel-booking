@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { flushSync } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -30,6 +30,7 @@ function App() {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [routeLoaderMounted, setRouteLoaderMounted] = useState(false);
   const [routeLoaderActive, setRouteLoaderActive] = useState(false);
+  const routeLoaderMountedRef = useRef(false);
   const previousPathname = useRef(location.pathname);
   const routeLoaderVisible = useRef(false);
   const routeLoaderHideTimer = useRef(null);
@@ -39,16 +40,16 @@ function App() {
   const routeTransitionInProgress = useRef(false);
   const scrollLockBeforeLoader = useRef(null);
 
-  const restoreBodyScroll = () => {
+  const restoreBodyScroll = useCallback(() => {
     if (scrollLockBeforeLoader.current === null) return;
 
     const { htmlWasLocked, bodyWasLocked } = scrollLockBeforeLoader.current;
     if (!htmlWasLocked) document.documentElement.classList.remove("route-transition-locked");
     if (!bodyWasLocked) document.body.classList.remove("route-transition-locked");
     scrollLockBeforeLoader.current = null;
-  };
+  }, []);
 
-  const lockPageScroll = () => {
+  const lockPageScroll = useCallback(() => {
     if (scrollLockBeforeLoader.current !== null) return;
 
     scrollLockBeforeLoader.current = {
@@ -57,9 +58,9 @@ function App() {
     };
     document.documentElement.classList.add("route-transition-locked");
     document.body.classList.add("route-transition-locked");
-  };
+  }, []);
 
-  const handleRouteNavigation = (
+  const handleRouteNavigation = useCallback((
     destination,
     beforeNavigation = () => {},
     navigationOptions,
@@ -78,6 +79,7 @@ function App() {
     }
 
     lockPageScroll();
+    routeLoaderMountedRef.current = true;
     flushSync(() => {
       setRouteLoaderMounted(true);
       setRouteLoaderActive(false);
@@ -97,6 +99,7 @@ function App() {
       const canNavigate = await beforeNavigationResult;
       if (canNavigate === false) {
         setRouteLoaderActive(false);
+        routeLoaderMountedRef.current = false;
         setRouteLoaderMounted(false);
         restoreBodyScroll();
         routeTransitionInProgress.current = false;
@@ -104,7 +107,7 @@ function App() {
       }
       navigate(destination, navigationOptions);
     }, 200);
-  };
+  }, [location.pathname, lockPageScroll, navigate, restoreBodyScroll]);
 
   useEffect(() => {
     const handleInternalLinkClick = (event) => {
@@ -130,7 +133,7 @@ function App() {
 
     document.addEventListener("click", handleInternalLinkClick, true);
     return () => document.removeEventListener("click", handleInternalLinkClick, true);
-  }, [location.pathname]);
+  }, [handleRouteNavigation, location.pathname]);
 
   useLayoutEffect(() => {
     if (previousPathname.current === location.pathname) return;
@@ -154,17 +157,23 @@ function App() {
       }
     });
 
-    const loaderWasAlreadyMounted = routeLoaderMounted;
-    setRouteLoaderMounted(true);
+    const loaderWasAlreadyMounted = routeLoaderMountedRef.current;
+    routeLoaderMountedRef.current = true;
     routeLoaderVisible.current = true;
 
     if (loaderWasAlreadyMounted) {
-      setRouteLoaderActive(true);
-    } else {
-      setRouteLoaderActive(false);
       routeLoaderShowFrame.current = window.requestAnimationFrame(() => {
         routeLoaderShowFrame.current = null;
         setRouteLoaderActive(true);
+      });
+    } else {
+      routeLoaderShowFrame.current = window.requestAnimationFrame(() => {
+        setRouteLoaderMounted(true);
+        setRouteLoaderActive(false);
+        routeLoaderShowFrame.current = window.requestAnimationFrame(() => {
+          routeLoaderShowFrame.current = null;
+          setRouteLoaderActive(true);
+        });
       });
     }
 
@@ -175,12 +184,13 @@ function App() {
 
       routeLoaderUnmountTimer.current = window.setTimeout(() => {
         routeLoaderUnmountTimer.current = null;
+        routeLoaderMountedRef.current = false;
         setRouteLoaderMounted(false);
         restoreBodyScroll();
         routeTransitionInProgress.current = false;
       }, 200);
     }, 700);
-  }, [location.pathname]);
+  }, [location.pathname, lockPageScroll, restoreBodyScroll]);
 
   useEffect(() => () => {
     [
@@ -198,8 +208,9 @@ function App() {
       window.clearTimeout(routeNavigationTimer.current);
       routeNavigationTimer.current = null;
     }
+    routeLoaderMountedRef.current = false;
     routeTransitionInProgress.current = false;
-  }, []);
+  }, [restoreBodyScroll]);
 
   const handleLogin = (loggedInUser, destination) => {
     handleRouteNavigation(
@@ -237,7 +248,7 @@ function App() {
     return () => {
       window.removeEventListener("auth:unauthorized", handleUnauthorized);
     };
-  }, [location.hash, location.pathname, location.search, navigate, user]);
+  }, [dispatch, location.hash, location.pathname, location.search, navigate, user]);
 
   useEffect(() => {
     localStorage.removeItem("token");

@@ -279,8 +279,11 @@ function MyReservations() {
     if (!rescheduling || !rescheduleDate) return undefined;
 
     let ignoreResponse = false;
-    setRescheduleLoading(true);
-    setRescheduleError("");
+    queueMicrotask(() => {
+      if (ignoreResponse) return;
+      setRescheduleLoading(true);
+      setRescheduleError("");
+    });
 
     const request = getReservationAvailability({
       courtId: rescheduling.courtId,

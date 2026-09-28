@@ -205,30 +205,46 @@ function Book() {
   useEffect(() => {
     if (startHour === null) return;
 
+    let cancelled = false;
     if (isStartTimeUnavailable(date, startHour, belgradeNow)) {
-      setStartHour(null);
-      setCourts([]);
-      if (!bookingInFlight.current) setSelectedCourt(null);
-      setSelectionError("Izabrani termin više nije moguće rezervisati. Odaberi kasnije vreme.");
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setStartHour(null);
+        setCourts([]);
+        if (!bookingInFlight.current) setSelectedCourt(null);
+        setSelectionError("Izabrani termin više nije moguće rezervisati. Odaberi kasnije vreme.");
+      });
     } else if (startHour + duration > 22) {
-      setStartHour(null);
-      setSelectionError("");
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setStartHour(null);
+        setSelectionError("");
+      });
     }
+
+    return () => { cancelled = true; };
   }, [belgradeNow, date, duration, startHour]);
 
   useEffect(() => {
     if (!date || startHour === null || isStartTimeUnavailable(date, startHour, belgradeNow) || startHour + duration > 22) {
-      setCourts([]);
-      setLoading(false);
-      return undefined;
+      let cancelled = false;
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setCourts([]);
+        setLoading(false);
+      });
+      return () => { cancelled = true; };
     }
 
     const controller = new AbortController();
     const currentRequestId = ++requestId.current;
     const startTime = `${date}T${String(startHour).padStart(2, "0")}:00:00`;
 
-    setLoading(true);
-    setError("");
+    queueMicrotask(() => {
+      if (controller.signal.aborted || currentRequestId !== requestId.current) return;
+      setLoading(true);
+      setError("");
+    });
 
     const request = getAvailableCourts({ startTime, durationHours: duration });
     request.unwrap()

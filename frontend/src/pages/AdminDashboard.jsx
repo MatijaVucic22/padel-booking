@@ -541,7 +541,7 @@ function AdminDashboard() {
     return () => {
       ignoreResponse = true;
     };
-  }, []);
+  }, [getAdminReservations, getAdminStats, getAdminUsers, getCourts]);
 
   useEffect(() => {
     if (activeTab !== "payments") return undefined;
