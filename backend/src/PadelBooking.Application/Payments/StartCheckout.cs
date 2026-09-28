@@ -8,7 +8,7 @@ using PadelBooking.Domain.Entities;
 
 namespace PadelBooking.Application.Payments;
 
-public enum StartCheckoutStatus { Success, Unauthorized, CourtNotFound, Occupied, Blocked, CheckoutWindowClosed, LockTimeout, ProviderUnavailable }
+public enum StartCheckoutStatus { Success, Unauthorized, AdminBookingNotAllowed, CourtNotFound, Occupied, Blocked, CheckoutWindowClosed, LockTimeout, ProviderUnavailable }
 public sealed record StartCheckoutResult(StartCheckoutStatus Status, int? ReservationId = null, string? Url = null);
 
 public sealed class StartCheckout(
@@ -29,6 +29,8 @@ public sealed class StartCheckout(
     {
         var user = await users.GetByIdAsync(userId, cancellationToken);
         if (user is null) return new(StartCheckoutStatus.Unauthorized);
+        if (string.Equals(user.Role, "Admin", StringComparison.Ordinal))
+            return new(StartCheckoutStatus.AdminBookingNotAllowed);
         if (!BookingCutoffPolicy.CanBook(startTime, bookingTime.Now))
             return new(StartCheckoutStatus.CheckoutWindowClosed);
 

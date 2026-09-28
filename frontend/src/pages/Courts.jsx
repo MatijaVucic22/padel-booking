@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import * as signalR from "@microsoft/signalr";
 import { courtAvailabilityHubUrl, getBackendAssetUrl } from "../api/api";
 import { getCourtImage } from "../utils/courtImages";
 import { useGetCourtsQuery } from "../services/padelApi";
 import Reveal from "../components/Reveal";
+import { getRoleUx } from "../utils/roleUx";
 
 const priceFormatter = new Intl.NumberFormat("sr-Latn-RS", {
   style: "currency",
@@ -50,6 +52,8 @@ function formatNextAvailableSlot(value) {
 }
 
 function Courts() {
+  const user = useSelector((state) => state.auth.user);
+  const roleUx = getRoleUx(user);
   const [location, setLocation] = useState("");
   const [debouncedLocation, setDebouncedLocation] = useState("");
   const {
@@ -122,7 +126,9 @@ function Courts() {
         <div><span className="section-kicker">Naša ponuda</span><h1>Padel tereni</h1></div>
         <div className="courts-intro">
           <p>Upoznaj svaki teren, ambijent i lokaciju, pa pronađi termin koji ti odgovara.</p>
-          <Link to="/book" className="courts-book-link">Rezerviši termin <span aria-hidden="true">↗</span></Link>
+          <Link to={roleUx.isAdmin ? "/admin" : "/book"} className="courts-book-link">
+            {roleUx.isAdmin ? "Otvori admin panel" : "Rezerviši termin"} <span aria-hidden="true">↗</span>
+          </Link>
         </div>
       </Reveal>
 

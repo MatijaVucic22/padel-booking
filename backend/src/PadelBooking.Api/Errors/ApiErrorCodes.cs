@@ -13,6 +13,7 @@ public static class ApiErrorCodes
     public const string SlotUnavailable = "SLOT_UNAVAILABLE";
     public const string CourtInactive = "COURT_INACTIVE";
     public const string PaymentRequired = "PAYMENT_REQUIRED";
+    public const string AdminBookingNotAllowed = "ADMIN_BOOKING_NOT_ALLOWED";
     public const string PaymentPending = "PAYMENT_PENDING";
     public const string RescheduleNotAllowed = "RESCHEDULE_NOT_ALLOWED";
     public const string CancellationNotAllowed = "CANCELLATION_NOT_ALLOWED";

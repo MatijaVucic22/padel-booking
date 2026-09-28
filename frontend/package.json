@@ -11,6 +11,7 @@
     "test:e2e:isolated:smoke": "node ./e2e/run-isolated.mjs --smoke",
     "test:e2e:ui": "playwright test --ui",
     "test:qr-scanner": "node --test src/utils/bookingVerification.test.js",
+    "test:role-ux": "node --test src/utils/roleUx.test.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },

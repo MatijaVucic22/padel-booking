@@ -279,7 +279,17 @@ function App() {
 
           <Route path="/courts" element={<Courts />} />
 
-          <Route path="/book" element={<Book />} />
+          <Route
+            path="/book"
+            element={
+              <ProtectedRoute
+                allowAnonymous
+                customerOnly
+              >
+                <Book />
+              </ProtectedRoute>
+            }
+          />
 
           <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
 
@@ -296,7 +306,9 @@ function App() {
           <Route
             path="/my-reservations"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute
+                customerOnly
+              >
                 <MyReservations />
               </ProtectedRoute>
             }

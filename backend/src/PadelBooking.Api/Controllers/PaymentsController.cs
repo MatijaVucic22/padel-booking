@@ -32,6 +32,9 @@ public sealed class PaymentsController(
         return result.Status switch
         {
             StartCheckoutStatus.Unauthorized => Unauthorized(),
+            StartCheckoutStatus.AdminBookingNotAllowed => this.ApiError(
+                403, ApiErrorCodes.AdminBookingNotAllowed,
+                "Admin nalozi ne kreiraju korisničke rezervacije."),
             StartCheckoutStatus.CourtNotFound => this.ApiError(404, ApiErrorCodes.CourtInactive,
                 "Teren nije pronađen ili više nije aktivan."),
             StartCheckoutStatus.Occupied => this.ApiError(409, ApiErrorCodes.SlotUnavailable,

@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import heroCourt from "../assets/brand/hero-court.jpg";
 import featuredCourt from "../assets/brand/featured-court.jpg";
 import padelDetail from "../assets/brand/padel-detail.jpg";
 import footerCourt from "../assets/brand/footer-court.jpg";
 import Reveal from "../components/Reveal";
+import { getRoleUx } from "../utils/roleUx";
 
 const steps = [
   { number: "01", title: "Izaberi teren", text: "Pronađi mesto za svoj sledeći meč." },
@@ -12,6 +14,9 @@ const steps = [
 ];
 
 function Home() {
+  const user = useSelector((state) => state.auth.user);
+  const roleUx = getRoleUx(user);
+
   return (
     <div className="home-page">
       <section className="home-hero" aria-labelledby="home-hero-title">
@@ -20,8 +25,12 @@ function Home() {
         <div className="home-hero-inner">
           <span className="home-index">REZERVACIJA PADEL TERENA</span>
           <h1 id="home-hero-title">PADEL.<br /><span>BEZ ČEKANJA.</span></h1>
-          <p>Rezerviši teren za nekoliko sekundi. Više vremena za igru, manje za dogovaranje.</p>
-          <Link to="/book" className="home-action">Rezerviši termin <span aria-hidden="true">↗</span></Link>
+          <p>{roleUx.isAdmin
+            ? "Upravljaj terenima, rezervacijama i dolascima sa jednog mesta."
+            : "Rezerviši teren za nekoliko sekundi. Više vremena za igru, manje za dogovaranje."}</p>
+          <Link to={roleUx.isAdmin ? "/admin" : "/book"} className="home-action">
+            {roleUx.isAdmin ? "Otvori admin panel" : "Rezerviši termin"} <span aria-hidden="true">↗</span>
+          </Link>
         </div>
         <div className="home-hero-foot" aria-hidden="true"><span>TEREN / TERMIN / MEČ</span><span>08:00 — 22:00</span></div>
       </section>
@@ -78,7 +87,9 @@ function Home() {
         <div className="home-final-content">
           <span className="home-section-index">04 / TVOJ SLEDEĆI MEČ</span>
           <h2 id="home-final-title">VIDIMO SE<br />NA TERENU.</h2>
-          <Link to="/book" className="home-action">Rezerviši termin <span aria-hidden="true">↗</span></Link>
+          <Link to={roleUx.isAdmin ? "/admin" : "/book"} className="home-action">
+            {roleUx.isAdmin ? "Upravljaj rezervacijama" : "Rezerviši termin"} <span aria-hidden="true">↗</span>
+          </Link>
         </div>
       </Reveal>
     </div>
