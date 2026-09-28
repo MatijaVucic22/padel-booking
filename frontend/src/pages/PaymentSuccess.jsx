@@ -13,8 +13,13 @@ function PaymentSuccess() {
   });
 
   useEffect(() => {
-    setPolling(true);
-    setTimedOut(false);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setPolling(true);
+      setTimedOut(false);
+    });
+    return () => { cancelled = true; };
   }, [sessionId]);
 
   useEffect(() => {
@@ -27,7 +32,12 @@ function PaymentSuccess() {
   }, [sessionId, polling]);
 
   useEffect(() => {
-    if (data?.status && data.status !== "Pending") setPolling(false);
+    if (!data?.status || data.status === "Pending") return undefined;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setPolling(false);
+    });
+    return () => { cancelled = true; };
   }, [data?.status]);
 
   const retry = () => {
