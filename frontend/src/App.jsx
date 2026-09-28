@@ -16,6 +16,7 @@ const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const MyReservations = lazy(() => import("./pages/MyReservations"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminQrScanner = lazy(() => import("./components/AdminQrScanner"));
 const Book = lazy(() => import("./pages/Book"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
@@ -310,6 +311,17 @@ function App() {
                 customerOnly
               >
                 <MyReservations />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/qr-scanner"
+            element={
+              <ProtectedRoute requiredRole="Admin">
+                <section className="page admin-page">
+                  <AdminQrScanner />
+                </section>
               </ProtectedRoute>
             }
           />

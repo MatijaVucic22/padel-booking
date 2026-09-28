@@ -2213,6 +2213,7 @@ html:has(.home-page) { background: var(--brand-bg); }
 .nav-primary, .nav-account { gap: clamp(16px, 2vw, 30px); }
 .nav-links a { color: var(--brand-text); font-size: .78rem; font-weight: 800; letter-spacing: .075em; text-transform: uppercase; }
 .nav-links a:hover, .nav-links a:focus-visible { color: var(--brand-accent-ink); }
+.nav-primary .nav-route-link[aria-current="page"] { color: var(--brand-accent-ink); }
 .nav-primary .nav-book-link {
   display: inline-flex; align-items: center; gap: 11px; min-height: 42px;
   padding: 0 16px; border: 1px solid var(--brand-accent); color: var(--brand-accent-ink);

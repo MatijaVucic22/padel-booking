@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { getRoleUx } from "../utils/roleUx";
 
@@ -72,6 +72,15 @@ function Navbar({ onLogout, onNavigate }) {
         <div className="nav-primary">
           <Link to="/" onClick={(event) => handleNavigation(event, "/")}>Početna</Link>
           <Link to="/courts" onClick={(event) => handleNavigation(event, "/courts")}>Tereni</Link>
+          {roleUx.isAdmin && (
+            <NavLink
+              className="nav-route-link"
+              to="/admin/qr-scanner"
+              onClick={(event) => handleNavigation(event, "/admin/qr-scanner")}
+            >
+              QR skener
+            </NavLink>
+          )}
           {roleUx.showBookingCta && <Link className="nav-book-link" to="/book" onClick={(event) => handleNavigation(event, "/book")}>Rezerviši <span aria-hidden="true">↗</span></Link>}
 
           {roleUx.showMyReservations && <Link to="/my-reservations" onClick={(event) => handleNavigation(event, "/my-reservations")}>Moje rezervacije</Link>}
