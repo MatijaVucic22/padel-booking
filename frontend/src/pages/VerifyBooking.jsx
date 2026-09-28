@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useVerifyReservationQuery } from "../services/padelApi";
+import { verificationStatusContent } from "../utils/bookingVerification";
 
 const verificationDateFormatter = new Intl.DateTimeFormat("sr-Latn-RS", {
   day: "2-digit",
@@ -20,12 +21,6 @@ function parseWallClock(value) {
   };
 }
 
-const statusContent = {
-  Valid: { icon: "✓", label: "VALIDNA REZERVACIJA", className: "is-valid" },
-  Cancelled: { icon: "×", label: "REZERVACIJA JE OTKAZANA", className: "is-invalid" },
-  Expired: { icon: "—", label: "REZERVACIJA JE ZAVRŠENA", className: "is-expired" },
-};
-
 function VerifyBooking() {
   const { token = "" } = useParams();
   const { data, isLoading, isFetching, isError } = useVerifyReservationQuery(token, {
@@ -43,7 +38,7 @@ function VerifyBooking() {
     );
   }
 
-  if (isError || !data || !statusContent[data.verificationStatus]) {
+  if (isError || !data || !verificationStatusContent[data.verificationStatus]) {
     return (
       <section className="verification-page">
         <article className="verification-card is-invalid">
@@ -58,7 +53,7 @@ function VerifyBooking() {
 
   const start = parseWallClock(data.startTime);
   const end = parseWallClock(data.endTime);
-  const status = statusContent[data.verificationStatus];
+  const status = verificationStatusContent[data.verificationStatus];
 
   return (
     <section className="verification-page">

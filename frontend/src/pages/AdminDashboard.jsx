@@ -16,6 +16,7 @@ import {
   useUpdateCourtMutation,
 } from "../services/padelApi";
 import DatePicker from "../components/DatePicker";
+import AdminQrScanner from "../components/AdminQrScanner";
 import {
   hasValidationErrors,
   parseValidationErrors,
@@ -77,6 +78,7 @@ const fulfillmentStatusLabels = {
 
 const tabs = [
   { id: "dashboard", label: "Dashboard" },
+  { id: "qr-scanner", label: "QR skener" },
   { id: "calendar", label: "Kalendar" },
   { id: "courts", label: "Tereni" },
   { id: "reservations", label: "Rezervacije" },
@@ -876,6 +878,8 @@ function AdminDashboard() {
           )}
         </>
       )}
+
+      {activeTab === "qr-scanner" && <AdminQrScanner />}
 
       {activeTab === "calendar" && (
         <section className="admin-section admin-calendar-section">

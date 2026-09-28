@@ -10,12 +10,14 @@
     "test:e2e:isolated": "node ./e2e/run-isolated.mjs",
     "test:e2e:isolated:smoke": "node ./e2e/run-isolated.mjs --smoke",
     "test:e2e:ui": "playwright test --ui",
+    "test:qr-scanner": "node --test src/utils/bookingVerification.test.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
     "@microsoft/signalr": "^10.0.11",
     "@reduxjs/toolkit": "^2.12.0",
+    "@zxing/browser": "^0.2.1",
     "add-to-calendar-button": "^3.1.1",
     "axios": "^1.20.0",
     "qrcode.react": "^4.2.0",
